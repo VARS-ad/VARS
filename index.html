@@ -719,13 +719,13 @@ const initialData = {
     general: { language: 'English', dateFormat: 'DD/MM/YYYY', timeFormat: '24-hour', timezone: 'UTC+04:00', defaultPageSize: '10 rows' }
   },
   household: [
-    { id: 1, name: 'Zainab', phone: '+12 123 456 789', relation: 'Sister', status: 'Active' },
-    { id: 2, name: 'Faiza', phone: '+12 123 456 789', relation: 'Mother', status: 'Active' },
+    { id: 1, name: 'Zainab', phone: '+12 123 456 789', relation: 'Sister', status: 'Active', idDocType: 'Emirates ID', docNumber: '784-1990-1234567-1', vehicleNumber: '' },
+    { id: 2, name: 'Faiza', phone: '+12 123 456 789', relation: 'Mother', status: 'Active', idDocType: 'Emirates ID', docNumber: '784-1965-9876543-1', vehicleNumber: 'ABU 12345' },
   ],
   regularVisitors: [
-    { id: 1, name: 'Asma', phone: '+12 123 456 789', role: 'Maid', schedule: 'Mon, Wed, Fri', hours: '9:00 AM to 17:00 PM', status: 'Active' },
-    { id: 2, name: 'Ibrahim', phone: '+12 123 456 789', role: 'Nanny', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', status: 'Active' },
-    { id: 3, name: 'Hamza', phone: '+12 123 456 789', role: 'Driver', schedule: 'Mon to Fri', hours: '9:00 AM to 18:00 PM', status: 'Active' }
+    { id: 1, name: 'Asma', phone: '+12 123 456 789', role: 'Maid', schedule: 'Mon, Wed, Fri', hours: '9:00 AM to 17:00 PM', status: 'Active', idDocType: 'Emirates ID', docNumber: '784-1985-5551234-1', vehicleNumber: '' },
+    { id: 2, name: 'Ibrahim', phone: '+12 123 456 789', role: 'Nanny', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', status: 'Active', idDocType: 'Emirates ID', docNumber: '784-1992-3334567-1', vehicleNumber: '' },
+    { id: 3, name: 'Hamza', phone: '+12 123 456 789', role: 'Driver', schedule: 'Mon to Fri', hours: '9:00 AM to 18:00 PM', status: 'Active', idDocType: 'Emirates ID', docNumber: '784-1988-7779876-1', vehicleNumber: 'DXB 54321' }
   ],
   pendingApprovals: [
     { id: 1, name: 'Marcus Johnson', type: 'Guest', flat: 'B-102', timeWaiting: '04:57', calledBy: 'Nitin Sharma' },
@@ -2841,7 +2841,9 @@ const ResidentApp = ({ onLogout }) => {
   });
   const [resHhTab, setResHhTab] = useState('family');
   const [resHhShowCreate, setResHhShowCreate] = useState(false);
-  const [resHhForm, setResHhForm] = useState({ name: '', phone: '', relation: 'Sister', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', allowAccess: false });
+  const [resHhForm, setResHhForm] = useState({ name: '', phone: '', relation: 'Sister', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', allowAccess: false, idDocType: 'Emirates ID', docNumber: '', vehicleNumber: '' });
+  const [resHhEditingId, setResHhEditingId] = useState(null); // null = create mode, id = edit mode
+  const [resHhViewMember, setResHhViewMember] = useState(null); // member object to view detail + QR
   const [resVisFilter, setResVisFilter] = useState('All');
   const [resVisDateFilter, setResVisDateFilter] = useState('All');
   const [resVisFilterOpen, setResVisFilterOpen] = useState(false);
@@ -3713,19 +3715,32 @@ const ResidentApp = ({ onLogout }) => {
         const [hhShowCreate, setHhShowCreate] = [resHhShowCreate, setResHhShowCreate];
         const [hhForm, setHhForm] = [resHhForm, setResHhForm];
 
+        const hhFormDefaults = { name: '', phone: '', relation: 'Sister', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', allowAccess: false, idDocType: 'Emirates ID', docNumber: '', vehicleNumber: '' };
+
         const saveHhMember = () => {
           if (!hhForm.name.trim()) { showToast('Please enter a name'); return; }
           if (!hhForm.phone.trim()) { showToast('Please enter a mobile number'); return; }
-          if (hhTab === 'family') {
-            const newMember = { id: Date.now(), name: hhForm.name.trim(), phone: hhForm.phone.trim(), relation: hhForm.relation, status: 'Active' };
-            setData(prev => ({ ...prev, household: [...prev.household, newMember] }));
+          if (resHhEditingId) {
+            // Edit existing
+            if (hhTab === 'family') {
+              setData(prev => ({ ...prev, household: prev.household.map(m => m.id === resHhEditingId ? { ...m, name: hhForm.name.trim(), phone: hhForm.phone.trim(), relation: hhForm.relation, allowAccess: hhForm.allowAccess, idDocType: hhForm.idDocType, docNumber: hhForm.docNumber, vehicleNumber: hhForm.vehicleNumber } : m) }));
+            } else {
+              setData(prev => ({ ...prev, regularVisitors: prev.regularVisitors.map(v => v.id === resHhEditingId ? { ...v, name: hhForm.name.trim(), phone: hhForm.phone.trim(), role: hhForm.role, schedule: hhForm.schedule, hours: hhForm.hours, idDocType: hhForm.idDocType, docNumber: hhForm.docNumber, vehicleNumber: hhForm.vehicleNumber } : v) }));
+            }
+            setResHhEditingId(null);
+            showToast('Updated successfully');
           } else {
-            const newVisitor = { id: Date.now(), name: hhForm.name.trim(), phone: hhForm.phone.trim(), role: hhForm.role, schedule: hhForm.schedule, hours: hhForm.hours, status: 'Active' };
-            setData(prev => ({ ...prev, regularVisitors: [...prev.regularVisitors, newVisitor] }));
+            // Create new
+            const base = { id: Date.now(), name: hhForm.name.trim(), phone: hhForm.phone.trim(), status: 'Active', idDocType: hhForm.idDocType, docNumber: hhForm.docNumber, vehicleNumber: hhForm.vehicleNumber };
+            if (hhTab === 'family') {
+              setData(prev => ({ ...prev, household: [...prev.household, { ...base, relation: hhForm.relation, allowAccess: hhForm.allowAccess }] }));
+            } else {
+              setData(prev => ({ ...prev, regularVisitors: [...prev.regularVisitors, { ...base, role: hhForm.role, schedule: hhForm.schedule, hours: hhForm.hours }] }));
+            }
+            showToast((hhTab === 'family' ? 'Family member' : 'Regular visitor') + ' added');
           }
           setHhShowCreate(false);
-          setHhForm({ name: '', phone: '', relation: 'Sister', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', allowAccess: false });
-          showToast((hhTab === 'family' ? 'Family member' : 'Regular visitor') + ' added');
+          setHhForm(hhFormDefaults);
         };
 
         const deleteHhMember = (id) => {
@@ -3737,23 +3752,119 @@ const ResidentApp = ({ onLogout }) => {
           showToast('Removed');
         };
 
-        // Create form
+        const startEditHh = (member) => {
+          setResHhEditingId(member.id);
+          if (hhTab === 'family') {
+            setHhForm({ name: member.name, phone: member.phone, relation: member.relation || 'Sister', allowAccess: member.allowAccess || false, idDocType: member.idDocType || 'Emirates ID', docNumber: member.docNumber || '', vehicleNumber: member.vehicleNumber || '', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM' });
+          } else {
+            setHhForm({ name: member.name, phone: member.phone, role: member.role || 'Maid', schedule: member.schedule || 'Mon to Fri', hours: member.hours || '9:00 AM to 17:00 PM', idDocType: member.idDocType || 'Emirates ID', docNumber: member.docNumber || '', vehicleNumber: member.vehicleNumber || '', relation: 'Sister', allowAccess: false });
+          }
+          setHhShowCreate(true);
+        };
+
+        // Generate QR data for a household member
+        const hhQrData = (member, type) => {
+          return JSON.stringify({
+            permit: 'HH-' + member.id,
+            property: 'Sky Tower - The Pinnacle Residences',
+            unit: 'B-102',
+            resident: 'Nitin Sharma',
+            name: member.name,
+            mobile: member.phone,
+            type: type === 'family' ? 'Family — ' + (member.relation || 'Member') : 'Regular — ' + (member.role || 'Visitor'),
+            idDoc: (member.idDocType || 'Emirates ID') + (member.docNumber ? ': ' + member.docNumber : ''),
+            vehicle: member.vehicleNumber || 'N/A',
+            access: type === 'family' ? 'Permanent Resident' : (member.schedule || 'Scheduled') + ' / ' + (member.hours || ''),
+            status: member.status || 'Active',
+            validUntil: 'Until cancelled'
+          });
+        };
+
+        // ---- MEMBER DETAIL + QR VIEW ----
+        if (resHhViewMember) {
+          const vm = resHhViewMember;
+          const vmType = hhTab;
+          const vmQrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(hhQrData(vm, vmType));
+          const vmInfoRows = vmType === 'family' ? [
+            ['Name', vm.name], ['Phone', vm.phone], ['Relation', vm.relation || 'Family'],
+            ['ID Document', (vm.idDocType || 'Emirates ID') + (vm.docNumber ? ': ' + vm.docNumber : '')],
+            ['Vehicle', vm.vehicleNumber || 'N/A'], ['Access', vm.allowAccess ? 'Full Access' : 'Standard'],
+            ['Status', vm.status || 'Active'], ['Valid Until', 'Until cancelled']
+          ] : [
+            ['Name', vm.name], ['Phone', vm.phone], ['Role', vm.role],
+            ['Schedule', vm.schedule], ['Hours', vm.hours],
+            ['ID Document', (vm.idDocType || 'Emirates ID') + (vm.docNumber ? ': ' + vm.docNumber : '')],
+            ['Vehicle', vm.vehicleNumber || 'N/A'],
+            ['Status', vm.status || 'Active'], ['Valid Until', 'Until cancelled']
+          ];
+
+          return (
+            <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
+                <button onClick={() => setResHhViewMember(null)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#4d4d4f'}}>‹</button>
+                <span style={{fontSize:16,fontWeight:600,color:'#1a1a1a'}}>{vm.name}</span>
+              </div>
+
+              {/* Status badge */}
+              <div style={{textAlign:'center',marginBottom:16}}>
+                <span style={{background:'#e8f5e9',color:'#2e7d32',padding:'6px 20px',borderRadius:20,fontSize:12,fontWeight:600,letterSpacing:'0.04em'}}>
+                  {vmType === 'family' ? 'FAMILY MEMBER' : 'REGULAR VISITOR'} — ACTIVE
+                </span>
+              </div>
+
+              {/* QR Code */}
+              <div style={{textAlign:'center',marginBottom:20}}>
+                <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:12,padding:20,display:'inline-block'}}>
+                  <img src={vmQrUrl} alt="QR Code" style={{width:180,height:180}} />
+                </div>
+                <div style={{fontSize:11,color:'#999',marginTop:8}}>Security will scan this QR to verify entry</div>
+              </div>
+
+              {/* Info rows */}
+              <div style={{background:'#f5f5f5',borderRadius:10,overflow:'hidden',marginBottom:16}}>
+                {vmInfoRows.map(([label, val], i) => (
+                  <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderBottom: i < vmInfoRows.length-1 ? '1px solid #e8e8e8' : 'none'}}>
+                    <span style={{fontSize:12,color:'#888'}}>{label}</span>
+                    <span style={{fontSize:12,color: label === 'Status' ? '#2e7d32' : '#1a1a1a',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <button onClick={() => { setResHhViewMember(null); startEditHh(vm); }}
+                  style={{padding:14,background:'#fff',color:'#1a1a1a',border:'1px solid #d0d0d0',borderRadius:6,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                  Edit Details
+                </button>
+                <button onClick={() => {
+                  const link = document.createElement('a'); link.href = vmQrUrl; link.download = vm.name.replace(/\s+/g,'_') + '_QR.png'; link.click();
+                  showToast('QR code downloaded');
+                }} style={{padding:14,background:'#1a1a1a',color:'#fff',border:'none',borderRadius:6,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                  Share QR Pass
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // ---- CREATE / EDIT FORM ----
         if (hhShowCreate) {
           return (
             <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-                <button onClick={() => setHhShowCreate(false)} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#4d4d4f'}}>‹</button>
-                <span style={{fontSize:16,fontWeight:500,color:'#1a1a1a'}}>Add {hhTab === 'family' ? 'family member' : 'regular visitor'}</span>
+                <button onClick={() => { setHhShowCreate(false); setResHhEditingId(null); setHhForm(hhFormDefaults); }} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#4d4d4f'}}>‹</button>
+                <span style={{fontSize:16,fontWeight:500,color:'#1a1a1a'}}>{resHhEditingId ? 'Edit' : 'Add'} {hhTab === 'family' ? 'family member' : 'regular visitor'}</span>
               </div>
 
-              <div style={{background:'#f5f5f5',borderRadius:8,overflow:'hidden',marginBottom:20}}>
+              {/* Identity section */}
+              <div style={{background:'#f5f5f5',borderRadius:8,overflow:'hidden',marginBottom:16}}>
                 <div style={{background:'#e8e8e8',padding:'10px 16px',fontSize:12,fontWeight:600,color:'#1a1a1a',letterSpacing:'0.02em'}}>
                   {hhTab === 'family' ? 'Resident Identity' : 'Visitor Identity'}
                 </div>
                 <div style={{padding:16}}>
                   <div style={{marginBottom:14}}>
-                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Full Name</label>
-                    <input value={hhForm.name} onChange={e => setHhForm(p => ({...p, name: e.target.value}))} placeholder={hhTab === 'family' ? 'Enter Resident full name...' : 'Enter visitor full name...'}
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Full Name *</label>
+                    <input value={hhForm.name} onChange={e => setHhForm(p => ({...p, name: e.target.value}))} placeholder="Enter full name..."
                       style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,outline:'none',boxSizing:'border-box',background:'#fff'}} />
                   </div>
                   <div style={{marginBottom:14}}>
@@ -3764,6 +3875,33 @@ const ResidentApp = ({ onLogout }) => {
                 </div>
               </div>
 
+              {/* ID Document section */}
+              <div style={{background:'#f5f5f5',borderRadius:8,overflow:'hidden',marginBottom:16}}>
+                <div style={{background:'#e8e8e8',padding:'10px 16px',fontSize:12,fontWeight:600,color:'#1a1a1a',letterSpacing:'0.02em'}}>
+                  Identification & Vehicle
+                </div>
+                <div style={{padding:16}}>
+                  <div style={{marginBottom:14}}>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>ID Document Type</label>
+                    <select value={hhForm.idDocType} onChange={e => setHhForm(p => ({...p, idDocType: e.target.value}))}
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,background:'#fff',outline:'none',boxSizing:'border-box'}}>
+                      {['Emirates ID','Passport','Driving License','National ID','Other'].map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <div style={{marginBottom:14}}>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Document Number</label>
+                    <input value={hhForm.docNumber} onChange={e => setHhForm(p => ({...p, docNumber: e.target.value}))} placeholder="Enter document number..."
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,outline:'none',boxSizing:'border-box',background:'#fff'}} />
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Vehicle Number</label>
+                    <input value={hhForm.vehicleNumber} onChange={e => setHhForm(p => ({...p, vehicleNumber: e.target.value}))} placeholder="e.g. DXB 12345 (optional)"
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,outline:'none',boxSizing:'border-box',background:'#fff'}} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Role/Relation section */}
               {hhTab === 'family' ? (
                 <div style={{background:'#f5f5f5',borderRadius:8,padding:16,marginBottom:20}}>
                   <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Relation Type</label>
@@ -3773,8 +3911,11 @@ const ResidentApp = ({ onLogout }) => {
                   </select>
                   <div style={{marginTop:14}}>
                     <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Allow Access for Request</label>
-                    <div onClick={() => setHhForm(p => ({...p, allowAccess: !p.allowAccess}))} style={{width:20,height:20,border:'1px solid #ccc',borderRadius:3,background: hhForm.allowAccess ? '#1a1a1a' : '#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      {hhForm.allowAccess && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
+                    <div onClick={() => setHhForm(p => ({...p, allowAccess: !p.allowAccess}))} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                      <div style={{width:20,height:20,border:'1px solid #ccc',borderRadius:3,background: hhForm.allowAccess ? '#1a1a1a' : '#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        {hhForm.allowAccess && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
+                      </div>
+                      <span style={{fontSize:12,color:'#555'}}>Enable access requests</span>
                     </div>
                   </div>
                 </div>
@@ -3802,14 +3943,17 @@ const ResidentApp = ({ onLogout }) => {
                 </div>
               )}
 
-              <button onClick={saveHhMember} style={{width:'100%',padding:16,background:'#1a1a1a',color:'#fff',border:'none',borderRadius:4,fontSize:14,fontWeight:600,cursor:'pointer'}}>Save</button>
+              <button onClick={saveHhMember} style={{width:'100%',padding:16,background:'#1a1a1a',color:'#fff',border:'none',borderRadius:4,fontSize:14,fontWeight:600,cursor:'pointer'}}>
+                {resHhEditingId ? 'Save Changes' : 'Save'}
+              </button>
             </div>
           );
         }
 
+        // ---- MAIN LIST VIEW ----
         return (
           <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
-            <div style={{fontSize:20,fontWeight:600,color:'#1a1a1a',marginBottom:16}}>My Household & Regular Visitors</div>
+            <div style={{fontSize:20,fontWeight:600,color:'#1a1a1a',marginBottom:16}}>My Household</div>
 
             {/* Tabs */}
             <div style={{display:'flex',marginBottom:16,borderRadius:6,overflow:'hidden',border:'1px solid #1a1a1a'}}>
@@ -3818,56 +3962,49 @@ const ResidentApp = ({ onLogout }) => {
             </div>
 
             {/* Create button */}
-            <button onClick={() => { setHhForm({ name: '', phone: '', relation: 'Sister', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', allowAccess: false }); setHhShowCreate(true); }}
+            <button onClick={() => { setHhForm(hhFormDefaults); setResHhEditingId(null); setHhShowCreate(true); }}
               style={{background:'#fff',border:'1px solid #1a1a1a',borderRadius:4,padding:'8px 16px',fontSize:13,fontWeight:600,cursor:'pointer',marginBottom:16,color:'#1a1a1a'}}>+ Create</button>
 
             {hhTab === 'family' ? (
-              /* Family Members */
               data.household.length === 0 ? (
                 <div style={{textAlign:'center',color:'#bbb',padding:32,fontSize:13}}>No family members added yet.</div>
               ) : data.household.map(m => (
-                <div key={m.id} style={{background:'#f5f5f5',border:'1px solid #e0e0e0',borderRadius:8,padding:16,marginBottom:12,position:'relative'}}>
-                  <div style={{position:'absolute',top:12,right:12,cursor:'pointer',color:'#888',fontSize:14}} onClick={() => deleteHhMember(m.id)}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+                <div key={m.id} onClick={() => setResHhViewMember(m)} style={{background:'#f5f5f5',borderRadius:10,padding:14,marginBottom:10,cursor:'pointer'}}>
+                  <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                    <div style={{width:42,height:42,borderRadius:'50%',background:'#e8e8e8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
+                        <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{m.name}</div>
+                        <span style={{background:'#e8f5e9',color:'#2e7d32',padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:600}}>{m.status}</span>
+                      </div>
+                      <div style={{fontSize:12,color:'#888',marginBottom:2}}>{m.relation || 'Family'} — {m.phone}</div>
+                      <div style={{fontSize:11,color:'#bbb'}}>{m.idDocType || 'Emirates ID'}{m.docNumber ? ': ' + m.docNumber : ''}</div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
                   </div>
-                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:14,fontWeight:600,color:'#1a1a1a',marginBottom:6}}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
-                    {m.name}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#888',marginBottom:4}}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.11 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                    {m.phone}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#888',marginBottom:8}}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-                    {m.relation || 'Family'}
-                  </div>
-                  <span style={{fontSize:11,border:'1px solid #ccc',borderRadius:4,padding:'2px 10px',color:'#555',fontWeight:500}}>{m.status}</span>
                 </div>
               ))
             ) : (
-              /* Regular Visitors */
               data.regularVisitors.length === 0 ? (
                 <div style={{textAlign:'center',color:'#bbb',padding:32,fontSize:13}}>No regular visitors added yet.</div>
               ) : data.regularVisitors.map(v => (
-                <div key={v.id} style={{background:'#f5f5f5',border:'1px solid #e0e0e0',borderRadius:8,padding:16,marginBottom:12,position:'relative'}}>
-                  <div style={{position:'absolute',top:12,right:12,cursor:'pointer',color:'#888',fontSize:14}} onClick={() => deleteHhMember(v.id)}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:14,fontWeight:600,color:'#1a1a1a',marginBottom:6}}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
-                    {v.name}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#888',marginBottom:4}}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.11 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                    {v.phone}
-                  </div>
-                  <div style={{fontSize:12,color:'#555',fontWeight:500,marginBottom:4}}>{v.role}</div>
-                  <div style={{fontSize:12,color:'#888',marginBottom:4}}>{v.schedule}</div>
-                  <div style={{fontSize:12,color:'#888',marginBottom:8}}>{v.hours}</div>
-                  <div style={{borderTop:'1px solid #ddd',paddingTop:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={{fontSize:11,border:'1px solid #ccc',borderRadius:4,padding:'2px 10px',color:'#555',fontWeight:500}}>{v.status}</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5" style={{cursor:'pointer'}}><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+                <div key={v.id} onClick={() => setResHhViewMember(v)} style={{background:'#f5f5f5',borderRadius:10,padding:14,marginBottom:10,cursor:'pointer'}}>
+                  <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                    <div style={{width:42,height:42,borderRadius:'50%',background:'#e8e8e8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
+                        <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
+                        <span style={{background:'#e8f5e9',color:'#2e7d32',padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:600}}>{v.status}</span>
+                      </div>
+                      <div style={{fontSize:12,color:'#555',fontWeight:500,marginBottom:2}}>{v.role} — {v.schedule}</div>
+                      <div style={{fontSize:11,color:'#888',marginBottom:2}}>{v.phone} — {v.hours}</div>
+                      <div style={{fontSize:11,color:'#bbb'}}>{v.idDocType || 'Emirates ID'}{v.docNumber ? ': ' + v.docNumber : ''}</div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
                   </div>
                 </div>
               ))
