@@ -972,7 +972,7 @@ const LoginPage = ({ onLogin, syncStatus }) => {
         )}
 
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:16}}>
-          <p style={{fontSize:12,color:'#888'}}>Abu Dhabi · GST+4 · VARS PM v1.0 · Code updated: 05 Apr 2026, 09:57 GST</p>
+          <p style={{fontSize:12,color:'#888'}}>Abu Dhabi · GST+4 · VARS PM v1.0 · Code updated: 05 Apr 2026, 10:10 GST</p>
           <button
             onClick={() => { localStorage.removeItem('varspm_data'); try { if (typeof window.supabase !== 'undefined') { const sb = window.supabase.createClient('https://whgoaglmguopxrzfjifj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ29hZ2xtZ3VvcHhyemZqaWZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjY1MDEsImV4cCI6MjA5MDgwMjUwMX0.TL6klBDqfyAUvpgKXxha-1hpH6keaeARZvJk3rc5vhg'); sb.from('app_state').upsert({ id: 'main', data: {} }); } } catch(e){} window.location.reload(); }}
             style={{background:'none',border:'none',color:'#cc0000',fontSize:11,cursor:'pointer',textDecoration:'underline'}}
@@ -2384,31 +2384,25 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
     if (step === 'qr' && qrData && qrRef.current) {
       qrRef.current.innerHTML = '';
       if (qrInstance.current) { qrInstance.current = null; }
+      // Keep QR payload compact so it scans reliably
       const qrText = JSON.stringify({
-        _varspm: true,
-        permit: qrData.permit,
-        property: qrData.property,
-        unit: qrData.unit,
-        host: qrData.resident,
-        visitor: qrData.visitor,
-        phone: qrData.mobile,
-        type: qrData.type,
-        guests: qrData.guests,
-        vehicle: qrData.vehicle,
-        id: qrData.idDoc,
-        date: qrData.date,
-        time: qrData.time,
-        validUntil: qrData.validUntil,
-        status: 'PRE-APPROVED'
+        v: 1,
+        p: qrData.permit,
+        n: qrData.visitor,
+        ph: qrData.mobile,
+        u: qrData.unit,
+        t: qrData.type,
+        d: qrData.date,
+        tm: qrData.time
       });
       try {
         qrInstance.current = new QRCode(qrRef.current, {
           text: qrText,
-          width: 200,
-          height: 200,
-          colorDark: '#1a1a1a',
+          width: 280,
+          height: 280,
+          colorDark: '#000000',
           colorLight: '#ffffff',
-          correctLevel: QRCode.CorrectLevel.M
+          correctLevel: QRCode.CorrectLevel.L
         });
       } catch(err) { console.log('QR generation error:', err); }
     }
@@ -2784,25 +2778,13 @@ const ResidentApp = ({ onLogout }) => {
   useEffect(() => {
     if (currentPage === 'viewVisitor' && selectedVisitor && selectedVisitor.qrPayload && viewQrRef.current) {
       viewQrRef.current.innerHTML = '';
+      const sp = selectedVisitor.qrPayload;
       const qrText = JSON.stringify({
-        _varspm: true,
-        permit: selectedVisitor.qrPayload.permit,
-        property: selectedVisitor.qrPayload.property,
-        unit: selectedVisitor.qrPayload.unit,
-        host: selectedVisitor.qrPayload.resident,
-        visitor: selectedVisitor.qrPayload.visitor,
-        phone: selectedVisitor.qrPayload.mobile,
-        type: selectedVisitor.qrPayload.type,
-        guests: selectedVisitor.qrPayload.guests,
-        vehicle: selectedVisitor.qrPayload.vehicle,
-        id: selectedVisitor.qrPayload.idDoc,
-        date: selectedVisitor.qrPayload.date,
-        time: selectedVisitor.qrPayload.time,
-        validUntil: selectedVisitor.qrPayload.validUntil,
-        status: 'PRE-APPROVED'
+        v: 1, p: sp.permit, n: sp.visitor, ph: sp.mobile,
+        u: sp.unit, t: sp.type, d: sp.date, tm: sp.time
       });
       try {
-        new QRCode(viewQrRef.current, { text: qrText, width: 200, height: 200, colorDark: '#1a1a1a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+        new QRCode(viewQrRef.current, { text: qrText, width: 280, height: 280, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L });
       } catch(err) { console.log('QR regen error:', err); }
     }
   }, [currentPage, selectedVisitor]);
@@ -3240,9 +3222,29 @@ const ScannedVisitorForm = ({ scannedData, onClose, onSave }) => {
   const parsed = React.useMemo(() => {
     if (!scannedData) return {};
 
-    // Try JSON first (new format)
+    // Try JSON first
     try {
       const j = JSON.parse(scannedData);
+      // New compact format (v, p, n, ph, u, t, d, tm)
+      if (j.v === 1 && j.p) {
+        return {
+          permit: j.p || '',
+          property: 'Sky Tower',
+          unit: j.u || '',
+          host: '',
+          visitor: j.n || '',
+          phone: j.ph || '',
+          type: j.t || '',
+          guests: '0',
+          vehicle: '',
+          id: '',
+          date: j.d || '',
+          time: j.tm || '',
+          'valid until': '',
+          status: 'PRE-APPROVED'
+        };
+      }
+      // Old full format (_varspm)
       if (j._varspm) {
         return {
           permit: j.permit || '',
@@ -3529,13 +3531,11 @@ const SecurityApp = ({ onLogout }) => {
       secQrRef.current.innerHTML = '';
       const vp = viewingVisitor.qrPayload;
       const qrText = JSON.stringify({
-        _varspm: true, permit: vp.permit, property: vp.property, unit: vp.unit,
-        host: vp.resident, visitor: vp.visitor, phone: vp.mobile, type: vp.type,
-        guests: vp.guests, vehicle: vp.vehicle, id: vp.idDoc, date: vp.date,
-        time: vp.time, validUntil: vp.validUntil, status: 'PRE-APPROVED'
+        v: 1, p: vp.permit, n: vp.visitor, ph: vp.mobile,
+        u: vp.unit, t: vp.type, d: vp.date, tm: vp.time
       });
       try {
-        new QRCode(secQrRef.current, { text: qrText, width: 180, height: 180, colorDark: '#1a1a1a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+        new QRCode(secQrRef.current, { text: qrText, width: 280, height: 280, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L });
       } catch(err) { console.log('QR regen error:', err); }
     }
   }, [viewingVisitor]);
