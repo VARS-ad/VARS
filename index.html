@@ -425,105 +425,108 @@ body{font-family:'Arial','Helvetica Neue',sans-serif;background:#f5f5f3;color:#1
   .res-help-cards{grid-template-columns:1fr}
 }
 
-/* ==================== SECURITY APP CSS ==================== */
-.sec-app{display:flex;flex-direction:column;min-height:100vh;background:#1a1a1a;color:#fff}
-.sec-header{background:#1a1a1a;border-bottom:1px solid #333;padding:12px 20px;display:grid;grid-template-columns:auto 1fr auto auto;gap:20px;align-items:center;position:sticky;top:0;z-index:50;font-size:11px}
+/* ==================== SECURITY APP CSS — LIGHT THEME ==================== */
+.sec-app{display:flex;flex-direction:column;min-height:100vh;background:#f5f5f5;color:#1a1a1a}
+.sec-header{background:#fff;border-bottom:1px solid #e0e0e0;padding:12px 20px;display:grid;grid-template-columns:auto 1fr auto auto;gap:20px;align-items:center;position:sticky;top:0;z-index:50;font-size:11px}
 .sec-header-left{display:flex;gap:12px;align-items:center}
-.sec-header-left .logo{width:32px;height:32px;background:#ae9751;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#1a1a1a;font-weight:600;font-size:14px}
+.sec-header-left .logo{width:32px;height:32px;background:#1a1a1a;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:14px}
 .sec-building-info{display:flex;flex-direction:column}
-.sec-building-name{font-size:13px;font-weight:600;color:#fff}
-.sec-building-location{font-size:10px;color:#999}
-.sec-gate-selector{background:#2a2a2a;border:1px solid #333;border-radius:4px;padding:8px 12px;display:flex;gap:8px;align-items:center}
-.sec-gate-badge{background:#1a1a1a;padding:4px 8px;border-radius:3px;font-weight:600;font-size:10px;color:#ae9751}
-.sec-gate-change{background:none;border:none;color:#999;font-size:11px;cursor:pointer}
+.sec-building-name{font-size:13px;font-weight:600;color:#1a1a1a}
+.sec-building-location{font-size:10px;color:#8a8a8a}
+.sec-gate-selector{background:#f5f5f5;border:1px solid #e0e0e0;border-radius:4px;padding:8px 12px;display:flex;gap:8px;align-items:center}
+.sec-gate-badge{background:#1a1a1a;padding:4px 8px;border-radius:3px;font-weight:600;font-size:10px;color:#fff}
+.sec-gate-change{background:none;border:none;color:#8a8a8a;font-size:11px;cursor:pointer}
 .sec-clock{display:flex;flex-direction:column;align-items:center}
-.sec-clock-time{font-size:20px;font-weight:600}
-.sec-clock-date{font-size:10px;color:#999;margin-top:2px}
-.sec-guard-info{display:flex;gap:10px;padding-left:16px;border-left:1px solid #333;font-size:10px}
+.sec-clock-time{font-size:20px;font-weight:600;color:#1a1a1a}
+.sec-clock-date{font-size:10px;color:#8a8a8a;margin-top:2px}
+.sec-guard-info{display:flex;gap:10px;padding-left:16px;border-left:1px solid #e0e0e0;font-size:10px}
 .sec-guard-detail{display:flex;flex-direction:column}
-.sec-guard-name{font-weight:600;color:#fff}
-.sec-shift{color:#999;margin-top:2px}
+.sec-guard-name{font-weight:600;color:#1a1a1a}
+.sec-shift{color:#8a8a8a;margin-top:2px}
 .sec-shift-status{background:#2d6a4f;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;margin-top:4px}
-.sec-tabs{display:flex;border-bottom:1px solid #333;padding:0 16px;gap:24px;margin-bottom:20px}
-.sec-tab{padding:12px 0;border:none;background:none;color:#999;cursor:pointer;font-size:12px;font-weight:500;border-bottom:2px solid transparent;position:relative;top:1px}
-.sec-tab.active{color:#ae9751;border-bottom-color:#ae9751}
+.sec-tabs{display:flex;border-bottom:1px solid #e0e0e0;padding:0 16px;gap:24px;margin-bottom:0;background:#fff}
+.sec-tab{padding:12px 0;border:none;background:none;color:#8a8a8a;cursor:pointer;font-size:12px;font-weight:500;border-bottom:2px solid transparent;position:relative;top:1px}
+.sec-tab.active{color:#1a1a1a;border-bottom-color:#1a1a1a;font-weight:600}
 .sec-main-content{padding:16px;flex:1;overflow-y:auto}
 .sec-quick-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
-.sec-quick-action-btn{background:#2a2a2a;border:1px solid #333;border-radius:8px;padding:20px 16px;text-align:center;cursor:pointer;color:#fff;transition:all .2s}
-.sec-quick-action-btn:hover{background:#333;border-color:#ae9751}
+.sec-quick-action-btn{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px 16px;text-align:center;cursor:pointer;color:#1a1a1a;transition:all .2s}
+.sec-quick-action-btn:hover{background:#f9f9f9;border-color:#ccc}
 .sec-quick-action-btn .icon{font-size:24px;margin-bottom:8px}
-.sec-quick-action-btn .label{font-size:13px;font-weight:600;margin-bottom:4px}
-.sec-quick-action-btn .shortcut{font-size:10px;color:#888;margin-top:4px}
+.sec-quick-action-btn .label{font-size:13px;font-weight:600;margin-bottom:4px;color:#1a1a1a}
+.sec-quick-action-btn .shortcut{font-size:10px;color:#8a8a8a;margin-top:4px}
 .sec-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
 .sec-column{display:flex;flex-direction:column;gap:12px}
-.sec-kpi-block{background:#2a2a2a;border:1px solid #333;border-radius:6px;padding:16px;border-top:2px solid #ae9751}
-.sec-kpi-number{font-size:32px;font-weight:600;color:#fff;margin-bottom:8px}
-.sec-kpi-label{font-size:10px;color:#999;margin-bottom:12px;letter-spacing:0.04em;text-transform:uppercase}
-.sec-kpi-breakdown{font-size:11px;color:#ccc;line-height:1.6}
+.sec-kpi-block{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px;border-top:2px solid #1a1a1a}
+.sec-kpi-number{font-size:32px;font-weight:700;color:#1a1a1a;margin-bottom:8px}
+.sec-kpi-label{font-size:10px;color:#8a8a8a;margin-bottom:12px;letter-spacing:0.04em;text-transform:uppercase;font-weight:600}
+.sec-kpi-breakdown{font-size:11px;color:#555;line-height:1.6}
 .sec-breakdown-line{display:flex;justify-content:space-between;margin-bottom:6px}
-.sec-breakdown-type{color:#999}
-.sec-breakdown-count{color:#fff;font-weight:600}
-.sec-view-all-btn{background:none;border:1px solid #444;color:#ccc;padding:8px 12px;border-radius:4px;font-size:11px;cursor:pointer;margin-top:12px;width:100%}
-.sec-pending-card{background:#2a2a2a;border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:10px;cursor:pointer}
-.sec-pending-card .name{font-weight:600;font-size:12px;color:#fff;margin-bottom:4px}
-.sec-pending-card .details{font-size:10px;color:#999;margin-bottom:8px}
+.sec-breakdown-type{color:#8a8a8a}
+.sec-breakdown-count{color:#1a1a1a;font-weight:600}
+.sec-view-all-btn{background:#fff;border:1px solid #d0d0d0;color:#555;padding:8px 12px;border-radius:4px;font-size:11px;cursor:pointer;margin-top:12px;width:100%;font-weight:600;transition:all .15s}
+.sec-view-all-btn:hover{background:#f5f5f5;border-color:#aaa}
+.sec-pending-card{background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:12px;margin-bottom:10px;cursor:pointer}
+.sec-pending-card .name{font-weight:600;font-size:12px;color:#1a1a1a;margin-bottom:4px}
+.sec-pending-card .details{font-size:10px;color:#8a8a8a;margin-bottom:8px}
 .sec-pending-card .action-buttons{display:flex;gap:6px}
-.sec-pending-card .action-buttons button{flex:1;padding:6px;border:none;border-radius:3px;font-size:10px;cursor:pointer}
+.sec-pending-card .action-buttons button{flex:1;padding:6px;border:none;border-radius:3px;font-size:10px;cursor:pointer;font-weight:600}
 .sec-pending-card .approve-btn{background:#2d6a4f;color:#fff}
-.sec-pending-card .reject-btn{background:#8b2500;color:#fff}
-.sec-pending-card .hold-btn{background:#b8860b;color:#fff}
-.sec-schedule-item{background:#2a2a2a;border-left:3px solid #ae9751;border-radius:4px;padding:12px;margin-bottom:10px;font-size:11px}
-.sec-schedule-time{color:#ccc;margin-bottom:4px;font-weight:600}
-.sec-schedule-desc{color:#fff;margin-bottom:2px}
-.sec-schedule-meta{color:#999;font-size:10px}
-.sec-visitor-now-card{background:#2a2a2a;border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:10px;font-size:11px}
-.sec-visitor-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#ae9751;color:#1a1a1a;font-size:10px;font-weight:600;margin-right:8px}
+.sec-pending-card .reject-btn{background:#c62828;color:#fff}
+.sec-pending-card .hold-btn{background:#e0e0e0;color:#555}
+.sec-schedule-item{background:#fff;border-left:3px solid #1a1a1a;border-radius:4px;padding:12px;margin-bottom:10px;font-size:11px;border:1px solid #e0e0e0;border-left:3px solid #1a1a1a}
+.sec-schedule-time{color:#1a1a1a;margin-bottom:4px;font-weight:600}
+.sec-schedule-desc{color:#333;margin-bottom:2px}
+.sec-schedule-meta{color:#8a8a8a;font-size:10px}
+.sec-visitor-now-card{background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:12px;margin-bottom:10px;font-size:11px}
+.sec-visitor-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#f0f0f0;color:#1a1a1a;font-size:10px;font-weight:600;margin-right:8px}
 .sec-visitor-header{display:flex;align-items:center;margin-bottom:8px}
-.sec-visitor-name{color:#fff;font-weight:600}
-.sec-visitor-type{display:inline-block;background:#333;color:#ccc;padding:2px 6px;border-radius:3px;font-size:9px;margin-left:6px}
-.sec-visitor-timing{color:#999;font-size:10px;margin-bottom:6px}
-.sec-quick-checkout-btn{background:none;border:1px solid #444;color:#ccc;padding:6px 10px;border-radius:4px;font-size:10px;cursor:pointer;width:100%;margin-top:6px}
+.sec-visitor-name{color:#1a1a1a;font-weight:600}
+.sec-visitor-type{display:inline-block;background:#f0f0f0;color:#555;padding:2px 6px;border-radius:3px;font-size:9px;margin-left:6px;border:1px solid #e0e0e0}
+.sec-visitor-timing{color:#8a8a8a;font-size:10px;margin-bottom:6px}
+.sec-quick-checkout-btn{background:#fff;border:1px solid #d0d0d0;color:#555;padding:6px 10px;border-radius:4px;font-size:10px;cursor:pointer;width:100%;margin-top:6px;font-weight:600}
+.sec-quick-checkout-btn:hover{background:#f5f5f5}
 .sec-entry-log{margin-top:20px}
-.sec-entry-log-table{width:100%;border-collapse:collapse;font-size:11px}
-.sec-entry-log-table th{background:#2a2a2a;border:1px solid #333;padding:10px;color:#ccc;text-align:left;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;font-size:10px}
-.sec-entry-log-table td{border:1px solid #333;padding:10px;color:#ccc}
-.sec-entry-log-table tr:hover{background:#1a1a1a}
-.sec-entry-log-table .status-badge{display:inline-block;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600}
-.sec-entry-log-table .status-inside{background:#2d6a4f;color:#fff}
-.sec-entry-log-table .status-approved{background:#4d6d8a;color:#fff}
-.sec-entry-log-table .status-pending{background:#b8860b;color:#fff}
-.sec-entry-log-table .status-scheduled{background:linear-gradient(135deg,#ae9751,#c9b06b);color:#1a1a1a;font-weight:700}
-.sec-entry-log-table .status-cleared{background:#2d6a4f;color:#fff}
-.sec-entry-log-table .status-on-hold{background:#b8860b;color:#fff}
-.sec-entry-log-table .status-rejected{background:#c0392b;color:#fff}
-.sec-entry-log-table .status-awaiting-approval{background:#1565c0;color:#fff}
-.sec-entry-log-table .status-resident-approved{background:#2e7d32;color:#fff}
-.sec-entry-log-table .status-passed-security{background:#2d6a4f;color:#fff}
-.sec-entry-log-table .status-checked-out{background:#555;color:#fff}
+.sec-entry-log-table{width:100%;border-collapse:collapse;font-size:11px;background:#fff}
+.sec-entry-log-table th{background:#f9f9f9;border:1px solid #e0e0e0;padding:10px;color:#8a8a8a;text-align:left;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;font-size:10px}
+.sec-entry-log-table td{border:1px solid #e0e0e0;padding:10px;color:#555}
+.sec-entry-log-table tr:hover{background:#f9f9f9}
+.sec-entry-log-table .status-badge{display:inline-block;padding:3px 8px;border-radius:3px;font-size:9px;font-weight:600}
+.sec-entry-log-table .status-inside{background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9}
+.sec-entry-log-table .status-approved{background:#e3f2fd;color:#1565c0;border:1px solid #bbdefb}
+.sec-entry-log-table .status-pending{background:#fff3e0;color:#e65100;border:1px solid #ffe0b2}
+.sec-entry-log-table .status-scheduled{background:#f5f5f5;color:#555;border:1px solid #e0e0e0}
+.sec-entry-log-table .status-cleared{background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9}
+.sec-entry-log-table .status-on-hold{background:#fff3e0;color:#e65100;border:1px solid #ffe0b2}
+.sec-entry-log-table .status-rejected{background:#ffebee;color:#c62828;border:1px solid #ffcdd2}
+.sec-entry-log-table .status-awaiting-approval{background:#e3f2fd;color:#1565c0;border:1px solid #bbdefb}
+.sec-entry-log-table .status-resident-approved{background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9}
+.sec-entry-log-table .status-passed-security{background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9}
+.sec-entry-log-table .status-checked-out{background:#f5f5f5;color:#888;border:1px solid #e0e0e0}
 .sec-filter-row{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:4px}
-.sec-filter-chip{padding:8px 12px;border:1px solid #444;border-radius:3px;background:#2a2a2a;color:#ccc;cursor:pointer;font-size:11px;white-space:nowrap}
-.sec-filter-chip.active{background:#ae9751;color:#1a1a1a;border-color:#ae9751}
-.sec-form-panel{background:#2a2a2a;border:1px solid #333;border-radius:6px;padding:16px;margin-bottom:16px}
-.sec-form-section-title{font-size:12px;font-weight:600;color:#fff;margin-bottom:12px;border-bottom:1px solid #333;padding-bottom:12px;letter-spacing:0.04em;text-transform:uppercase}
+.sec-filter-chip{padding:8px 12px;border:1px solid #d0d0d0;border-radius:4px;background:#fff;color:#555;cursor:pointer;font-size:11px;white-space:nowrap;font-weight:500}
+.sec-filter-chip.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.sec-form-panel{background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:16px;margin-bottom:16px}
+.sec-form-section-title{font-size:12px;font-weight:600;color:#1a1a1a;margin-bottom:12px;border-bottom:1px solid #e0e0e0;padding-bottom:12px;letter-spacing:0.04em;text-transform:uppercase}
 .sec-form-group{margin-bottom:12px}
-.sec-form-group label{display:block;font-size:11px;color:#ccc;margin-bottom:6px;font-weight:500;letter-spacing:0.02em}
-.sec-form-group input,.sec-form-group select,.sec-form-group textarea{width:100%;padding:8px 12px;background:#1a1a1a;border:1px solid #333;border-radius:4px;color:#fff;font-size:11px;font-family:inherit;outline:none}
-.sec-form-group input:focus,.sec-form-group select:focus,.sec-form-group textarea:focus{border-color:#666}
+.sec-form-group label{display:block;font-size:11px;color:#8a8a8a;margin-bottom:6px;font-weight:500;letter-spacing:0.02em}
+.sec-form-group input,.sec-form-group select,.sec-form-group textarea{width:100%;padding:8px 12px;background:#fff;border:1px solid #d0d0d0;border-radius:4px;color:#1a1a1a;font-size:11px;font-family:inherit;outline:none}
+.sec-form-group input:focus,.sec-form-group select:focus,.sec-form-group textarea:focus{border-color:#1a1a1a}
 .sec-type-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-.sec-type-btn{padding:10px;border:1px solid #444;border-radius:4px;background:transparent;color:#ccc;cursor:pointer;font-size:10px;font-weight:500;text-align:center;transition:all .2s}
-.sec-type-btn:hover{border-color:#666;background:#1a1a1a}
-.sec-type-btn.active{background:#ae9751;color:#1a1a1a;border-color:#ae9751}
+.sec-type-btn{padding:10px;border:1px solid #d0d0d0;border-radius:4px;background:transparent;color:#555;cursor:pointer;font-size:10px;font-weight:500;text-align:center;transition:all .2s}
+.sec-type-btn:hover{border-color:#aaa;background:#f9f9f9}
+.sec-type-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
 .sec-unit-buttons{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px}
-.sec-unit-btn{padding:8px;border:1px solid #444;border-radius:3px;background:transparent;color:#ccc;cursor:pointer;font-size:10px}
-.sec-unit-btn.active{background:#ae9751;color:#1a1a1a;border-color:#ae9751}
+.sec-unit-btn{padding:8px;border:1px solid #d0d0d0;border-radius:3px;background:transparent;color:#555;cursor:pointer;font-size:10px}
+.sec-unit-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
 .sec-counter{display:flex;align-items:center;gap:8px}
-.sec-counter button{background:none;border:1px solid #444;width:24px;height:24px;border-radius:3px;color:#ccc;cursor:pointer;font-size:12px}
-.sec-counter input{flex:1;text-align:center;background:#1a1a1a;border:1px solid #333;border-radius:3px;color:#fff;width:50px;padding:4px;font-size:11px}
+.sec-counter button{background:none;border:1px solid #d0d0d0;width:24px;height:24px;border-radius:3px;color:#555;cursor:pointer;font-size:12px}
+.sec-counter input{flex:1;text-align:center;background:#fff;border:1px solid #d0d0d0;border-radius:3px;color:#1a1a1a;width:50px;padding:4px;font-size:11px}
 .sec-entry-log-mobile{display:none}
 .sec-entry-log-desktop{display:table}
 .sec-utility-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
-.sec-utility-card{background:#2a2a2a;border:1px solid #333;border-radius:6px;padding:14px;text-align:center;cursor:pointer}
-.sec-utility-card p{font-size:11px;font-weight:500;color:#fff}
+.sec-utility-card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px 14px;text-align:center;cursor:pointer;transition:all .15s}
+.sec-utility-card:hover{border-color:#ccc;background:#f9f9f9}
+.sec-utility-card p{font-size:12px;font-weight:600;color:#1a1a1a}
 
 @media(max-width:1024px){
   .sec-grid-3{grid-template-columns:1fr}
@@ -5093,14 +5096,14 @@ const SecurityApp = ({ onLogout }) => {
     const vp = viewingVisitor.qrPayload;
     const entry = data.entryLog.find(e => e.refId === viewingVisitor.permitRef) || {};
     return (
-      <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#1a1a1a',zIndex:1000,overflowY:'auto',padding:16}}>
+      <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#f5f5f5',zIndex:1000,overflowY:'auto',padding:16}}>
         <div style={{maxWidth:500,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
             <button onClick={() => setViewingVisitor(null)} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#ae9751'}}>← Back</button>
-            <h3 style={{fontSize:16,fontWeight:600,color:'#fff',margin:0}}>Visitor Details</h3>
+            <h3 style={{fontSize:16,fontWeight:600,color:'#1a1a1a',margin:0}}>Visitor Details</h3>
           </div>
 
-          <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:8,padding:20,textAlign:'center',marginBottom:16}}>
+          <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:8,padding:20,textAlign:'center',marginBottom:16}}>
             <div style={{background: viewingVisitor.status === 'Inside' ? '#1b5e20' : viewingVisitor.status === 'Rejected' ? '#b71c1c' : '#ae9751',
               color:'#fff',padding:'6px 16px',borderRadius:4,display:'inline-block',fontSize:12,fontWeight:600,letterSpacing:'0.04em',marginBottom:16}}>
               {viewingVisitor.status === 'Inside' ? '✓ PASSED SECURITY' : viewingVisitor.status === 'Scheduled' ? '⏳ PRE-APPROVED' : viewingVisitor.status === 'Rejected' ? '✕ REJECTED' : viewingVisitor.status === 'On Hold' ? '⏸ ON HOLD' : viewingVisitor.status.toUpperCase()}
@@ -5108,14 +5111,14 @@ const SecurityApp = ({ onLogout }) => {
             {vp ? (
               <div ref={secQrRef} style={{display:'flex',justifyContent:'center',marginBottom:12}}></div>
             ) : (
-              <div style={{padding:16,color:'#666',fontSize:12}}>QR code not available</div>
+              <div style={{padding:16,color:'#8a8a8a',fontSize:12}}>QR code not available</div>
             )}
-            <div style={{fontSize:13,fontWeight:600,color:'#fff',marginBottom:4}}>{viewingVisitor.permitRef || '—'}</div>
-            <div style={{fontSize:12,color:'#999'}}>{viewingVisitor.name}</div>
+            <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a',marginBottom:4}}>{viewingVisitor.permitRef || '—'}</div>
+            <div style={{fontSize:12,color:'#8a8a8a'}}>{viewingVisitor.name}</div>
           </div>
 
-          <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:8,padding:16,marginBottom:16}}>
-            <div style={{fontSize:11,color:'#ae9751',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:12,fontWeight:600}}>Visitor Information</div>
+          <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:8,padding:16,marginBottom:16}}>
+            <div style={{fontSize:11,color:'#1a1a1a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:12,fontWeight:600}}>Visitor Information</div>
             {[
               ['Name', viewingVisitor.name],
               ['Phone', viewingVisitor.contact || (vp && vp.mobile) || '—'],
@@ -5130,9 +5133,9 @@ const SecurityApp = ({ onLogout }) => {
               ['Gate', viewingVisitor.gate || 'Main Gate'],
               ['Status', entry.status || viewingVisitor.status || '—'],
             ].map(([label, val], i) => (
-              <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom: i < 11 ? '1px solid #333' : 'none'}}>
-                <span style={{fontSize:12,color:'#888'}}>{label}</span>
-                <span style={{fontSize:12,color:'#fff',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
+              <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom: i < 11 ? '1px solid #e0e0e0' : 'none'}}>
+                <span style={{fontSize:12,color:'#8a8a8a'}}>{label}</span>
+                <span style={{fontSize:12,color:'#1a1a1a',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
               </div>
             ))}
           </div>
@@ -5169,38 +5172,38 @@ const SecurityApp = ({ onLogout }) => {
         <div>
           {/* § 01 — QUICK ACTIONS — PRIMARY CONTROLS */}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}>
+            <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}}>
               <span style={{color:'#ae9751'}}>■</span> QUICK ACTIONS — PRIMARY CONTROLS
             </div>
-            <span style={{fontSize:10,color:'#666',letterSpacing:'0.04em'}}>[ SECTION 01 ] — TAP TO PERFORM ACTION</span>
+            <span style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.04em'}}>[ SECTION 01 ] — TAP TO PERFORM ACTION</span>
           </div>
           <div className="sec-quick-actions">
             <div className="sec-quick-action-btn" onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(true); }} style={{cursor:'pointer',borderColor:'#ae9751',position:'relative'}}>
-              <div style={{position:'absolute',top:8,left:8,background:'#333',padding:'2px 6px',borderRadius:2,fontSize:9,color:'#666'}}>F1</div>
-              <div style={{width:40,height:40,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
+              <div style={{position:'absolute',top:8,left:8,background:'#f0f0f0',padding:'2px 6px',borderRadius:2,fontSize:9,color:'#8a8a8a'}}>F1</div>
+              <div style={{width:40,height:40,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg>
               </div>
               <div className="label">New Visitor Entry</div>
               <div className="shortcut">Register new visitor manually</div>
-              <div style={{fontSize:9,color:'#555',marginTop:6}}>[ ICON ]</div>
+              <div style={{fontSize:9,color:'#8a8a8a',marginTop:6}}>[ ICON ]</div>
             </div>
             <div className="sec-quick-action-btn" onClick={() => setShowScanner(true)} style={{cursor:'pointer',position:'relative'}}>
-              <div style={{position:'absolute',top:8,left:8,background:'#333',padding:'2px 6px',borderRadius:2,fontSize:9,color:'#666'}}>F2</div>
-              <div style={{width:40,height:40,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
+              <div style={{position:'absolute',top:8,left:8,background:'#f0f0f0',padding:'2px 6px',borderRadius:2,fontSize:9,color:'#8a8a8a'}}>F2</div>
+              <div style={{width:40,height:40,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
               </div>
               <div className="label">Scan QR / Pre-Approved</div>
               <div className="shortcut">Scan resident-issued QR pass</div>
-              <div style={{fontSize:9,color:'#555',marginTop:6}}>[ ICON ]</div>
+              <div style={{fontSize:9,color:'#8a8a8a',marginTop:6}}>[ ICON ]</div>
             </div>
             <div className="sec-quick-action-btn" style={{cursor:'pointer',position:'relative'}}>
-              <div style={{position:'absolute',top:8,left:8,background:'#333',padding:'2px 6px',borderRadius:2,fontSize:9,color:'#666'}}>F3</div>
-              <div style={{width:40,height:40,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
+              <div style={{position:'absolute',top:8,left:8,background:'#f0f0f0',padding:'2px 6px',borderRadius:2,fontSize:9,color:'#8a8a8a'}}>F3</div>
+              <div style={{width:40,height:40,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
               </div>
               <div className="label">Create Announcements</div>
               <div className="shortcut">Register new visitor manually</div>
-              <div style={{fontSize:9,color:'#555',marginTop:6}}>[ ICON ]</div>
+              <div style={{fontSize:9,color:'#8a8a8a',marginTop:6}}>[ ICON ]</div>
             </div>
           </div>
 
@@ -5219,33 +5222,33 @@ const SecurityApp = ({ onLogout }) => {
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-                  <div style={{background:'#1a3a2a',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
-                    <div style={{fontSize:18,fontWeight:700,color:'#4caf50'}}>{clearedCount}</div>
-                    <div style={{fontSize:9,color:'#81c784',letterSpacing:'0.04em'}}>CLEARED</div>
+                  <div style={{background:'#e8f5e9',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#2e7d32'}}>{clearedCount}</div>
+                    <div style={{fontSize:9,color:'#2e7d32',letterSpacing:'0.04em'}}>CLEARED</div>
                   </div>
-                  <div style={{background:'#3a3520',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
-                    <div style={{fontSize:18,fontWeight:700,color:'#ffc107'}}>{pendingCount}</div>
-                    <div style={{fontSize:9,color:'#ffd54f',letterSpacing:'0.04em'}}>PENDING</div>
+                  <div style={{background:'#fff3e0',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#e65100'}}>{pendingCount}</div>
+                    <div style={{fontSize:9,color:'#e65100',letterSpacing:'0.04em'}}>PENDING</div>
                   </div>
-                  <div style={{background:'#3a2020',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
-                    <div style={{fontSize:18,fontWeight:700,color:'#ef5350'}}>{flaggedCount}</div>
-                    <div style={{fontSize:9,color:'#ef9a9a',letterSpacing:'0.04em'}}>FLAGGED</div>
+                  <div style={{background:'#ffebee',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#c62828'}}>{flaggedCount}</div>
+                    <div style={{fontSize:9,color:'#c62828',letterSpacing:'0.04em'}}>FLAGGED</div>
                   </div>
                 </div>
-                <div style={{borderTop:'1px solid #333',paddingTop:12}}>
-                  <div style={{fontSize:10,color:'#888',letterSpacing:'0.04em',marginBottom:8}}>BY TYPE</div>
+                <div style={{borderTop:'1px solid #e0e0e0',paddingTop:12}}>
+                  <div style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.04em',marginBottom:8}}>BY TYPE</div>
                   {[
                     ['Guests', guestCount, '#ae9751'],
                     ['Delivery', deliveryCount, '#64b5f6'],
                     ['Contractors', contractorCount, '#ff8a65'],
-                    ['Service / Staff', serviceCount, '#81c784']
+                    ['Service / Staff', serviceCount, '#2e7d32']
                   ].map(([label, count, color]) => (
                     <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0'}}>
                       <div style={{display:'flex',alignItems:'center',gap:8}}>
                         <div style={{width:8,height:8,borderRadius:2,background:color}}></div>
-                        <span style={{fontSize:11,color:'#ccc'}}>{label}</span>
+                        <span style={{fontSize:11,color:'#8a8a8a'}}>{label}</span>
                       </div>
-                      <span style={{fontSize:12,fontWeight:600,color:'#fff'}}>{count}</span>
+                      <span style={{fontSize:12,fontWeight:600,color:'#1a1a1a'}}>{count}</span>
                     </div>
                   ))}
                 </div>
@@ -5258,14 +5261,14 @@ const SecurityApp = ({ onLogout }) => {
               <div className="sec-kpi-block">
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                   <div className="sec-kpi-label" style={{margin:0}}>PENDING APPROVALS</div>
-                  <span style={{background:'#3a3520',color:'#ffc107',padding:'3px 10px',borderRadius:10,fontSize:11,fontWeight:600}}>{data.pendingApprovals.length} waiting</span>
+                  <span style={{background:'#fff3e0',color:'#e65100',padding:'3px 10px',borderRadius:10,fontSize:11,fontWeight:600}}>{data.pendingApprovals.length} waiting</span>
                 </div>
                 {data.pendingApprovals.length === 0 ? (
-                  <div style={{textAlign:'center',padding:'20px 0',color:'#555',fontSize:12}}>No pending approvals</div>
+                  <div style={{textAlign:'center',padding:'20px 0',color:'#8a8a8a',fontSize:12}}>No pending approvals</div>
                 ) : data.pendingApprovals.slice(0,3).map(p => (
                   <div key={p.id} className="sec-pending-card">
                     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-                      <div style={{width:32,height:32,borderRadius:'50%',background:'#333',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#ae9751'}}>
+                      <div style={{width:32,height:32,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#1a1a1a'}}>
                         {(p.name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2)}
                       </div>
                       <div style={{flex:1}}>
@@ -5294,10 +5297,10 @@ const SecurityApp = ({ onLogout }) => {
               <div className="sec-kpi-block">
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                   <div className="sec-kpi-label" style={{margin:0}}>TODAY'S SCHEDULE</div>
-                  <span style={{fontSize:10,color:'#888'}}>{data.todayScheduleSecurity.length} entries</span>
+                  <span style={{fontSize:10,color:'#8a8a8a'}}>{data.todayScheduleSecurity.length} entries</span>
                 </div>
                 {data.todayScheduleSecurity.length === 0 ? (
-                  <div style={{textAlign:'center',padding:'20px 0',color:'#555',fontSize:12}}>No scheduled visitors today</div>
+                  <div style={{textAlign:'center',padding:'20px 0',color:'#8a8a8a',fontSize:12}}>No scheduled visitors today</div>
                 ) : data.todayScheduleSecurity.slice(0,4).map((s,i) => {
                   const name = (s.description || '').split(' — ')[0];
                   const match = data.visitors.find(v => v.name === name);
@@ -5305,7 +5308,7 @@ const SecurityApp = ({ onLogout }) => {
                     <div key={i} className="sec-schedule-item" style={{cursor: match ? 'pointer' : 'default'}} onClick={() => { if (match) setViewingVisitor(match); }}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                         <div className="sec-schedule-time" style={{marginBottom:0}}>{s.time}</div>
-                        <span style={{fontSize:9,background:'#333',color:'#ccc',padding:'2px 6px',borderRadius:3}}>{s.type}</span>
+                        <span style={{fontSize:9,background:'#f0f0f0',color:'#8a8a8a',padding:'2px 6px',borderRadius:3}}>{s.type}</span>
                       </div>
                       <div className="sec-schedule-desc">{s.description}</div>
                       <div className="sec-schedule-meta">{s.flat}</div>
@@ -5326,23 +5329,23 @@ const SecurityApp = ({ onLogout }) => {
                   ))}
                 </div>
                 {filteredInside.length === 0 ? (
-                  <div style={{textAlign:'center',padding:'20px 0',color:'#555',fontSize:12}}>No visitors in this category</div>
+                  <div style={{textAlign:'center',padding:'20px 0',color:'#8a8a8a',fontSize:12}}>No visitors in this category</div>
                 ) : filteredInside.slice(0,5).map(v => (
                   <div key={v.id} className="sec-visitor-now-card">
                     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-                      <div style={{width:32,height:32,borderRadius:'50%',background:'#333',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#ae9751'}}>
+                      <div style={{width:32,height:32,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#1a1a1a'}}>
                         {v.initials}
                       </div>
                       <div style={{flex:1}}>
-                        <div style={{fontWeight:600,fontSize:12,color:'#fff'}}>{v.name}</div>
-                        <div style={{fontSize:10,color:'#888'}}>{v.type}</div>
+                        <div style={{fontWeight:600,fontSize:12,color:'#1a1a1a'}}>{v.name}</div>
+                        <div style={{fontSize:10,color:'#8a8a8a'}}>{v.type}</div>
                       </div>
                       <div style={{textAlign:'right'}}>
-                        <div style={{fontSize:10,color:'#ccc'}}>{v.inTime}</div>
-                        <div style={{fontSize:10,color:'#ae9751'}}>{v.duration}</div>
+                        <div style={{fontSize:10,color:'#8a8a8a'}}>{v.inTime}</div>
+                        <div style={{fontSize:10,color:'#1a1a1a'}}>{v.duration}</div>
                       </div>
                     </div>
-                    <div style={{fontSize:10,color:'#999',marginBottom:8}}>Host: {v.host}</div>
+                    <div style={{fontSize:10,color:'#8a8a8a',marginBottom:8}}>Host: {v.host}</div>
                     <button className="sec-quick-checkout-btn" onClick={() => {
                       setData(prev => ({
                         ...prev,
@@ -5364,22 +5367,22 @@ const SecurityApp = ({ onLogout }) => {
           <div className="sec-entry-log">
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
               <div>
-                <div style={{fontSize:13,fontWeight:600,color:'#fff'}}>ENTRY LOG</div>
-                <div style={{fontSize:10,color:'#888',marginTop:2}}>All visitor movements today</div>
+                <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>ENTRY LOG</div>
+                <div style={{fontSize:10,color:'#8a8a8a',marginTop:2}}>All visitor movements today</div>
               </div>
               <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                <span style={{fontSize:10,color:'#888'}}>Page {entryLogPage + 1} of {totalLogPages}</span>
+                <span style={{fontSize:10,color:'#8a8a8a'}}>Page {entryLogPage + 1} of {totalLogPages}</span>
               </div>
             </div>
             {/* Mobile: card layout */}
             <div className="sec-entry-log-mobile">
               {pagedLog.map((e,i) => (
-                <div key={e.id} style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:12,marginBottom:8,cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>
+                <div key={e.id} style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:6,padding:12,marginBottom:8,cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                    <div style={{fontWeight:600,fontSize:13,color:'#fff'}}>{e.visitor}</div>
+                    <div style={{fontWeight:600,fontSize:13,color:'#1a1a1a'}}>{e.visitor}</div>
                     <span className={`status-badge status-${e.status.toLowerCase().replace(/\s+/g,'-')}`} style={{display:'inline-block',padding:'2px 6px',borderRadius:3,fontSize:9,fontWeight:600}}>{e.status}</span>
                   </div>
-                  <div style={{fontSize:11,color:'#999'}}>{e.type} • {e.flat} • {e.timeIn} • Host: {e.host || '—'}</div>
+                  <div style={{fontSize:11,color:'#8a8a8a'}}>{e.type} • {e.flat} • {e.timeIn} • Host: {e.host || '—'}</div>
                 </div>
               ))}
             </div>
@@ -5402,17 +5405,17 @@ const SecurityApp = ({ onLogout }) => {
               <tbody>
                 {pagedLog.map((e,i) => (
                   <tr key={e.id} style={{cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>
-                    <td style={{color:'#555'}}>{entryLogPage * ENTRY_LOG_PER_PAGE + i + 1}</td>
-                    <td style={{fontWeight:500,color:'#fff'}}>{e.visitor}</td>
-                    <td>{e.type}</td>
-                    <td>{e.flat}</td>
-                    <td>{e.timeIn}</td>
-                    <td>{e.duration || '—'}</td>
-                    <td>{e.gateUsed || 'Main Gate'}</td>
-                    <td>{e.host || '—'}</td>
+                    <td style={{color:'#8a8a8a'}}>{entryLogPage * ENTRY_LOG_PER_PAGE + i + 1}</td>
+                    <td style={{fontWeight:500,color:'#1a1a1a'}}>{e.visitor}</td>
+                    <td style={{color:'#8a8a8a'}}>{e.type}</td>
+                    <td style={{color:'#8a8a8a'}}>{e.flat}</td>
+                    <td style={{color:'#1a1a1a'}}>{e.timeIn}</td>
+                    <td style={{color:'#8a8a8a'}}>{e.duration || '—'}</td>
+                    <td style={{color:'#8a8a8a'}}>{e.gateUsed || 'Main Gate'}</td>
+                    <td style={{color:'#8a8a8a'}}>{e.host || '—'}</td>
                     <td><span className={`status-badge status-${e.status.toLowerCase().replace(/\s+/g,'-')}`}>{e.status}</span></td>
                     <td onClick={(ev) => ev.stopPropagation()}>
-                      <button style={{background:'none',border:'1px solid #444',color:'#ccc',padding:'3px 8px',borderRadius:3,fontSize:9,cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>VIEW</button>
+                      <button style={{background:'#fff',border:'1px solid #d0d0d0',color:'#1a1a1a',padding:'3px 8px',borderRadius:3,fontSize:9,cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>VIEW</button>
                     </td>
                   </tr>
                 ))}
@@ -5420,16 +5423,16 @@ const SecurityApp = ({ onLogout }) => {
             </table>
             {/* Pagination */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12}}>
-              <div style={{fontSize:11,color:'#888'}}>Showing {pagedLog.length} of {data.entryLog.length} entries</div>
+              <div style={{fontSize:11,color:'#8a8a8a'}}>Showing {pagedLog.length} of {data.entryLog.length} entries</div>
               <div style={{display:'flex',gap:6}}>
-                <button disabled={entryLogPage === 0} onClick={() => setEntryLogPage(p => p - 1)} style={{background:'#2a2a2a',border:'1px solid #444',color: entryLogPage === 0 ? '#555' : '#ccc',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: entryLogPage === 0 ? 'default' : 'pointer'}}>PREV</button>
+                <button disabled={entryLogPage === 0} onClick={() => setEntryLogPage(p => p - 1)} style={{background:'#fff',border:'1px solid #d0d0d0',color: entryLogPage === 0 ? '#8a8a8a' : '#1a1a1a',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: entryLogPage === 0 ? 'default' : 'pointer'}}>PREV</button>
                 {Array.from({length: Math.min(totalLogPages, 5)}, (_, i) => {
                   const pg = totalLogPages <= 5 ? i : Math.max(0, Math.min(entryLogPage - 2, totalLogPages - 5)) + i;
                   return (
-                    <button key={pg} onClick={() => setEntryLogPage(pg)} style={{background: pg === entryLogPage ? '#ae9751' : '#2a2a2a', border:'1px solid ' + (pg === entryLogPage ? '#ae9751' : '#444'), color: pg === entryLogPage ? '#1a1a1a' : '#ccc', padding:'6px 10px', borderRadius:4, fontSize:10, cursor:'pointer', fontWeight: pg === entryLogPage ? 700 : 400, minWidth:30}}>{pg + 1}</button>
+                    <button key={pg} onClick={() => setEntryLogPage(pg)} style={{background: pg === entryLogPage ? '#ae9751' : '#fff', border:'1px solid ' + (pg === entryLogPage ? '#ae9751' : '#d0d0d0'), color: pg === entryLogPage ? '#1a1a1a' : '#1a1a1a', padding:'6px 10px', borderRadius:4, fontSize:10, cursor:'pointer', fontWeight: pg === entryLogPage ? 700 : 400, minWidth:30}}>{pg + 1}</button>
                   );
                 })}
-                <button disabled={entryLogPage >= totalLogPages - 1} onClick={() => setEntryLogPage(p => p + 1)} style={{background:'#2a2a2a',border:'1px solid #444',color: entryLogPage >= totalLogPages - 1 ? '#555' : '#ccc',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: entryLogPage >= totalLogPages - 1 ? 'default' : 'pointer'}}>NEXT</button>
+                <button disabled={entryLogPage >= totalLogPages - 1} onClick={() => setEntryLogPage(p => p + 1)} style={{background:'#fff',border:'1px solid #d0d0d0',color: entryLogPage >= totalLogPages - 1 ? '#8a8a8a' : '#1a1a1a',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: entryLogPage >= totalLogPages - 1 ? 'default' : 'pointer'}}>NEXT</button>
               </div>
             </div>
           </div>
@@ -5437,20 +5440,20 @@ const SecurityApp = ({ onLogout }) => {
           {/* UTILITY ACTIONS */}
           <div className="sec-utility-cards">
             <div className="sec-utility-card">
-              <div style={{width:36,height:36,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
+              <div style={{width:36,height:36,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
               </div>
               <p>Contact<br/>Security Head</p>
             </div>
             <div className="sec-utility-card">
-              <div style={{width:36,height:36,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
+              <div style={{width:36,height:36,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </div>
               <p>Contact<br/>Property Mgr</p>
             </div>
             <div className="sec-utility-card">
-              <div style={{width:36,height:36,borderRadius:'50%',background:'rgba(194,40,40,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef5350" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <div style={{width:36,height:36,borderRadius:'50%',background:'#ffebee',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </div>
               <p>Report<br/>Incident</p>
             </div>
@@ -5506,10 +5509,10 @@ const SecurityApp = ({ onLogout }) => {
         if (s === 'RESIDENT APPROVED') return {bg:'#1565c0',color:'#fff',label:'APPROVED'};
         if (s === 'SCHEDULED') return {bg:'linear-gradient(135deg,#ae9751,#c9b06b)',color:'#1a1a1a',label:'SCHEDULED'};
         if (s === 'PENDING' || s === 'AWAITING APPROVAL') return {bg:'#b8860b',color:'#fff',label:'PENDING'};
-        if (s === 'CHECKED OUT' || s === 'EXITED') return {bg:'#555',color:'#fff',label:'EXITED'};
+        if (s === 'CHECKED OUT' || s === 'EXITED') return {bg:'#f5f5f5',color:'#8a8a8a',label:'EXITED'};
         if (s === 'REJECTED') return {bg:'#c62828',color:'#fff',label:'REJECTED'};
         if (s === 'ON HOLD' || s === 'FLAGGED') return {bg:'#e65100',color:'#fff',label:'FLAGGED'};
-        return {bg:'#444',color:'#ccc',label:status};
+        return {bg:'#f0f0f0',color:'#8a8a8a',label:status};
       };
       // Action for checkout
       const handleCheckout = (entry) => {
@@ -5529,16 +5532,16 @@ const SecurityApp = ({ onLogout }) => {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:12}}>
             <div>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <div style={{fontSize:18,fontWeight:700,color:'#fff'}}>All Visitors Registry</div>
-                <span style={{background:'#333',border:'1px solid #444',color:'#ccc',padding:'3px 10px',borderRadius:4,fontSize:11,fontWeight:600}}>{allEntries.length} TODAY</span>
+                <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a'}}>All Visitors Registry</div>
+                <span style={{background:'#f0f0f0',border:'1px solid #d0d0d0',color:'#8a8a8a',padding:'3px 10px',borderRadius:4,fontSize:11,fontWeight:600}}>{allEntries.length} TODAY</span>
               </div>
-              <div style={{fontSize:12,color:'#888',marginTop:4}}>Complete log of all entry requests — guests, deliveries, vendors, contractors & staff</div>
+              <div style={{fontSize:12,color:'#8a8a8a',marginTop:4}}>Complete log of all entry requests — guests, deliveries, vendors, contractors & staff</div>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-              <button style={{background:'#2a2a2a',border:'1px solid #444',color:'#ccc',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              <button style={{background:'#fff',border:'1px solid #d0d0d0',color:'#1a1a1a',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> REFRESH
               </button>
-              <button style={{background:'#2a2a2a',border:'1px solid #444',color:'#ccc',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              <button style={{background:'#fff',border:'1px solid #d0d0d0',color:'#1a1a1a',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> EXPORT CSV
               </button>
               <button onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(true); }} style={{background:'#ae9751',color:'#1a1a1a',border:'none',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',fontWeight:700,letterSpacing:'0.04em'}}>+ NEW ENTRY</button>
@@ -5553,7 +5556,7 @@ const SecurityApp = ({ onLogout }) => {
                   className={`sec-filter-chip ${secVisitorFilter===f.key?'active':''}`}
                   style={{cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
                   {f.label}
-                  <span style={{background: secVisitorFilter===f.key ? 'rgba(26,26,26,0.3)' : '#333',padding:'1px 6px',borderRadius:3,fontSize:9,fontWeight:600}}>{f.count}</span>
+                  <span style={{background: secVisitorFilter===f.key ? 'rgba(174,151,81,0.2)' : '#f0f0f0',padding:'1px 6px',borderRadius:3,fontSize:9,fontWeight:600}}>{f.count}</span>
                 </div>
               ))}
             </div>
@@ -5561,8 +5564,8 @@ const SecurityApp = ({ onLogout }) => {
               <div style={{position:'relative'}}>
                 <input value={visRegSearch} onChange={e => { setVisRegSearch(e.target.value); setVisRegPage(0); }}
                   placeholder="Search name / unit / ID..."
-                  style={{padding:'8px 12px 8px 32px',background:'#2a2a2a',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:12,width:200,boxSizing:'border-box',outline:'none'}}/>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)'}}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                  style={{padding:'8px 12px 8px 32px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:12,width:200,boxSizing:'border-box',outline:'none'}}/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="2" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)'}}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               </div>
             </div>
           </div>
@@ -5595,35 +5598,35 @@ const SecurityApp = ({ onLogout }) => {
                   const isPending = sts.label === 'PENDING';
                   return (
                     <tr key={e.id} style={{cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>
-                      <td style={{color:'#555',fontSize:11}}>{rowNum}</td>
-                      <td style={{fontSize:10,color:'#888',fontFamily:'monospace'}}>{e.refId || '—'}</td>
+                      <td style={{color:'#8a8a8a',fontSize:11}}>{rowNum}</td>
+                      <td style={{fontSize:10,color:'#8a8a8a',fontFamily:'monospace'}}>{e.refId || '—'}</td>
                       <td>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
-                          <div style={{width:28,height:28,borderRadius:'50%',background:'#333',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:600,color:'#ae9751',flexShrink:0}}>
+                          <div style={{width:28,height:28,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:600,color:'#1a1a1a',flexShrink:0}}>
                             {getInitials(e.visitor)}
                           </div>
                           <div>
-                            <div style={{fontWeight:600,color:'#fff',fontSize:12}}>{e.visitor}</div>
-                            <div style={{fontSize:10,color:'#888'}}>{e.phone || ''}</div>
+                            <div style={{fontWeight:600,color:'#1a1a1a',fontSize:12}}>{e.visitor}</div>
+                            <div style={{fontSize:10,color:'#8a8a8a'}}>{e.phone || ''}</div>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <span style={{background:'#333',border:'1px solid #444',padding:'3px 8px',borderRadius:3,fontSize:10,color:'#ccc',whiteSpace:'nowrap',display:'inline-block'}}>
+                        <span style={{background:'#f0f0f0',border:'1px solid #d0d0d0',padding:'3px 8px',borderRadius:3,fontSize:10,color:'#8a8a8a',whiteSpace:'nowrap',display:'inline-block'}}>
                           {(e.type||'').toUpperCase()}
                         </span>
                       </td>
                       <td>
-                        <span style={{background:'#2a2a2a',border:'1px solid #555',padding:'3px 8px',borderRadius:3,fontSize:11,fontWeight:600,color:'#fff',display:'inline-block'}}>
+                        <span style={{background:'#fff',border:'1px solid #d0d0d0',padding:'3px 8px',borderRadius:3,fontSize:11,fontWeight:600,color:'#1a1a1a',display:'inline-block'}}>
                           {e.flat || '—'}
                         </span>
                       </td>
-                      <td style={{fontSize:12,color:'#ccc'}}>{e.host || '—'}</td>
-                      <td style={{fontSize:11,color:'#999'}}>{e.purpose || '—'}</td>
-                      <td style={{fontSize:12,color:'#ccc',whiteSpace:'nowrap'}}>{e.timeIn || '—'}</td>
-                      <td style={{fontSize:12,color:'#888'}}>{e.timeOut || '—'}</td>
-                      <td style={{fontSize:12,color:'#ccc'}}>{e.duration || '—'}</td>
-                      <td style={{fontSize:10,color:'#888'}}>{e.idDoc || '—'}</td>
+                      <td style={{fontSize:12,color:'#8a8a8a'}}>{e.host || '—'}</td>
+                      <td style={{fontSize:11,color:'#8a8a8a'}}>{e.purpose || '—'}</td>
+                      <td style={{fontSize:12,color:'#1a1a1a',whiteSpace:'nowrap'}}>{e.timeIn || '—'}</td>
+                      <td style={{fontSize:12,color:'#8a8a8a'}}>{e.timeOut || '—'}</td>
+                      <td style={{fontSize:12,color:'#8a8a8a'}}>{e.duration || '—'}</td>
+                      <td style={{fontSize:10,color:'#8a8a8a'}}>{e.idDoc || '—'}</td>
                       <td>
                         <span style={{background:sts.bg,color:sts.color,padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:700,display:'inline-block',letterSpacing:'0.03em',whiteSpace:'nowrap'}}>
                           {sts.label}
@@ -5634,7 +5637,7 @@ const SecurityApp = ({ onLogout }) => {
                       </td>
                       <td onClick={(ev) => ev.stopPropagation()}>
                         {isInside ? (
-                          <button onClick={() => handleCheckout(e)} style={{background:'none',border:'1px solid #444',color:'#ccc',padding:'4px 10px',borderRadius:3,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                          <button onClick={() => handleCheckout(e)} style={{background:'#fff',border:'1px solid #d0d0d0',color:'#1a1a1a',padding:'4px 10px',borderRadius:3,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg> CHECKOUT
                           </button>
                         ) : isPending ? (
@@ -5647,9 +5650,9 @@ const SecurityApp = ({ onLogout }) => {
                             </button>
                           </div>
                         ) : sts.label === 'APPROVED' ? (
-                          <button onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }} style={{background:'none',border:'1px solid #444',color:'#ccc',padding:'4px 10px',borderRadius:3,fontSize:10,cursor:'pointer'}}>DETAILS</button>
+                          <button onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }} style={{background:'#fff',border:'1px solid #d0d0d0',color:'#1a1a1a',padding:'4px 10px',borderRadius:3,fontSize:10,cursor:'pointer'}}>DETAILS</button>
                         ) : (
-                          <button onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }} style={{background:'none',border:'1px solid #444',color:'#ccc',padding:'4px 10px',borderRadius:3,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                          <button onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }} style={{background:'#fff',border:'1px solid #d0d0d0',color:'#1a1a1a',padding:'4px 10px',borderRadius:3,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg> VIEW
                           </button>
                         )}
@@ -5661,37 +5664,37 @@ const SecurityApp = ({ onLogout }) => {
             </table>
           </div>
 
-          {filteredEntries.length === 0 && <div style={{textAlign:'center',color:'#666',padding:32,fontSize:13}}>No entries match this filter.</div>}
+          {filteredEntries.length === 0 && <div style={{textAlign:'center',color:'#8a8a8a',padding:32,fontSize:13}}>No entries match this filter.</div>}
 
           {/* Pagination footer */}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:16,flexWrap:'wrap',gap:8}}>
-            <div style={{fontSize:11,color:'#888'}}>
+            <div style={{fontSize:11,color:'#8a8a8a'}}>
               SHOWING {pagedEntries.length > 0 ? (visRegPage * VIS_REG_PER_PAGE + 1) + '–' + Math.min((visRegPage + 1) * VIS_REG_PER_PAGE, filteredEntries.length) : '0'} OF {filteredEntries.length} ENTRIES · ALL STATUSES · SORTED: TIME IN (LATEST FIRST)
             </div>
             <div style={{display:'flex',gap:6,alignItems:'center'}}>
               <button disabled={visRegPage === 0} onClick={() => setVisRegPage(p => p - 1)}
-                style={{background:'#2a2a2a',border:'1px solid #444',color: visRegPage === 0 ? '#555' : '#ccc',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: visRegPage === 0 ? 'default' : 'pointer',display:'flex',alignItems:'center',gap:4}}>
+                style={{background:'#fff',border:'1px solid #d0d0d0',color: visRegPage === 0 ? '#8a8a8a' : '#1a1a1a',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: visRegPage === 0 ? 'default' : 'pointer',display:'flex',alignItems:'center',gap:4}}>
                 ← PREV
               </button>
               {Array.from({length: Math.min(totalVisRegPages, 3)}, (_, i) => {
                 const pg = totalVisRegPages <= 3 ? i : Math.max(0, Math.min(visRegPage - 1, totalVisRegPages - 3)) + i;
                 return (
                   <button key={pg} onClick={() => setVisRegPage(pg)}
-                    style={{background: pg === visRegPage ? '#ae9751' : '#2a2a2a', border:'1px solid ' + (pg === visRegPage ? '#ae9751' : '#444'), color: pg === visRegPage ? '#1a1a1a' : '#ccc', padding:'6px 10px', borderRadius:4, fontSize:10, cursor:'pointer', fontWeight: pg === visRegPage ? 700 : 400, minWidth:30}}>
+                    style={{background: pg === visRegPage ? '#ae9751' : '#fff', border:'1px solid ' + (pg === visRegPage ? '#ae9751' : '#d0d0d0'), color: pg === visRegPage ? '#1a1a1a' : '#1a1a1a', padding:'6px 10px', borderRadius:4, fontSize:10, cursor:'pointer', fontWeight: pg === visRegPage ? 700 : 400, minWidth:30}}>
                     {pg + 1}
                   </button>
                 );
               })}
-              <span style={{fontSize:10,color:'#666'}}>PAGE {visRegPage + 1} / {totalVisRegPages}</span>
+              <span style={{fontSize:10,color:'#8a8a8a'}}>PAGE {visRegPage + 1} / {totalVisRegPages}</span>
               <button disabled={visRegPage >= totalVisRegPages - 1} onClick={() => setVisRegPage(p => p + 1)}
-                style={{background:'#2a2a2a',border:'1px solid #444',color: visRegPage >= totalVisRegPages - 1 ? '#555' : '#ccc',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: visRegPage >= totalVisRegPages - 1 ? 'default' : 'pointer',display:'flex',alignItems:'center',gap:4}}>
+                style={{background:'#fff',border:'1px solid #d0d0d0',color: visRegPage >= totalVisRegPages - 1 ? '#8a8a8a' : '#1a1a1a',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: visRegPage >= totalVisRegPages - 1 ? 'default' : 'pointer',display:'flex',alignItems:'center',gap:4}}>
                 NEXT →
               </button>
             </div>
           </div>
 
           {/* Footer info bar */}
-          <div style={{marginTop:20,padding:'10px 16px',background:'#111',border:'1px solid #222',borderRadius:4,textAlign:'center',fontSize:10,color:'#555',letterSpacing:'0.04em'}}>
+          <div style={{marginTop:20,padding:'10px 16px',background:'#f9f9f9',border:'1px solid #e8e8e8',borderRadius:4,textAlign:'center',fontSize:10,color:'#8a8a8a',letterSpacing:'0.04em'}}>
             ALL VISITOR DATA IS LOGGED IN REAL-TIME · AUTO-SYNCED WITH RESIDENT APP · RECORDS RETAINED FOR 90 DAYS
           </div>
         </div>
@@ -5705,50 +5708,50 @@ const SecurityApp = ({ onLogout }) => {
     <div className="sec-app">
       {viewingVisitor && renderVisitorDetail()}
       {/* Top bar — Security Guard label + screen name */}
-      <div style={{background:'#111',borderBottom:'1px solid #222',padding:'6px 20px',display:'flex',justifyContent:'space-between',fontSize:10,color:'#666',letterSpacing:'0.06em'}}>
+      <div style={{background:'#f9f9f9',borderBottom:'1px solid #e8e8e8',padding:'6px 20px',display:'flex',justifyContent:'space-between',fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em'}}>
         <span>Security Guard</span>
         <span>SCREEN: {currentTab === 'dashboard' ? 'MAIN DASHBOARD' : 'All Visitors'}</span>
       </div>
       <div className="sec-header">
         {/* Building + Gate */}
         <div style={{display:'flex',alignItems:'center',gap:14}}>
-          <div style={{width:40,height:40,background:'#2a2a2a',border:'1px solid #333',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{width:40,height:40,background:'#fff',border:'1px solid #e0e0e0',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center'}}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="1.5"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
           </div>
           <div>
-            <div style={{fontSize:10,color:'#666',letterSpacing:'0.06em'}}>[ BUILDING NAME ]</div>
-            <div style={{fontSize:14,fontWeight:600,color:'#fff'}}>Sky Tower</div>
-            <div style={{fontSize:10,color:'#888'}}>Al Reem Island — Shams Abu Dhabi — Abu Dhabi</div>
+            <div style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em'}}>[ BUILDING NAME ]</div>
+            <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>Sky Tower</div>
+            <div style={{fontSize:10,color:'#8a8a8a'}}>Al Reem Island — Shams Abu Dhabi — Abu Dhabi</div>
             <div style={{display:'flex',gap:8,marginTop:6}}>
               <span style={{background:'#ae9751',color:'#1a1a1a',padding:'2px 10px',borderRadius:3,fontSize:10,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>● MAIN GATE</span>
-              <button style={{background:'#2a2a2a',color:'#888',border:'1px solid #444',padding:'2px 10px',borderRadius:3,fontSize:10,cursor:'pointer'}}>CHANGE</button>
+              <button style={{background:'#fff',color:'#8a8a8a',border:'1px solid #d0d0d0',padding:'2px 10px',borderRadius:3,fontSize:10,cursor:'pointer'}}>CHANGE</button>
             </div>
           </div>
         </div>
         {/* Clock */}
         <div style={{textAlign:'center'}}>
-          <div style={{fontSize:10,color:'#666',letterSpacing:'0.06em',marginBottom:2}}>{clockDate}</div>
-          <div style={{fontSize:36,fontWeight:300,color:'#fff',letterSpacing:'0.04em',lineHeight:1}}>{clockTime.replace(/:\d{2}\s/, ' ').split(' ')[0]}</div>
-          <div style={{fontSize:14,color:'#888',marginTop:2}}>{clockTime.includes('AM') ? 'AM' : 'PM'}</div>
+          <div style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',marginBottom:2}}>{clockDate}</div>
+          <div style={{fontSize:36,fontWeight:300,color:'#1a1a1a',letterSpacing:'0.04em',lineHeight:1}}>{clockTime.replace(/:\d{2}\s/, ' ').split(' ')[0]}</div>
+          <div style={{fontSize:14,color:'#8a8a8a',marginTop:2}}>{clockTime.includes('AM') ? 'AM' : 'PM'}</div>
         </div>
         {/* Guard on Duty */}
         <div style={{textAlign:'right'}}>
-          <div style={{fontSize:10,color:'#666',letterSpacing:'0.06em'}}>GUARD ON DUTY</div>
-          <div style={{fontSize:14,fontWeight:600,color:'#fff'}}>Suresh Kumar</div>
-          <div style={{fontSize:10,color:'#888'}}>ID: GRD-045</div>
-          <div style={{fontSize:10,color:'#888'}}>Shift: 06:00 — 14:00</div>
+          <div style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em'}}>GUARD ON DUTY</div>
+          <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>Suresh Kumar</div>
+          <div style={{fontSize:10,color:'#8a8a8a'}}>ID: GRD-045</div>
+          <div style={{fontSize:10,color:'#8a8a8a'}}>Shift: 06:00 — 14:00</div>
         </div>
         {/* Shift Status + Icons */}
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
-          <div style={{fontSize:10,color:'#666',letterSpacing:'0.06em'}}>SHIFT STATUS</div>
-          <div style={{background:'#2a2a2a',border:'1px solid #ae9751',borderRadius:4,padding:'4px 12px',fontSize:11,fontWeight:600,color:'#ae9751'}}>ACTIVE</div>
-          <div style={{fontSize:10,color:'#888'}}>{shiftStr} elapsed</div>
+          <div style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em'}}>SHIFT STATUS</div>
+          <div style={{background:'#fff',border:'1px solid #ae9751',borderRadius:4,padding:'4px 12px',fontSize:11,fontWeight:600,color:'#1a1a1a'}}>ACTIVE</div>
+          <div style={{fontSize:10,color:'#8a8a8a'}}>{shiftStr} elapsed</div>
           <div style={{display:'flex',gap:8,marginTop:4}}>
-            <div style={{width:30,height:30,background:'#2a2a2a',border:'1px solid #333',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+            <div style={{width:30,height:30,background:'#fff',border:'1px solid #e0e0e0',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
             </div>
-            <div style={{width:30,height:30,background:'#2a2a2a',border:'1px solid #333',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            <div style={{width:30,height:30,background:'#fff',border:'1px solid #e0e0e0',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
               <div style={{position:'absolute',top:-3,right:-3,width:14,height:14,background:'#c62828',borderRadius:'50%',fontSize:8,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>3</div>
             </div>
           </div>
@@ -5765,8 +5768,8 @@ const SecurityApp = ({ onLogout }) => {
         {renderContent()}
       </div>
 
-      <div style={{position:'fixed',bottom:16,right:16,background:'#2a2a2a',border:'1px solid #333',borderRadius:8,padding:8}}>
-        <button onClick={onLogout} style={{background:'none',border:'none',color:'#ccc',cursor:'pointer',fontSize:12,padding:'8px 12px'}}>🚪 Logout</button>
+      <div style={{position:'fixed',bottom:16,right:16,background:'#fff',border:'1px solid #e0e0e0',borderRadius:8,padding:8}}>
+        <button onClick={onLogout} style={{background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:12,padding:'8px 12px'}}>🚪 Logout</button>
       </div>
 
       {showScanner && (
@@ -5786,19 +5789,19 @@ const SecurityApp = ({ onLogout }) => {
 
       {/* New Visitor Entry Form */}
       {showNewVisitorForm && (
-        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#1a1a1a',zIndex:1000,overflowY:'auto'}}>
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#f5f5f5',zIndex:1000,overflowY:'auto'}}>
           <div style={{maxWidth:900,margin:'0 auto',padding:20}}>
             {/* Header */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
               <div>
-                <h2 style={{fontSize:18,fontWeight:600,color:'#fff',margin:0}}>New Visitor Request</h2>
-                <div style={{fontSize:12,color:'#888',marginTop:2}}>{secFormStep === 'form' ? 'Create Request' : 'Review & Send'}</div>
+                <h2 style={{fontSize:18,fontWeight:600,color:'#1a1a1a',margin:0}}>New Visitor Request</h2>
+                <div style={{fontSize:12,color:'#8a8a8a',marginTop:2}}>{secFormStep === 'form' ? 'Create Request' : 'Review & Send'}</div>
               </div>
               <div style={{display:'flex',gap:8}}>
                 {secFormStep === 'review' && (
-                  <button onClick={() => setSecFormStep('form')} style={{background:'#333',color:'#fff',border:'none',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Back to Edit</button>
+                  <button onClick={() => setSecFormStep('form')} style={{background:'#fff',color:'#1a1a1a',border:'1px solid #e0e0e0',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Back to Edit</button>
                 )}
-                <button onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(false); }} style={{background:'#333',color:'#fff',border:'none',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Cancel</button>
+                <button onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(false); }} style={{background:'#fff',color:'#1a1a1a',border:'1px solid #e0e0e0',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Cancel</button>
               </div>
             </div>
 
@@ -5806,19 +5809,19 @@ const SecurityApp = ({ onLogout }) => {
               <>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
                   {/* Section 01 — Visitor Identity */}
-                  <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:20}}>
+                  <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:6,padding:20}}>
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
-                      <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#333',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#888'}}>01</span> VISITOR IDENTITY</div>
-                      <span style={{fontSize:10,color:'#ae9751',letterSpacing:'0.06em'}}>REQUIRED</span>
+                      <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#f0f0f0',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#8a8a8a'}}>01</span> VISITOR IDENTITY</div>
+                      <span style={{fontSize:10,color:'#1a1a1a',letterSpacing:'0.06em'}}>REQUIRED</span>
                     </div>
 
                     {/* Visitor Type */}
                     <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Visitor Type *</label>
+                      <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Visitor Type *</label>
                       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
                         {['Resident Guest','Contractor / Worker','Delivery / Courier','Domestic Staff','Service Vendor','Other / Misc.'].map(t => (
                           <div key={t} onClick={() => setNewVisitorData({...newVisitorData, visitorType: t, idDocType: t === 'Resident Guest' ? '' : newVisitorData.idDocType})}
-                            style={{padding:'10px 6px',border: newVisitorData.visitorType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.visitorType === t ? '#333' : 'transparent',fontSize:11,color: newVisitorData.visitorType === t ? '#fff' : '#888'}}>
+                            style={{padding:'10px 6px',border: newVisitorData.visitorType === t ? '1.5px solid #ae9751' : '1px solid #d0d0d0',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.visitorType === t ? '#f0f0f0' : 'transparent',fontSize:11,color: newVisitorData.visitorType === t ? '#1a1a1a' : '#8a8a8a'}}>
                             {t}
                           </div>
                         ))}
@@ -5827,11 +5830,11 @@ const SecurityApp = ({ onLogout }) => {
 
                     {/* Entry Type */}
                     <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Entry Type *</label>
+                      <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Entry Type *</label>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                         {['Walk-in','Drive In'].map(t => (
                           <div key={t} onClick={() => setNewVisitorData({...newVisitorData, entryType: t})}
-                            style={{padding:10,border: newVisitorData.entryType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.entryType === t ? '#333' : 'transparent',fontSize:12,color: newVisitorData.entryType === t ? '#fff' : '#888'}}>
+                            style={{padding:10,border: newVisitorData.entryType === t ? '1.5px solid #ae9751' : '1px solid #d0d0d0',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.entryType === t ? '#f0f0f0' : 'transparent',fontSize:12,color: newVisitorData.entryType === t ? '#1a1a1a' : '#8a8a8a'}}>
                             {t}
                           </div>
                         ))}
@@ -5840,29 +5843,29 @@ const SecurityApp = ({ onLogout }) => {
 
                     {/* Full Name */}
                     <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Full Name *</label>
+                      <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Full Name *</label>
                       <input value={newVisitorData.fullName} onChange={e => setNewVisitorData({...newVisitorData, fullName: e.target.value})}
                         placeholder="Enter visitor's full name..."
-                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                        style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
                     </div>
 
                     {/* Mobile Number */}
                     <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Mobile Number *</label>
+                      <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Mobile Number *</label>
                       <input value={newVisitorData.mobile} onChange={e => setNewVisitorData({...newVisitorData, mobile: e.target.value})}
                         placeholder="+971 XX XXX XXXX"
-                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                        style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
                     </div>
 
                     {/* ID Document Type — optional for Resident Guest, required for others */}
                     <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>
+                      <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>
                         ID Document Type {newVisitorData.visitorType !== 'Resident Guest' ? '*' : '(Optional)'}
                       </label>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                         {['Passport','Emirates ID'].map(t => (
                           <div key={t} onClick={() => setNewVisitorData({...newVisitorData, idDocType: newVisitorData.idDocType === t ? '' : t})}
-                            style={{padding:10,border: newVisitorData.idDocType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.idDocType === t ? '#333' : 'transparent',fontSize:12,color: newVisitorData.idDocType === t ? '#fff' : '#888'}}>
+                            style={{padding:10,border: newVisitorData.idDocType === t ? '1.5px solid #ae9751' : '1px solid #d0d0d0',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.idDocType === t ? '#f0f0f0' : 'transparent',fontSize:12,color: newVisitorData.idDocType === t ? '#1a1a1a' : '#8a8a8a'}}>
                             {t}
                           </div>
                         ))}
@@ -5872,47 +5875,47 @@ const SecurityApp = ({ onLogout }) => {
                     {/* Document Number */}
                     {newVisitorData.idDocType && (
                       <div style={{marginBottom:16}}>
-                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Document Number {newVisitorData.visitorType !== 'Resident Guest' ? '*' : ''}</label>
+                        <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Document Number {newVisitorData.visitorType !== 'Resident Guest' ? '*' : ''}</label>
                         <input value={newVisitorData.idDocNumber} onChange={e => setNewVisitorData({...newVisitorData, idDocNumber: e.target.value})}
                           placeholder="Enter document number..."
-                          style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                          style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
                       </div>
                     )}
 
                     {/* Purpose */}
                     <div style={{marginBottom:0}}>
-                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Purpose of Visit</label>
+                      <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Purpose of Visit</label>
                       <input value={newVisitorData.purpose} onChange={e => setNewVisitorData({...newVisitorData, purpose: e.target.value})}
                         placeholder="e.g. Personal visit, Delivery, Maintenance..."
-                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                        style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
                     </div>
                   </div>
 
                   {/* Section 02 — Visit Details */}
-                  <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:20}}>
+                  <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:6,padding:20}}>
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
-                      <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#333',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#888'}}>02</span> VISIT DETAILS</div>
-                      <span style={{fontSize:10,color:'#ae9751',letterSpacing:'0.06em'}}>REQUIRED</span>
+                      <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#f0f0f0',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#8a8a8a'}}>02</span> VISIT DETAILS</div>
+                      <span style={{fontSize:10,color:'#1a1a1a',letterSpacing:'0.06em'}}>REQUIRED</span>
                     </div>
 
                     {/* Flat / Unit */}
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
                       <div>
-                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Flat / Unit No. *</label>
+                        <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Flat / Unit No. *</label>
                         <input value={newVisitorData.flat} onChange={e => setNewVisitorData({...newVisitorData, flat: e.target.value})}
                           placeholder="Select unit..."
-                          style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                          style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
                         <div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>
                           {['A-101','A-202','B-102','B-803','C-501','D-1102'].map(u => (
                             <span key={u} onClick={() => setNewVisitorData({...newVisitorData, flat: u})}
-                              style={{padding:'3px 8px',background: newVisitorData.flat === u ? '#ae9751' : '#333',color: newVisitorData.flat === u ? '#1a1a1a' : '#888',borderRadius:3,fontSize:10,cursor:'pointer',border:'1px solid #444'}}>{u}</span>
+                              style={{padding:'3px 8px',background: newVisitorData.flat === u ? '#ae9751' : '#f0f0f0',color: newVisitorData.flat === u ? '#1a1a1a' : '#8a8a8a',borderRadius:3,fontSize:10,cursor:'pointer',border:'1px solid #d0d0d0'}}>{u}</span>
                           ))}
                         </div>
                       </div>
                       <div>
-                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Tower / Block</label>
+                        <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Tower / Block</label>
                         <select value={newVisitorData.tower} onChange={e => setNewVisitorData({...newVisitorData, tower: e.target.value})}
-                          style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}>
+                          style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}>
                           <option>Tower A</option><option>Tower B</option><option>Tower C</option><option>Tower D</option>
                         </select>
                       </div>
@@ -5920,24 +5923,24 @@ const SecurityApp = ({ onLogout }) => {
 
                     {/* Host / Resident */}
                     <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Host / Resident Name *</label>
+                      <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Host / Resident Name *</label>
                       <input value={newVisitorData.host} onChange={e => setNewVisitorData({...newVisitorData, host: e.target.value})}
                         placeholder="Auto-populated on unit selection..."
-                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                        style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
                     </div>
 
                     {/* Repeater */}
                     <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Visit Frequency</label>
+                      <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Visit Frequency</label>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                         {['Single Visit','Multiple Entry'].map(r => (
                           <div key={r} onClick={() => setNewVisitorData({...newVisitorData, repeater: r})}
-                            style={{padding:10,border: newVisitorData.repeater === r ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.repeater === r ? '#333' : 'transparent',fontSize:12,color: newVisitorData.repeater === r ? '#fff' : '#888'}}>
+                            style={{padding:10,border: newVisitorData.repeater === r ? '1.5px solid #ae9751' : '1px solid #d0d0d0',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.repeater === r ? '#f0f0f0' : 'transparent',fontSize:12,color: newVisitorData.repeater === r ? '#1a1a1a' : '#8a8a8a'}}>
                             {r}
                           </div>
                         ))}
                       </div>
-                      <div style={{fontSize:10,color:'#666',marginTop:4}}>
+                      <div style={{fontSize:10,color:'#8a8a8a',marginTop:4}}>
                         {newVisitorData.repeater === 'Single Visit' ? 'Valid for today only' : 'Valid until cancelled by resident'}
                       </div>
                     </div>
@@ -5945,31 +5948,31 @@ const SecurityApp = ({ onLogout }) => {
                     {/* Additional Visitors + Vehicle */}
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
                       <div>
-                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Additional Visitors</label>
+                        <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Additional Visitors</label>
                         <div style={{display:'flex',alignItems:'center',gap:0}}>
                           <button onClick={() => setNewVisitorData({...newVisitorData, additionalVisitors: Math.max(0, newVisitorData.additionalVisitors - 1)})}
-                            style={{width:36,height:36,background:'#333',border:'1px solid #444',borderRadius:'4px 0 0 4px',color:'#fff',fontSize:16,cursor:'pointer'}}>-</button>
-                          <div style={{width:48,height:36,background:'#2a2a2a',border:'1px solid #444',borderLeft:'none',borderRight:'none',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:600}}>{newVisitorData.additionalVisitors}</div>
+                            style={{width:36,height:36,background:'#fff',border:'1px solid #d0d0d0',borderRadius:'4px 0 0 4px',color:'#1a1a1a',fontSize:16,cursor:'pointer'}}>-</button>
+                          <div style={{width:48,height:36,background:'#f0f0f0',border:'1px solid #d0d0d0',borderLeft:'none',borderRight:'none',display:'flex',alignItems:'center',justifyContent:'center',color:'#1a1a1a',fontSize:14,fontWeight:600}}>{newVisitorData.additionalVisitors}</div>
                           <button onClick={() => setNewVisitorData({...newVisitorData, additionalVisitors: newVisitorData.additionalVisitors + 1})}
-                            style={{width:36,height:36,background:'#333',border:'1px solid #444',borderRadius:'0 4px 4px 0',color:'#fff',fontSize:16,cursor:'pointer'}}>+</button>
+                            style={{width:36,height:36,background:'#fff',border:'1px solid #d0d0d0',borderRadius:'0 4px 4px 0',color:'#1a1a1a',fontSize:16,cursor:'pointer'}}>+</button>
                         </div>
-                        <div style={{fontSize:10,color:'#666',marginTop:4}}>Total visitors: {1 + newVisitorData.additionalVisitors}</div>
+                        <div style={{fontSize:10,color:'#8a8a8a',marginTop:4}}>Total visitors: {1 + newVisitorData.additionalVisitors}</div>
                       </div>
                       <div>
-                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Vehicle Number (if any)</label>
+                        <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Vehicle Number (if any)</label>
                         <input value={newVisitorData.vehicle} onChange={e => setNewVisitorData({...newVisitorData, vehicle: e.target.value})}
                           placeholder="e.g. AB 12345 — leave blank if no"
-                          style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                          style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
                       </div>
                     </div>
 
                     {/* Guard Notes */}
                     <div>
-                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Entry Remarks / Guard Notes</label>
+                      <label style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Entry Remarks / Guard Notes</label>
                       <textarea value={newVisitorData.guardNotes} onChange={e => setNewVisitorData({...newVisitorData, guardNotes: e.target.value})}
                         placeholder="Add any observations or notes here..."
                         rows={3}
-                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none',resize:'vertical',fontFamily:'inherit'}}/>
+                        style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d0d0d0',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none',resize:'vertical',fontFamily:'inherit'}}/>
                     </div>
                   </div>
                 </div>
@@ -5983,16 +5986,16 @@ const SecurityApp = ({ onLogout }) => {
             ) : (
               /* REVIEW STEP */
               <div style={{maxWidth:600,margin:'0 auto'}}>
-                <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:8,overflow:'hidden',marginBottom:20}}>
+                <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:8,overflow:'hidden',marginBottom:20}}>
                   {/* Review Header */}
-                  <div style={{background:'#333',padding:'16px 20px',borderBottom:'1px solid #444'}}>
+                  <div style={{background:'#f0f0f0',padding:'16px 20px',borderBottom:'1px solid #d0d0d0'}}>
                     <div style={{display:'flex',alignItems:'center',gap:12}}>
                       <div style={{width:44,height:44,borderRadius:'50%',background:'#ae9751',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,color:'#1a1a1a'}}>
                         {newVisitorData.fullName.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2)}
                       </div>
                       <div>
-                        <div style={{fontSize:16,fontWeight:600,color:'#fff'}}>{newVisitorData.fullName}</div>
-                        <div style={{fontSize:12,color:'#ae9751'}}>{newVisitorData.visitorType}</div>
+                        <div style={{fontSize:16,fontWeight:600,color:'#1a1a1a'}}>{newVisitorData.fullName}</div>
+                        <div style={{fontSize:12,color:'#1a1a1a'}}>{newVisitorData.visitorType}</div>
                       </div>
                     </div>
                   </div>
@@ -6011,17 +6014,17 @@ const SecurityApp = ({ onLogout }) => {
                       ['Vehicle', newVisitorData.vehicle || 'No vehicle'],
                       ['Guard Notes', newVisitorData.guardNotes || '—']
                     ].map(([label, val], i) => (
-                      <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'10px 0',borderBottom: i < 9 ? '1px solid #333' : 'none'}}>
-                        <span style={{fontSize:12,color:'#888'}}>{label}</span>
-                        <span style={{fontSize:12,color:'#fff',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
+                      <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'10px 0',borderBottom: i < 9 ? '1px solid #e0e0e0' : 'none'}}>
+                        <span style={{fontSize:12,color:'#8a8a8a'}}>{label}</span>
+                        <span style={{fontSize:12,color:'#1a1a1a',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
                       </div>
                     ))}
                   </div>
 
                   {/* Status indicator */}
-                  <div style={{padding:'12px 20px',background:'#1a3a2a',borderTop:'1px solid #2d6a4f',display:'flex',alignItems:'center',gap:8}}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" strokeWidth="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M9 12l2 2 4-4"/></svg>
-                    <span style={{fontSize:11,color:'#81c784'}}>This request will be sent to the resident for approval</span>
+                  <div style={{padding:'12px 20px',background:'#e8f5e9',borderTop:'1px solid #c8e6c9',display:'flex',alignItems:'center',gap:8}}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                    <span style={{fontSize:11,color:'#2e7d32'}}>This request will be sent to the resident for approval</span>
                   </div>
                 </div>
 
@@ -6041,29 +6044,29 @@ const SecurityApp = ({ onLogout }) => {
         const nowTime = new Date();
         const insideVisitors = data.visitors.filter(v => v.status === 'Inside');
         return (
-          <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#1a1a1a',zIndex:1000,overflowY:'auto'}}>
+          <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#f5f5f5',zIndex:1000,overflowY:'auto'}}>
             <div style={{maxWidth:900,margin:'0 auto',padding:20}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
                 <div>
-                  <h2 style={{fontSize:18,fontWeight:600,color:'#fff',margin:0}}>Persons Currently Inside</h2>
-                  <div style={{fontSize:12,color:'#888',marginTop:2}}>{insideVisitors.length} visitor{insideVisitors.length !== 1 ? 's' : ''} in the building</div>
+                  <h2 style={{fontSize:18,fontWeight:600,color:'#1a1a1a',margin:0}}>Persons Currently Inside</h2>
+                  <div style={{fontSize:12,color:'#8a8a8a',marginTop:2}}>{insideVisitors.length} visitor{insideVisitors.length !== 1 ? 's' : ''} in the building</div>
                 </div>
-                <button onClick={() => setShowFullInsideList(false)} style={{background:'#333',color:'#fff',border:'none',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Close</button>
+                <button onClick={() => setShowFullInsideList(false)} style={{background:'#fff',color:'#1a1a1a',border:'1px solid #e0e0e0',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Close</button>
               </div>
 
               {insideVisitors.length === 0 ? (
-                <div style={{textAlign:'center',color:'#666',padding:40}}>No visitors currently inside the building.</div>
+                <div style={{textAlign:'center',color:'#8a8a8a',padding:40}}>No visitors currently inside the building.</div>
               ) : (
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                   <thead>
-                    <tr style={{borderBottom:'1px solid #333'}}>
-                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>#</th>
-                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>VISITOR</th>
-                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>TYPE</th>
-                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>UNIT / HOST</th>
-                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>ENTRY TIME</th>
-                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>DURATION</th>
-                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>STATUS</th>
+                    <tr style={{borderBottom:'1px solid #e0e0e0'}}>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#8a8a8a',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>#</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#8a8a8a',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>VISITOR</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#8a8a8a',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>TYPE</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#8a8a8a',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>UNIT / HOST</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#8a8a8a',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>ENTRY TIME</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#8a8a8a',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>DURATION</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#8a8a8a',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>STATUS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -6082,14 +6085,14 @@ const SecurityApp = ({ onLogout }) => {
                         } catch(e) { durationStr = '—'; }
                       }
                       return (
-                        <tr key={v.id || i} style={{borderBottom:'1px solid #2a2a2a',cursor:'pointer'}} onClick={() => { setViewingVisitor(v); setShowFullInsideList(false); }}>
-                          <td style={{padding:'12px 8px',color:'#666'}}>{i + 1}</td>
-                          <td style={{padding:'12px 8px',color:'#fff',fontWeight:500}}>{v.name}</td>
-                          <td style={{padding:'12px 8px',color:'#ccc'}}>{v.type}</td>
-                          <td style={{padding:'12px 8px',color:'#ccc'}}>{v.flat || v.unit || '—'}{v.resident ? ' / ' + v.resident : ''}</td>
-                          <td style={{padding:'12px 8px',color:'#ae9751',fontWeight:500}}>{v.securityPassedTime || v.time || '—'}</td>
-                          <td style={{padding:'12px 8px',color:'#ccc'}}>{durationStr}</td>
-                          <td style={{padding:'12px 8px'}}><span style={{background:'#1b3a1b',color:'#4caf50',padding:'2px 8px',borderRadius:3,fontSize:10,fontWeight:600}}>INSIDE</span></td>
+                        <tr key={v.id || i} style={{borderBottom:'1px solid #f0f0f0',cursor:'pointer'}} onClick={() => { setViewingVisitor(v); setShowFullInsideList(false); }}>
+                          <td style={{padding:'12px 8px',color:'#8a8a8a'}}>{i + 1}</td>
+                          <td style={{padding:'12px 8px',color:'#1a1a1a',fontWeight:500}}>{v.name}</td>
+                          <td style={{padding:'12px 8px',color:'#8a8a8a'}}>{v.type}</td>
+                          <td style={{padding:'12px 8px',color:'#8a8a8a'}}>{v.flat || v.unit || '—'}{v.resident ? ' / ' + v.resident : ''}</td>
+                          <td style={{padding:'12px 8px',color:'#1a1a1a',fontWeight:500}}>{v.securityPassedTime || v.time || '—'}</td>
+                          <td style={{padding:'12px 8px',color:'#8a8a8a'}}>{durationStr}</td>
+                          <td style={{padding:'12px 8px'}}><span style={{background:'#e8f5e9',color:'#2e7d32',padding:'2px 8px',borderRadius:3,fontSize:10,fontWeight:600}}>INSIDE</span></td>
                         </tr>
                       );
                     })}
