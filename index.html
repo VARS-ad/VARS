@@ -3648,6 +3648,12 @@ const SecurityApp = ({ onLogout }) => {
 
 // ==================== SUPABASE + REAL-TIME SYNC ====================
 const STORAGE_KEY = 'varspm_data';
+// Unique device ID so we can ignore our own real-time echoes
+const DEVICE_ID = (function() {
+  let id = localStorage.getItem('varspm_device_id');
+  if (!id) { id = 'dev_' + Math.random().toString(36).slice(2) + Date.now(); localStorage.setItem('varspm_device_id', id); }
+  return id;
+})();
 const SUPABASE_URL = 'https://whgoaglmguopxrzfjifj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ29hZ2xtZ3VvcHhyemZqaWZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjY1MDEsImV4cCI6MjA5MDgwMjUwMX0.TL6klBDqfyAUvpgKXxha-1hpH6keaeARZvJk3rc5vhg';
 
@@ -3698,10 +3704,7 @@ const App = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState(supabaseReady ? 'connecting' : 'local');
   const isSyncingRef = React.useRef(false);
-  const lastWriteRef = React.useRef(0);
   const writeTimerRef = React.useRef(null);
-  const pendingWriteRef = React.useRef(false); // true while a local change is waiting to be written
-  const dataVersionRef = React.useRef(0); // increments on each local change
 
   // Load initial data from Supabase on mount
   useEffect(() => {
@@ -3738,20 +3741,20 @@ const App = () => {
     loadFromCloud();
   }, []);
 
-  // Subscribe to real-time changes from Supabase (other devices)
+  // Subscribe to real-time changes from Supabase (other devices only)
   useEffect(() => {
     if (!supabaseReady || !supabaseClient) return;
     const channel = supabaseClient
       .channel('app_state_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'id=eq.main' }, (payload) => {
-        // Skip if we have a pending local write or wrote recently (within 3s)
-        const now = Date.now();
-        if (pendingWriteRef.current || (now - lastWriteRef.current < 3000)) {
-          console.log('Skipping remote update (own write echo)');
+        // Skip if this update came from our own device
+        const remoteDevice = payload.new && payload.new.writer_device;
+        if (remoteDevice === DEVICE_ID) {
+          console.log('Skipping own write echo');
           return;
         }
         if (payload.new && payload.new.data) {
-          console.log('Applying remote update from another device');
+          console.log('Applying remote update from device:', remoteDevice);
           isSyncingRef.current = true;
           const merged = { ...initialData, ...payload.new.data };
           setData(merged);
@@ -3773,18 +3776,14 @@ const App = () => {
     if (isSyncingRef.current) { isSyncingRef.current = false; return; }
     // Save to localStorage immediately
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
-    // Mark that we have a pending local write (so real-time sub ignores echo)
+    // Write to Supabase with our device ID so other devices can identify the source
     if (supabaseReady && supabaseClient) {
-      pendingWriteRef.current = true;
-      dataVersionRef.current += 1;
-      const thisVersion = dataVersionRef.current;
       if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
       writeTimerRef.current = setTimeout(async () => {
-        lastWriteRef.current = Date.now();
         try {
           const { error } = await supabaseClient
             .from('app_state')
-            .upsert({ id: 'main', data: data, updated_at: new Date().toISOString() });
+            .upsert({ id: 'main', data: data, writer_device: DEVICE_ID, updated_at: new Date().toISOString() });
           if (error) {
             console.log('Supabase write error:', error.message);
             setSyncStatus('offline');
@@ -3794,10 +3793,6 @@ const App = () => {
         } catch(e) {
           console.log('Supabase write exception:', e);
           setSyncStatus('offline');
-        }
-        // Only clear pending flag if no newer writes came in
-        if (dataVersionRef.current === thisVersion) {
-          pendingWriteRef.current = false;
         }
       }, 500);
     }
