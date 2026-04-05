@@ -972,7 +972,7 @@ const LoginPage = ({ onLogin, syncStatus }) => {
         )}
 
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:16}}>
-          <p style={{fontSize:12,color:'#888'}}>Abu Dhabi · GST+4 · VARS PM v1.0 · Code updated: 05 Apr 2026, 11:33 GST</p>
+          <p style={{fontSize:12,color:'#888'}}>Abu Dhabi · GST+4 · VARS PM v1.0 · Code updated: 05 Apr 2026, 11:42 GST</p>
           <button
             onClick={() => { localStorage.removeItem('varspm_data'); try { if (typeof window.supabase !== 'undefined') { const sb = window.supabase.createClient('https://whgoaglmguopxrzfjifj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ29hZ2xtZ3VvcHhyemZqaWZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjY1MDEsImV4cCI6MjA5MDgwMjUwMX0.TL6klBDqfyAUvpgKXxha-1hpH6keaeARZvJk3rc5vhg'); sb.from('app_state').upsert({ id: 'main', data: {} }); } } catch(e){} window.location.reload(); }}
             style={{background:'none',border:'none',color:'#cc0000',fontSize:11,cursor:'pointer',textDecoration:'underline'}}
@@ -4280,30 +4280,46 @@ const App = () => {
           .single();
         if (error) {
           if (isInitial && error.code === 'PGRST116') {
+            // No row exists yet — create one with initial data
             console.log('No data row — creating initial');
             await supabaseClient.from('app_state').upsert({ id: 'main', data: initialData, updated_at: new Date().toISOString() });
+            setSyncStatus('online');
+            // CRITICAL: enable writes so pre-approvals get saved to cloud
+            initialLoadDoneRef.current = true;
+            console.log('Initial row created — cloud writes enabled');
+            return;
           }
-          if (isInitial) setSyncStatus('offline');
+          console.log('Supabase query error:', error.code, error.message);
+          if (isInitial) {
+            setSyncStatus('offline');
+            initialLoadDoneRef.current = true; // allow writes even if cloud errored
+          }
           return;
         }
+        // Row found — merge cloud data into state
         if (row && row.data && Object.keys(row.data).length > 0) {
           const cloudData = { ...row.data };
           const writerDevice = cloudData._lastWriter || '';
           delete cloudData._lastWriter;
           const hash = quickHash(cloudData);
 
-          // Skip if data came from us OR hasn't changed (but always apply on initial load)
-          if (!isInitial && (writerDevice === DEVICE_ID || hash === lastCloudHashRef.current)) {
+          // On poll (not initial): skip if data hasn't changed
+          if (!isInitial && hash === lastCloudHashRef.current) {
             return;
           }
-          console.log(isInitial ? 'Loaded cloud data' : 'Poll: new data from device ' + writerDevice);
+          console.log(isInitial ? 'Loaded cloud data (visitors: ' + (cloudData.visitors||[]).length + ')' : 'Poll: new data from device ' + writerDevice + ' (visitors: ' + (cloudData.visitors||[]).length + ')');
           lastCloudHashRef.current = hash;
           const merged = { ...initialData, ...cloudData };
           setData(merged);
           try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch(e) {}
+        } else {
+          console.log(isInitial ? 'Cloud row exists but data is empty — using local data' : 'Poll: empty data, skipping');
         }
         setSyncStatus('online');
-        if (isInitial) initialLoadDoneRef.current = true;
+        if (isInitial) {
+          initialLoadDoneRef.current = true;
+          console.log('Initial cloud load done — cloud writes enabled');
+        }
       } catch(e) {
         console.log('Supabase load error:', e);
         if (isInitial) {
@@ -4340,10 +4356,10 @@ const App = () => {
             .from('app_state')
             .upsert({ id: 'main', data: payload, updated_at: new Date().toISOString() });
           if (error) {
-            console.log('Supabase write error:', error.message);
+            console.log('Supabase write FAILED:', error.message, error.code);
             setSyncStatus('offline');
           } else {
-            console.log('Supabase write OK, visitors:', (data.visitors||[]).length);
+            console.log('Supabase write OK — visitors:', (data.visitors||[]).length, 'entryLog:', (data.entryLog||[]).length);
             setSyncStatus('online');
           }
         } catch(e) {
@@ -4352,6 +4368,8 @@ const App = () => {
         }
         isWritingRef.current = false;
       }, 600);
+    } else if (!initialLoadDoneRef.current) {
+      console.log('Supabase write BLOCKED — initial load not yet done');
     }
   }, [data]);
 
@@ -4375,11 +4393,20 @@ const App = () => {
     setRole(selectedRole);
   }} syncStatus={syncStatus}/>;
 
+  // Sync status indicator — small dot in corner of all views
+  const SyncDot = () => (
+    <div onClick={() => showToast(syncStatus === 'online' ? 'Cloud sync active — data saves across devices' : syncStatus === 'offline' ? 'Cloud offline — data saved locally only' : 'Connecting to cloud...')} style={{position:'fixed',bottom:8,right:8,zIndex:9999,cursor:'pointer',display:'flex',alignItems:'center',gap:4,background:'rgba(255,255,255,0.9)',padding:'3px 8px',borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.1)',fontSize:10,color:'#888'}}>
+      <div style={{width:6,height:6,borderRadius:'50%',background: syncStatus === 'online' ? '#4caf50' : syncStatus === 'offline' ? '#f44336' : '#ff9800'}}></div>
+      {syncStatus === 'online' ? 'Synced' : syncStatus === 'offline' ? 'Local only' : 'Connecting...'}
+    </div>
+  );
+
   // If logged in as resident, show resident app
   if (role === 'resident') {
     return (
       <AppContext.Provider value={{ data, setData, showToast }}>
         <ResidentApp onLogout={handleLogout}/>
+        <SyncDot/>
         {toast && <div className="toast">{toast}</div>}
       </AppContext.Provider>
     );
@@ -4390,6 +4417,7 @@ const App = () => {
     return (
       <AppContext.Provider value={{ data, setData, showToast }}>
         <SecurityApp onLogout={handleLogout}/>
+        <SyncDot/>
         {toast && <div className="toast">{toast}</div>}
       </AppContext.Provider>
     );
@@ -4422,6 +4450,7 @@ const App = () => {
         <div className="main-content">{renderPage()}</div>
         <MobileBottomNav page={page} setPage={setPage}/>
       </div>
+      <SyncDot/>
       {toast && <div className="toast">{toast}</div>}
     </AppContext.Provider>
   );
