@@ -427,7 +427,7 @@ body{font-family:'Arial','Helvetica Neue',sans-serif;background:#f5f5f3;color:#1
 
 /* ==================== SECURITY APP CSS ==================== */
 .sec-app{display:flex;flex-direction:column;min-height:100vh;background:#1a1a1a;color:#fff}
-.sec-header{background:#1a1a1a;border-bottom:1px solid #333;padding:12px 16px;display:grid;grid-template-columns:1fr auto 200px;gap:16px;align-items:center;position:sticky;top:0;z-index:50;font-size:11px}
+.sec-header{background:#1a1a1a;border-bottom:1px solid #333;padding:12px 20px;display:grid;grid-template-columns:auto 1fr auto auto;gap:20px;align-items:center;position:sticky;top:0;z-index:50;font-size:11px}
 .sec-header-left{display:flex;gap:12px;align-items:center}
 .sec-header-left .logo{width:32px;height:32px;background:#ae9751;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#1a1a1a;font-weight:600;font-size:14px}
 .sec-building-info{display:flex;flex-direction:column}
@@ -449,11 +449,11 @@ body{font-family:'Arial','Helvetica Neue',sans-serif;background:#f5f5f3;color:#1
 .sec-tab.active{color:#ae9751;border-bottom-color:#ae9751}
 .sec-main-content{padding:16px;flex:1;overflow-y:auto}
 .sec-quick-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
-.sec-quick-action-btn{background:#2a2a2a;border:1px solid #333;border-radius:6px;padding:16px;text-align:center;cursor:pointer;color:#fff;transition:all .2s}
-.sec-quick-action-btn:hover{background:#333;border-color:#444}
+.sec-quick-action-btn{background:#2a2a2a;border:1px solid #333;border-radius:8px;padding:20px 16px;text-align:center;cursor:pointer;color:#fff;transition:all .2s}
+.sec-quick-action-btn:hover{background:#333;border-color:#ae9751}
 .sec-quick-action-btn .icon{font-size:24px;margin-bottom:8px}
-.sec-quick-action-btn .label{font-size:12px;font-weight:500;margin-bottom:4px}
-.sec-quick-action-btn .shortcut{font-size:9px;color:#999;margin-top:4px}
+.sec-quick-action-btn .label{font-size:13px;font-weight:600;margin-bottom:4px}
+.sec-quick-action-btn .shortcut{font-size:10px;color:#888;margin-top:4px}
 .sec-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
 .sec-column{display:flex;flex-direction:column;gap:12px}
 .sec-kpi-block{background:#2a2a2a;border:1px solid #333;border-radius:6px;padding:16px;border-top:2px solid #ae9751}
@@ -496,6 +496,10 @@ body{font-family:'Arial','Helvetica Neue',sans-serif;background:#f5f5f3;color:#1
 .sec-entry-log-table .status-cleared{background:#2d6a4f;color:#fff}
 .sec-entry-log-table .status-on-hold{background:#b8860b;color:#fff}
 .sec-entry-log-table .status-rejected{background:#c0392b;color:#fff}
+.sec-entry-log-table .status-awaiting-approval{background:#1565c0;color:#fff}
+.sec-entry-log-table .status-resident-approved{background:#2e7d32;color:#fff}
+.sec-entry-log-table .status-passed-security{background:#2d6a4f;color:#fff}
+.sec-entry-log-table .status-checked-out{background:#555;color:#fff}
 .sec-filter-row{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:4px}
 .sec-filter-chip{padding:8px 12px;border:1px solid #444;border-radius:3px;background:#2a2a2a;color:#ccc;cursor:pointer;font-size:11px;white-space:nowrap}
 .sec-filter-chip.active{background:#ae9751;color:#1a1a1a;border-color:#ae9751}
@@ -2710,7 +2714,7 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
       <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:20,marginBottom:12}}>
         <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:10,fontWeight:600}}>Visitor Type *</div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
-          {['Guest','Contractor','Cleaning Service','Delivery','Maintenance','VIP'].map(t => (
+          {['Resident Guest','Contractor / Worker','Delivery / Courier','Domestic Staff','Service Vendor','Other / Misc.'].map(t => (
             <div key={t} onClick={() => setVisitorType(t)}
               style={{padding:'12px 8px',border: visitorType===t ? '2px solid #1a1a1a' : '1px solid #e0e0e0',
               borderRadius:6,textAlign:'center',cursor:'pointer',background: visitorType===t ? '#faf8f5' : '#fff',
@@ -2944,49 +2948,80 @@ const ResidentApp = ({ onLogout }) => {
   const [showCallSecurity, setShowCallSecurity] = useState(false);
 
   const handleApproveVisitor = (visitor) => {
-    // Move from pendingApprovals → data.visitors as Scheduled (upcoming)
     const now = new Date();
-    const permitRef = 'PA-' + Date.now();
-    const newVisitor = {
-      id: Date.now(),
-      name: visitor.name,
-      type: visitor.type || 'Guest',
-      contact: visitor.calledBy || 'Resident',
-      resident: 'Nitin Sharma',
-      date: now.toLocaleDateString('en-GB'),
-      time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      status: 'Scheduled',
-      purpose: 'Personal visit',
-      permitRef: permitRef,
-      repeater: 'Single Visit',
-      qrPayload: {
-        permit: permitRef,
-        property: 'Sky Tower - The Pinnacle Residences',
-        unit: 'B-102',
+    const isFromSecurity = visitor.source === 'security';
+
+    if (isFromSecurity) {
+      // Security-originated: update existing visitor entry status from "Awaiting Approval" → "Approved"
+      // and update entry log status
+      setData(prev => ({
+        ...prev,
+        visitors: prev.visitors.map(v =>
+          v.permitRef === visitor.permitRef
+            ? { ...v, status: 'Scheduled', qrPayload: v.qrPayload ? { ...v.qrPayload, status: 'RESIDENT APPROVED' } : v.qrPayload }
+            : v
+        ),
+        entryLog: prev.entryLog.map(e =>
+          e.refId === visitor.permitRef
+            ? { ...e, status: 'RESIDENT APPROVED' }
+            : e
+        ),
+        pendingApprovals: prev.pendingApprovals.filter(p => p.id !== visitor.id)
+      }));
+      showToast(visitor.name + ' approved — security notified');
+    } else {
+      // Resident-originated: create new visitor entry as before
+      const permitRef = 'PA-' + Date.now();
+      const newVisitor = {
+        id: Date.now(),
+        name: visitor.name,
+        type: visitor.type || 'Resident Guest',
+        contact: visitor.calledBy || 'Resident',
         resident: 'Nitin Sharma',
-        visitor: visitor.name,
-        type: visitor.type || 'Guest',
         date: now.toLocaleDateString('en-GB'),
         time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        validUntil: now.toLocaleDateString('en-GB') + ' 23:59',
-        repeater: 'Single Visit',
-        status: 'PRE-APPROVED'
-      }
-    };
-    setData(prev => ({
-      ...prev,
-      visitors: [newVisitor, ...prev.visitors],
-      pendingApprovals: prev.pendingApprovals.filter(p => p.id !== visitor.id)
-    }));
-    showToast(visitor.name + ' approved — moved to upcoming visitors');
+        status: 'Scheduled',
+        purpose: visitor.purpose || 'Personal visit',
+        permitRef: permitRef,
+        repeater: visitor.repeater || 'Single Visit',
+        flat: 'B-102',
+        qrPayload: {
+          permit: permitRef,
+          property: 'Sky Tower - The Pinnacle Residences',
+          unit: 'B-102',
+          resident: 'Nitin Sharma',
+          visitor: visitor.name,
+          type: visitor.type || 'Resident Guest',
+          date: now.toLocaleDateString('en-GB'),
+          time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          validUntil: now.toLocaleDateString('en-GB') + ' 23:59',
+          repeater: visitor.repeater || 'Single Visit',
+          status: 'PRE-APPROVED'
+        }
+      };
+      setData(prev => ({
+        ...prev,
+        visitors: [newVisitor, ...prev.visitors],
+        pendingApprovals: prev.pendingApprovals.filter(p => p.id !== visitor.id)
+      }));
+      showToast(visitor.name + ' approved — moved to upcoming visitors');
+    }
   };
 
   const handleRejectVisitor = (visitor) => {
+    const isFromSecurity = visitor.source === 'security';
     setData(prev => ({
       ...prev,
-      pendingApprovals: prev.pendingApprovals.filter(p => p.id !== visitor.id)
+      pendingApprovals: prev.pendingApprovals.filter(p => p.id !== visitor.id),
+      // If from security, also update visitor + entry log to "Rejected"
+      visitors: isFromSecurity
+        ? prev.visitors.map(v => v.permitRef === visitor.permitRef ? { ...v, status: 'Rejected' } : v)
+        : prev.visitors,
+      entryLog: isFromSecurity
+        ? prev.entryLog.map(e => e.refId === visitor.permitRef ? { ...e, status: 'REJECTED' } : e)
+        : prev.entryLog
     }));
-    showToast(visitor.name + ' rejected');
+    showToast(visitor.name + ' rejected' + (isFromSecurity ? ' — security notified' : ''));
   };
 
   const handleConfirmApproval = () => {
@@ -3387,7 +3422,7 @@ const ResidentApp = ({ onLogout }) => {
 
       case 'viewall':
         const allVisitors = data.visitors || [];
-        const visFilterTypes = ['All', 'Guest', 'Contractor', 'Cleaning Service', 'Delivery', 'Maintenance', 'VIP'];
+        const visFilterTypes = ['All', 'Resident Guest', 'Contractor / Worker', 'Delivery / Courier', 'Domestic Staff', 'Service Vendor', 'Other / Misc.'];
         const visDateFilterOptions = ['All', 'Today', 'Next Week', 'Next Month', 'Past Week', 'Past Month'];
 
         // Status badge
@@ -3592,15 +3627,26 @@ const ResidentApp = ({ onLogout }) => {
               {waitingApprovals.length > 0 ? waitingApprovals.slice(0,2).map(v => (
                 <div key={v.id} style={{marginBottom: 14}}>
                   <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
-                    <div style={{width:44,height:44,borderRadius:'50%',background:'#fff3e0',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e65100" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                    <div style={{width:44,height:44,borderRadius:'50%',background: v.source === 'security' ? '#e3f2fd' : '#fff3e0',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      {v.source === 'security' ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1565c0" strokeWidth="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e65100" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                      )}
                     </div>
                     <div style={{flex:1}}>
                       <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
-                      <div style={{fontSize:11,color:'#8a8a8a'}}>{v.type} — Personal visit</div>
-                      <div style={{fontSize:11,color:'#8a8a8a'}}>Waiting: {v.timeWaiting || '—'} min — Gate: Main</div>
+                      <div style={{fontSize:11,color:'#8a8a8a'}}>{v.type} — {v.purpose || 'Personal visit'}</div>
+                      <div style={{fontSize:11,color:'#8a8a8a'}}>
+                        {v.source === 'security' ? 'From: Security Gate' : 'Waiting: ' + (v.timeWaiting || '—') + ' min'} — {v.flat || 'Gate: Main'}
+                      </div>
+                      {v.source === 'security' && v.repeater && (
+                        <div style={{fontSize:10,color:'#1565c0',marginTop:2}}>{v.repeater}{v.vehicle ? ' — Vehicle: ' + v.vehicle : ''}</div>
+                      )}
                     </div>
-                    <span style={{fontSize:10,color:'#e65100',background:'#fff3e0',padding:'3px 10px',borderRadius:4,fontWeight:600}}>Waiting</span>
+                    <span style={{fontSize:10,color: v.source === 'security' ? '#1565c0' : '#e65100',background: v.source === 'security' ? '#e3f2fd' : '#fff3e0',padding:'3px 10px',borderRadius:4,fontWeight:600}}>
+                      {v.source === 'security' ? 'Security Request' : 'Waiting'}
+                    </span>
                   </div>
                   <div style={{display:'flex',gap:8}}>
                     <button onClick={() => handleApproveVisitor(v)} style={{flex:1,padding:'10px 0',borderRadius:6,border:'none',background:'#2c3e50',color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
@@ -4764,6 +4810,13 @@ const SecurityApp = ({ onLogout }) => {
   const [showNewVisitorForm, setShowNewVisitorForm] = useState(false);
   const [showFullInsideList, setShowFullInsideList] = useState(false);
   const [secVisitorFilter, setSecVisitorFilter] = useState('ALL');
+  const [insideFilterTab, setInsideFilterTab] = useState('ALL');
+  const [entryLogPage, setEntryLogPage] = useState(0);
+  const ENTRY_LOG_PER_PAGE = 8;
+  const [visRegPage, setVisRegPage] = useState(0);
+  const VIS_REG_PER_PAGE = 12;
+  const [visRegSearch, setVisRegSearch] = useState('');
+  const [secFormStep, setSecFormStep] = useState('form'); // form | review
   const [newVisitorData, setNewVisitorData] = useState({
     visitorType: 'Resident Guest',
     entryType: 'Walk-in',
@@ -4777,64 +4830,118 @@ const SecurityApp = ({ onLogout }) => {
     additionalVisitors: 0,
     vehicle: '',
     guardNotes: '',
-    purpose: ''
+    purpose: '',
+    repeater: 'Single Visit'
   });
   const secQrRef = React.useRef(null);
 
   const resetNewVisitorForm = () => {
+    setSecFormStep('form');
     setNewVisitorData({
       visitorType: 'Resident Guest', entryType: 'Walk-in', fullName: '', mobile: '',
       idDocType: '', idDocNumber: '', flat: '', tower: 'Tower A', host: '',
-      additionalVisitors: 0, vehicle: '', guardNotes: '', purpose: ''
+      additionalVisitors: 0, vehicle: '', guardNotes: '', purpose: '', repeater: 'Single Visit'
     });
   };
 
-  const submitNewVisitor = () => {
+  // Step 1: Validate and move to review
+  const validateNewVisitorForm = () => {
     if (!newVisitorData.fullName.trim()) { showToast('Please enter visitor name'); return; }
     if (!newVisitorData.mobile.trim()) { showToast('Please enter mobile number'); return; }
     if (!newVisitorData.flat.trim()) { showToast('Please enter flat/unit number'); return; }
     if (newVisitorData.visitorType !== 'Resident Guest' && !newVisitorData.idDocType) { showToast('ID document required for non-guest visitors'); return; }
+    setSecFormStep('review');
+  };
 
+  // Step 2: Send visitor request → goes to resident pendingApprovals
+  const submitNewVisitor = () => {
     const timeNow = new Date();
     const timeStr = timeNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Dubai' });
     const dateStr = timeNow.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Dubai' });
-    const permitRef = 'VIS-' + timeNow.getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+    const permitRef = 'SEC-' + timeNow.getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
     const idDocFull = newVisitorData.idDocType ? (newVisitorData.idDocType + (newVisitorData.idDocNumber ? ': ' + newVisitorData.idDocNumber : '')) : '';
+    const validUntil = newVisitorData.repeater === 'Single Visit'
+      ? (dateStr + ' 23:59')
+      : 'Until cancelled';
 
-    const visitorEntry = {
+    // Create pending approval for resident
+    const pendingEntry = {
       id: Date.now(),
       name: newVisitorData.fullName.trim(),
-      resident: newVisitorData.host.trim() || 'Gate Entry',
+      type: newVisitorData.visitorType,
+      flat: newVisitorData.flat.trim(),
+      calledBy: 'Security Gate',
+      timeWaiting: 'Just now',
+      source: 'security',
+      permitRef: permitRef,
+      contact: newVisitorData.mobile.trim(),
+      entryType: newVisitorData.entryType,
+      idDoc: idDocFull,
+      vehicle: newVisitorData.vehicle.trim(),
+      additionalVisitors: newVisitorData.additionalVisitors,
+      guardNotes: newVisitorData.guardNotes.trim(),
+      purpose: newVisitorData.purpose.trim() || newVisitorData.visitorType + ' visit',
+      host: newVisitorData.host.trim() || 'Resident',
+      repeater: newVisitorData.repeater,
+      validUntil: validUntil,
+      securityStatus: 'Awaiting Resident Approval',
+      createdAt: timeNow.toISOString(),
+      date: dateStr,
+      time: timeStr
+    };
+
+    // Also create a visitor entry with "Awaiting Approval" status for security tracking
+    const visitorEntry = {
+      id: Date.now() + 1,
+      name: newVisitorData.fullName.trim(),
+      resident: newVisitorData.host.trim() || 'Resident',
       flat: newVisitorData.flat.trim(),
       contact: newVisitorData.mobile.trim(),
       type: newVisitorData.visitorType,
       gate: 'Main Gate',
-      status: 'Inside',
+      status: 'Awaiting Approval',
       time: timeStr,
       date: dateStr,
       permitRef: permitRef,
       duration: '—',
-      qrCode: 'Gate Entry',
-      securityPassedTime: timeStr,
-      securityActionTime: timeStr,
-      securityActionDate: dateStr
+      repeater: newVisitorData.repeater,
+      validUntil: validUntil,
+      qrPayload: {
+        permit: permitRef,
+        property: 'Sky Tower - The Pinnacle Residences',
+        unit: newVisitorData.flat.trim(),
+        resident: newVisitorData.host.trim() || 'Resident',
+        visitor: newVisitorData.fullName.trim(),
+        mobile: newVisitorData.mobile.trim(),
+        type: newVisitorData.visitorType,
+        entry: newVisitorData.entryType,
+        guests: newVisitorData.additionalVisitors + 1,
+        vehicle: newVisitorData.vehicle.trim() || 'N/A',
+        idDoc: idDocFull,
+        date: dateStr,
+        time: timeStr,
+        validUntil: validUntil,
+        repeater: newVisitorData.repeater,
+        status: 'AWAITING APPROVAL'
+      }
     };
 
+    // Log entry with awaiting status
     const logEntry = {
-      id: Date.now() + 1,
+      id: Date.now() + 2,
       refId: permitRef,
       visitor: newVisitorData.fullName.trim(),
       phone: newVisitorData.mobile.trim(),
       initials: newVisitorData.fullName.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
       type: newVisitorData.visitorType,
       flat: newVisitorData.flat.trim(),
-      host: newVisitorData.host.trim() || 'Gate Entry',
+      host: newVisitorData.host.trim() || 'Resident',
       purpose: newVisitorData.purpose.trim() || newVisitorData.visitorType + ' visit',
       timeIn: timeStr,
       timeOut: '',
       duration: '—',
       idDoc: idDocFull,
-      status: 'PASSED SECURITY',
+      status: 'AWAITING APPROVAL',
       securityNotes: newVisitorData.guardNotes.trim(),
       gateUsed: 'Main Gate'
     };
@@ -4842,10 +4949,11 @@ const SecurityApp = ({ onLogout }) => {
     setData(prev => ({
       ...prev,
       visitors: [visitorEntry, ...prev.visitors],
-      entryLog: [logEntry, ...prev.entryLog]
+      entryLog: [logEntry, ...prev.entryLog],
+      pendingApprovals: [pendingEntry, ...prev.pendingApprovals]
     }));
 
-    showToast(newVisitorData.fullName.trim() + ' admitted — entry logged');
+    showToast('Visitor request sent to resident for approval');
     resetNewVisitorForm();
     setShowNewVisitorForm(false);
   };
@@ -5039,71 +5147,168 @@ const SecurityApp = ({ onLogout }) => {
 
   const renderContent = () => {
     if(currentTab === 'dashboard') {
+      const clearedCount = data.insideVisitors.length;
+      const pendingCount = data.pendingApprovals.length;
+      const scheduledCount = data.visitors.filter(v => v.status === 'Scheduled').length;
+      const flaggedCount = data.entryLog.filter(e => e.status === 'ON HOLD' || e.status === 'REJECTED').length;
+      const totalInside = clearedCount + pendingCount;
+      const guestCount = data.visitors.filter(v => v.type === 'Guest' || v.type === 'Resident Guest').length;
+      const deliveryCount = data.visitors.filter(v => v.type === 'Delivery').length;
+      const contractorCount = data.visitors.filter(v => v.type === 'Contractor').length;
+      const serviceCount = data.visitors.filter(v => v.type === 'Service' || v.type === 'Vendor' || v.type === 'Cleaning Service' || v.type === 'Maintenance').length;
+      // Inside visitors filtered by tab
+      const filteredInside = insideFilterTab === 'ALL' ? data.insideVisitors :
+        insideFilterTab === 'GUESTS' ? data.insideVisitors.filter(v => v.type === 'Guest' || v.type === 'Resident Guest' || v.type === 'VIP') :
+        insideFilterTab === 'VENDORS' ? data.insideVisitors.filter(v => v.type === 'Delivery' || v.type === 'Contractor' || v.type === 'Vendor' || v.type === 'Service' || v.type === 'Cleaning Service' || v.type === 'Maintenance') :
+        data.insideVisitors.filter(v => v.type === 'Staff');
+      // Entry log pagination
+      const totalLogPages = Math.max(1, Math.ceil(data.entryLog.length / ENTRY_LOG_PER_PAGE));
+      const pagedLog = data.entryLog.slice(entryLogPage * ENTRY_LOG_PER_PAGE, (entryLogPage + 1) * ENTRY_LOG_PER_PAGE);
+
       return (
         <div>
+          {/* § 01 — QUICK ACTIONS — PRIMARY CONTROLS */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}>
+              <span style={{color:'#ae9751'}}>■</span> QUICK ACTIONS — PRIMARY CONTROLS
+            </div>
+            <span style={{fontSize:10,color:'#666',letterSpacing:'0.04em'}}>[ SECTION 01 ] — TAP TO PERFORM ACTION</span>
+          </div>
           <div className="sec-quick-actions">
-            <div className="sec-quick-action-btn" onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(true); }} style={{cursor:'pointer'}}>
-              <div className="icon" style={{fontSize:14}}>+</div>
+            <div className="sec-quick-action-btn" onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(true); }} style={{cursor:'pointer',borderColor:'#ae9751',position:'relative'}}>
+              <div style={{position:'absolute',top:8,left:8,background:'#333',padding:'2px 6px',borderRadius:2,fontSize:9,color:'#666'}}>F1</div>
+              <div style={{width:40,height:40,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg>
+              </div>
               <div className="label">New Visitor Entry</div>
+              <div className="shortcut">Register new visitor manually</div>
+              <div style={{fontSize:9,color:'#555',marginTop:6}}>[ ICON ]</div>
             </div>
-            <div className="sec-quick-action-btn" onClick={() => setShowScanner(true)} style={{borderColor:'#ae9751'}}>
-              <div className="icon" style={{fontSize:14}}>—</div>
+            <div className="sec-quick-action-btn" onClick={() => setShowScanner(true)} style={{cursor:'pointer',position:'relative'}}>
+              <div style={{position:'absolute',top:8,left:8,background:'#333',padding:'2px 6px',borderRadius:2,fontSize:9,color:'#666'}}>F2</div>
+              <div style={{width:40,height:40,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              </div>
               <div className="label">Scan QR / Pre-Approved</div>
+              <div className="shortcut">Scan resident-issued QR pass</div>
+              <div style={{fontSize:9,color:'#555',marginTop:6}}>[ ICON ]</div>
             </div>
-            <div className="sec-quick-action-btn">
-              <div className="icon" style={{fontSize:14}}>—</div>
+            <div className="sec-quick-action-btn" style={{cursor:'pointer',position:'relative'}}>
+              <div style={{position:'absolute',top:8,left:8,background:'#333',padding:'2px 6px',borderRadius:2,fontSize:9,color:'#666'}}>F3</div>
+              <div style={{width:40,height:40,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+              </div>
               <div className="label">Create Announcements</div>
+              <div className="shortcut">Register new visitor manually</div>
+              <div style={{fontSize:9,color:'#555',marginTop:6}}>[ ICON ]</div>
             </div>
           </div>
 
+          {/* 3-COLUMN GRID */}
           <div className="sec-grid-3">
+            {/* LEFT COLUMN — Visitors Inside Summary */}
             <div className="sec-column">
               <div className="sec-kpi-block">
-                <div className="sec-kpi-number">{data.insideVisitors.length + data.pendingApprovals.length}</div>
-                <div className="sec-kpi-label">TOTAL PERSONS INSIDE</div>
-                <div className="sec-kpi-breakdown">
-                  <div className="sec-breakdown-line"><span className="sec-breakdown-type">Cleared:</span><span className="sec-breakdown-count">{data.insideVisitors.length}</span></div>
-                  <div className="sec-breakdown-line"><span className="sec-breakdown-type">Pending:</span><span className="sec-breakdown-count">{data.pendingApprovals.length}</span></div>
-                  <div className="sec-breakdown-line"><span className="sec-breakdown-type">Scheduled:</span><span className="sec-breakdown-count">{data.visitors.filter(v => v.status === 'Scheduled').length}</span></div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                  <div>
+                    <div className="sec-kpi-label" style={{marginBottom:4}}>VISITORS INSIDE</div>
+                    <div className="sec-kpi-number" style={{fontSize:42,lineHeight:1}}>{totalInside}</div>
+                  </div>
+                  <div style={{width:40,height:40,borderRadius:8,background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                  </div>
                 </div>
-                <div className="sec-kpi-breakdown" style={{marginTop:12,paddingTop:12,borderTop:'1px solid #333'}}>
-                  <div className="sec-breakdown-line"><span className="sec-breakdown-type">Guests:</span><span className="sec-breakdown-count">{data.visitors.filter(v => v.type === 'Guest').length}</span></div>
-                  <div className="sec-breakdown-line"><span className="sec-breakdown-type">Delivery:</span><span className="sec-breakdown-count">{data.visitors.filter(v => v.type === 'Delivery').length}</span></div>
-                  <div className="sec-breakdown-line"><span className="sec-breakdown-type">Contractors:</span><span className="sec-breakdown-count">{data.visitors.filter(v => v.type === 'Contractor').length}</span></div>
-                  <div className="sec-breakdown-line"><span className="sec-breakdown-type">Service:</span><span className="sec-breakdown-count">{data.visitors.filter(v => v.type === 'Service' || v.type === 'Vendor').length}</span></div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
+                  <div style={{background:'#1a3a2a',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#4caf50'}}>{clearedCount}</div>
+                    <div style={{fontSize:9,color:'#81c784',letterSpacing:'0.04em'}}>CLEARED</div>
+                  </div>
+                  <div style={{background:'#3a3520',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#ffc107'}}>{pendingCount}</div>
+                    <div style={{fontSize:9,color:'#ffd54f',letterSpacing:'0.04em'}}>PENDING</div>
+                  </div>
+                  <div style={{background:'#3a2020',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#ef5350'}}>{flaggedCount}</div>
+                    <div style={{fontSize:9,color:'#ef9a9a',letterSpacing:'0.04em'}}>FLAGGED</div>
+                  </div>
+                </div>
+                <div style={{borderTop:'1px solid #333',paddingTop:12}}>
+                  <div style={{fontSize:10,color:'#888',letterSpacing:'0.04em',marginBottom:8}}>BY TYPE</div>
+                  {[
+                    ['Guests', guestCount, '#ae9751'],
+                    ['Delivery', deliveryCount, '#64b5f6'],
+                    ['Contractors', contractorCount, '#ff8a65'],
+                    ['Service / Staff', serviceCount, '#81c784']
+                  ].map(([label, count, color]) => (
+                    <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <div style={{width:8,height:8,borderRadius:2,background:color}}></div>
+                        <span style={{fontSize:11,color:'#ccc'}}>{label}</span>
+                      </div>
+                      <span style={{fontSize:12,fontWeight:600,color:'#fff'}}>{count}</span>
+                    </div>
+                  ))}
                 </div>
                 <button className="sec-view-all-btn" onClick={() => setShowFullInsideList(true)}>VIEW FULL INSIDE LIST</button>
               </div>
             </div>
 
+            {/* MIDDLE COLUMN — Pending Approvals + Today's Schedule */}
             <div className="sec-column">
               <div className="sec-kpi-block">
-                <div style={{fontSize:16,fontWeight:600,color:'#ffc107',marginBottom:12}}>⏳ {data.pendingApprovals.length} WAITING</div>
-                <div className="sec-kpi-label">PENDING APPROVALS</div>
-                {data.pendingApprovals.slice(0,2).map(p => (
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                  <div className="sec-kpi-label" style={{margin:0}}>PENDING APPROVALS</div>
+                  <span style={{background:'#3a3520',color:'#ffc107',padding:'3px 10px',borderRadius:10,fontSize:11,fontWeight:600}}>{data.pendingApprovals.length} waiting</span>
+                </div>
+                {data.pendingApprovals.length === 0 ? (
+                  <div style={{textAlign:'center',padding:'20px 0',color:'#555',fontSize:12}}>No pending approvals</div>
+                ) : data.pendingApprovals.slice(0,3).map(p => (
                   <div key={p.id} className="sec-pending-card">
-                    <div className="name">{p.name}</div>
-                    <div className="details">{p.type} • {p.flat} • {p.timeWaiting}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                      <div style={{width:32,height:32,borderRadius:'50%',background:'#333',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#ae9751'}}>
+                        {(p.name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2)}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div className="name">{p.name}</div>
+                        <div className="details">{p.type} • {p.flat} • {p.timeWaiting || 'Just now'}</div>
+                      </div>
+                    </div>
                     <div className="action-buttons">
-                      <button className="approve-btn" style={{fontSize:10}}>✓</button>
-                      <button className="reject-btn" style={{fontSize:10}}>✕</button>
-                      <button className="hold-btn" style={{fontSize:10}}>⏸</button>
+                      <button className="approve-btn" style={{fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg> APPROVE
+                      </button>
+                      <button className="reject-btn" style={{fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> REJECT
+                      </button>
+                      <button className="hold-btn" style={{fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> HOLD
+                      </button>
                     </div>
                   </div>
                 ))}
-                <button className="sec-view-all-btn">VIEW ALL APPROVALS</button>
+                {data.pendingApprovals.length > 3 && (
+                  <button className="sec-view-all-btn">VIEW ALL ({data.pendingApprovals.length}) APPROVALS</button>
+                )}
               </div>
 
               <div className="sec-kpi-block">
-                <div className="sec-kpi-label">TODAY'S SCHEDULE</div>
-                {data.todayScheduleSecurity.map((s,i) => {
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                  <div className="sec-kpi-label" style={{margin:0}}>TODAY'S SCHEDULE</div>
+                  <span style={{fontSize:10,color:'#888'}}>{data.todayScheduleSecurity.length} entries</span>
+                </div>
+                {data.todayScheduleSecurity.length === 0 ? (
+                  <div style={{textAlign:'center',padding:'20px 0',color:'#555',fontSize:12}}>No scheduled visitors today</div>
+                ) : data.todayScheduleSecurity.slice(0,4).map((s,i) => {
                   const name = (s.description || '').split(' — ')[0];
                   const match = data.visitors.find(v => v.name === name);
                   return (
                     <div key={i} className="sec-schedule-item" style={{cursor: match ? 'pointer' : 'default'}} onClick={() => { if (match) setViewingVisitor(match); }}>
-                      <div className="sec-schedule-time">{s.time}</div>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                        <div className="sec-schedule-time" style={{marginBottom:0}}>{s.time}</div>
+                        <span style={{fontSize:9,background:'#333',color:'#ccc',padding:'2px 6px',borderRadius:3}}>{s.type}</span>
+                      </div>
                       <div className="sec-schedule-desc">{s.description}</div>
-                      <div className="sec-schedule-meta">{s.flat} • {s.type}</div>
+                      <div className="sec-schedule-meta">{s.flat}</div>
                     </div>
                   );
                 })}
@@ -5111,79 +5316,144 @@ const SecurityApp = ({ onLogout }) => {
               </div>
             </div>
 
+            {/* RIGHT COLUMN — Visitors Inside Now */}
             <div className="sec-column">
               <div className="sec-kpi-block">
-                <div className="sec-kpi-label">VISITORS INSIDE NOW</div>
+                <div className="sec-kpi-label" style={{marginBottom:8}}>VISITORS INSIDE NOW</div>
                 <div style={{display:'flex',gap:6,marginBottom:12}}>
                   {['ALL','GUESTS','VENDORS','STAFF'].map(f => (
-                    <button key={f} className={`sec-filter-chip ${f==='ALL'?'active':''}`} style={{flex:1}}>{f}</button>
+                    <button key={f} onClick={() => setInsideFilterTab(f)} className={`sec-filter-chip ${insideFilterTab===f?'active':''}`} style={{flex:1}}>{f}</button>
                   ))}
                 </div>
-                {data.insideVisitors.map(v => (
+                {filteredInside.length === 0 ? (
+                  <div style={{textAlign:'center',padding:'20px 0',color:'#555',fontSize:12}}>No visitors in this category</div>
+                ) : filteredInside.slice(0,5).map(v => (
                   <div key={v.id} className="sec-visitor-now-card">
-                    <div className="sec-visitor-header">
-                      <div className="sec-visitor-badge">{v.initials}</div>
-                      <div>
-                        <div className="sec-visitor-name">{v.name}</div>
-                        <span className="sec-visitor-type">{v.type}</span>
+                    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                      <div style={{width:32,height:32,borderRadius:'50%',background:'#333',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#ae9751'}}>
+                        {v.initials}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600,fontSize:12,color:'#fff'}}>{v.name}</div>
+                        <div style={{fontSize:10,color:'#888'}}>{v.type}</div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontSize:10,color:'#ccc'}}>{v.inTime}</div>
+                        <div style={{fontSize:10,color:'#ae9751'}}>{v.duration}</div>
                       </div>
                     </div>
-                    <div className="sec-visitor-timing">IN {v.inTime} • {v.duration}</div>
-                    <div style={{fontSize:11,color:'#ccc',marginBottom:6}}>Host: {v.host}</div>
-                    <button className="sec-quick-checkout-btn">QUICK CHECKOUT</button>
+                    <div style={{fontSize:10,color:'#999',marginBottom:8}}>Host: {v.host}</div>
+                    <button className="sec-quick-checkout-btn" onClick={() => {
+                      setData(prev => ({
+                        ...prev,
+                        insideVisitors: prev.insideVisitors.filter(iv => iv.id !== v.id),
+                        entryLog: prev.entryLog.map(e => e.visitor === v.name ? {...e, status:'CHECKED OUT', timeOut: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'Asia/Dubai'})} : e)
+                      }));
+                      showToast(v.name + ' checked out');
+                    }}>QUICK CHECKOUT</button>
                   </div>
                 ))}
-                <button className="sec-view-all-btn">VIEW FULL LIST</button>
+                {filteredInside.length > 5 && (
+                  <button className="sec-view-all-btn" onClick={() => setShowFullInsideList(true)}>VIEW ALL ({filteredInside.length})</button>
+                )}
               </div>
             </div>
           </div>
 
+          {/* ENTRY LOG TABLE */}
           <div className="sec-entry-log">
-            <div style={{fontSize:13,fontWeight:600,color:'#fff',marginBottom:12}}>RECENT ENTRY LOG</div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:'#fff'}}>ENTRY LOG</div>
+                <div style={{fontSize:10,color:'#888',marginTop:2}}>All visitor movements today</div>
+              </div>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <span style={{fontSize:10,color:'#888'}}>Page {entryLogPage + 1} of {totalLogPages}</span>
+              </div>
+            </div>
             {/* Mobile: card layout */}
             <div className="sec-entry-log-mobile">
-              {data.entryLog.slice(0,6).map((e,i) => (
+              {pagedLog.map((e,i) => (
                 <div key={e.id} style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:12,marginBottom:8,cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <div style={{fontWeight:600,fontSize:13,color:'#fff'}}>{e.visitor}</div>
                     <span className={`status-badge status-${e.status.toLowerCase().replace(/\s+/g,'-')}`} style={{display:'inline-block',padding:'2px 6px',borderRadius:3,fontSize:9,fontWeight:600}}>{e.status}</span>
                   </div>
-                  <div style={{fontSize:11,color:'#999'}}>{e.type} • {e.flat} • {e.timeIn}</div>
+                  <div style={{fontSize:11,color:'#999'}}>{e.type} • {e.flat} • {e.timeIn} • Host: {e.host || '—'}</div>
                 </div>
               ))}
             </div>
-            {/* Desktop: table layout */}
+            {/* Desktop: full table */}
             <table className="sec-entry-log-table sec-entry-log-desktop">
               <thead>
                 <tr>
                   <th style={{width:30}}>#</th>
-                  <th>VISITOR</th>
-                  <th>TYPE</th>
-                  <th>UNIT</th>
+                  <th>VISITOR NAME</th>
+                  <th>VISITOR TYPE</th>
+                  <th>UNIT NO.</th>
                   <th>TIME ENTERED</th>
+                  <th>DURATION</th>
+                  <th>GATE</th>
+                  <th>HOST / RESIDENT</th>
                   <th>STATUS</th>
+                  <th style={{width:80}}>ACTION</th>
                 </tr>
               </thead>
               <tbody>
-                {data.entryLog.slice(0,6).map((e,i) => (
+                {pagedLog.map((e,i) => (
                   <tr key={e.id} style={{cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>
-                    <td>{i+1}</td>
-                    <td>{e.visitor}</td>
+                    <td style={{color:'#555'}}>{entryLogPage * ENTRY_LOG_PER_PAGE + i + 1}</td>
+                    <td style={{fontWeight:500,color:'#fff'}}>{e.visitor}</td>
                     <td>{e.type}</td>
                     <td>{e.flat}</td>
                     <td>{e.timeIn}</td>
+                    <td>{e.duration || '—'}</td>
+                    <td>{e.gateUsed || 'Main Gate'}</td>
+                    <td>{e.host || '—'}</td>
                     <td><span className={`status-badge status-${e.status.toLowerCase().replace(/\s+/g,'-')}`}>{e.status}</span></td>
+                    <td onClick={(ev) => ev.stopPropagation()}>
+                      <button style={{background:'none',border:'1px solid #444',color:'#ccc',padding:'3px 8px',borderRadius:3,fontSize:9,cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>VIEW</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <div style={{fontSize:11,color:'#999',marginTop:12}}>Showing 6 of {data.entryLog.length} entries</div>
+            {/* Pagination */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12}}>
+              <div style={{fontSize:11,color:'#888'}}>Showing {pagedLog.length} of {data.entryLog.length} entries</div>
+              <div style={{display:'flex',gap:6}}>
+                <button disabled={entryLogPage === 0} onClick={() => setEntryLogPage(p => p - 1)} style={{background:'#2a2a2a',border:'1px solid #444',color: entryLogPage === 0 ? '#555' : '#ccc',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: entryLogPage === 0 ? 'default' : 'pointer'}}>PREV</button>
+                {Array.from({length: Math.min(totalLogPages, 5)}, (_, i) => {
+                  const pg = totalLogPages <= 5 ? i : Math.max(0, Math.min(entryLogPage - 2, totalLogPages - 5)) + i;
+                  return (
+                    <button key={pg} onClick={() => setEntryLogPage(pg)} style={{background: pg === entryLogPage ? '#ae9751' : '#2a2a2a', border:'1px solid ' + (pg === entryLogPage ? '#ae9751' : '#444'), color: pg === entryLogPage ? '#1a1a1a' : '#ccc', padding:'6px 10px', borderRadius:4, fontSize:10, cursor:'pointer', fontWeight: pg === entryLogPage ? 700 : 400, minWidth:30}}>{pg + 1}</button>
+                  );
+                })}
+                <button disabled={entryLogPage >= totalLogPages - 1} onClick={() => setEntryLogPage(p => p + 1)} style={{background:'#2a2a2a',border:'1px solid #444',color: entryLogPage >= totalLogPages - 1 ? '#555' : '#ccc',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: entryLogPage >= totalLogPages - 1 ? 'default' : 'pointer'}}>NEXT</button>
+              </div>
+            </div>
           </div>
 
+          {/* UTILITY ACTIONS */}
           <div className="sec-utility-cards">
-            <div className="sec-utility-card"><p>📞 Contact<br/>Security Head</p></div>
-            <div className="sec-utility-card"><p>👔 Contact<br/>Property Mgr</p></div>
-            <div className="sec-utility-card"><p>⚠️ Report<br/>Incident</p></div>
+            <div className="sec-utility-card">
+              <div style={{width:36,height:36,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+              </div>
+              <p>Contact<br/>Security Head</p>
+            </div>
+            <div className="sec-utility-card">
+              <div style={{width:36,height:36,borderRadius:'50%',background:'rgba(174,151,81,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <p>Contact<br/>Property Mgr</p>
+            </div>
+            <div className="sec-utility-card">
+              <div style={{width:36,height:36,borderRadius:'50%',background:'rgba(194,40,40,0.12)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef5350" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <p>Report<br/>Incident</p>
+            </div>
           </div>
         </div>
       );
@@ -5192,67 +5462,238 @@ const SecurityApp = ({ onLogout }) => {
     if(currentTab === 'visitors') {
       const allEntries = data.entryLog;
       const insideCount = allEntries.filter(e => e.status === 'PASSED SECURITY' || e.status === 'CLEARED').length;
-      const pendingCount = allEntries.filter(e => e.status === 'SCHEDULED' || e.status === 'PENDING').length;
+      const pendingCount = allEntries.filter(e => e.status === 'SCHEDULED' || e.status === 'PENDING' || e.status === 'AWAITING APPROVAL').length;
+      const approvedCount = allEntries.filter(e => e.status === 'RESIDENT APPROVED').length;
       const exitedCount = allEntries.filter(e => e.status === 'CHECKED OUT' || e.status === 'EXITED').length;
       const rejectedCount = allEntries.filter(e => e.status === 'REJECTED').length;
-      const holdCount = allEntries.filter(e => e.status === 'ON HOLD').length;
+      const flaggedCount = allEntries.filter(e => e.status === 'ON HOLD' || e.status === 'FLAGGED').length;
+      const scheduledCount = allEntries.filter(e => e.status === 'SCHEDULED').length;
       const secFilterOptions = [
         { key: 'ALL', label: 'ALL', count: allEntries.length },
         { key: 'INSIDE', label: 'INSIDE', count: insideCount },
         { key: 'PENDING', label: 'PENDING', count: pendingCount },
-        { key: 'ON HOLD', label: 'ON HOLD', count: holdCount },
+        { key: 'APPROVED', label: 'APPROVED', count: approvedCount },
         { key: 'EXITED', label: 'EXITED', count: exitedCount },
-        { key: 'REJECTED', label: 'REJECTED', count: rejectedCount }
+        { key: 'REJECTED', label: 'REJECTED', count: rejectedCount },
+        { key: 'FLAGGED', label: 'FLAGGED', count: flaggedCount },
+        { key: 'SCHEDULED', label: 'SCHEDULED', count: scheduledCount }
       ];
-      const filteredEntries = secVisitorFilter === 'ALL' ? allEntries :
+      let filteredEntries = secVisitorFilter === 'ALL' ? allEntries :
         secVisitorFilter === 'INSIDE' ? allEntries.filter(e => e.status === 'PASSED SECURITY' || e.status === 'CLEARED') :
-        secVisitorFilter === 'PENDING' ? allEntries.filter(e => e.status === 'SCHEDULED' || e.status === 'PENDING') :
-        secVisitorFilter === 'ON HOLD' ? allEntries.filter(e => e.status === 'ON HOLD') :
+        secVisitorFilter === 'PENDING' ? allEntries.filter(e => e.status === 'SCHEDULED' || e.status === 'PENDING' || e.status === 'AWAITING APPROVAL') :
+        secVisitorFilter === 'APPROVED' ? allEntries.filter(e => e.status === 'RESIDENT APPROVED') :
         secVisitorFilter === 'EXITED' ? allEntries.filter(e => e.status === 'CHECKED OUT' || e.status === 'EXITED') :
         secVisitorFilter === 'REJECTED' ? allEntries.filter(e => e.status === 'REJECTED') :
+        secVisitorFilter === 'FLAGGED' ? allEntries.filter(e => e.status === 'ON HOLD' || e.status === 'FLAGGED') :
+        secVisitorFilter === 'SCHEDULED' ? allEntries.filter(e => e.status === 'SCHEDULED') :
         allEntries;
+      // Search filter
+      if (visRegSearch.trim()) {
+        const q = visRegSearch.trim().toLowerCase();
+        filteredEntries = filteredEntries.filter(e =>
+          (e.visitor||'').toLowerCase().includes(q) ||
+          (e.flat||'').toLowerCase().includes(q) ||
+          (e.refId||'').toLowerCase().includes(q) ||
+          (e.host||'').toLowerCase().includes(q)
+        );
+      }
+      const totalVisRegPages = Math.max(1, Math.ceil(filteredEntries.length / VIS_REG_PER_PAGE));
+      const pagedEntries = filteredEntries.slice(visRegPage * VIS_REG_PER_PAGE, (visRegPage + 1) * VIS_REG_PER_PAGE);
+      const getInitials = (name) => (name||'').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+      const getStatusStyle = (status) => {
+        const s = (status||'').toUpperCase();
+        if (s === 'PASSED SECURITY' || s === 'CLEARED') return {bg:'#1b5e20',color:'#fff',label:'INSIDE'};
+        if (s === 'RESIDENT APPROVED') return {bg:'#1565c0',color:'#fff',label:'APPROVED'};
+        if (s === 'SCHEDULED') return {bg:'linear-gradient(135deg,#ae9751,#c9b06b)',color:'#1a1a1a',label:'SCHEDULED'};
+        if (s === 'PENDING' || s === 'AWAITING APPROVAL') return {bg:'#b8860b',color:'#fff',label:'PENDING'};
+        if (s === 'CHECKED OUT' || s === 'EXITED') return {bg:'#555',color:'#fff',label:'EXITED'};
+        if (s === 'REJECTED') return {bg:'#c62828',color:'#fff',label:'REJECTED'};
+        if (s === 'ON HOLD' || s === 'FLAGGED') return {bg:'#e65100',color:'#fff',label:'FLAGGED'};
+        return {bg:'#444',color:'#ccc',label:status};
+      };
+      // Action for checkout
+      const handleCheckout = (entry) => {
+        const timeOut = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'Asia/Dubai'});
+        setData(prev => ({
+          ...prev,
+          entryLog: prev.entryLog.map(e => e.id === entry.id ? {...e, status:'CHECKED OUT', timeOut} : e),
+          insideVisitors: prev.insideVisitors.filter(v => v.name !== entry.visitor),
+          visitors: prev.visitors.map(v => v.name === entry.visitor && v.status === 'Inside' ? {...v, status:'Checked Out'} : v)
+        }));
+        showToast(entry.visitor + ' checked out');
+      };
+
       return (
         <div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-            <div><div style={{fontSize:14,fontWeight:600,color:'#fff'}}>All Visitors Registry</div><div style={{fontSize:11,color:'#999'}}>{allEntries.length} TODAY</div></div>
-            <button onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(true); }} style={{background:'#ae9751',color:'#1a1a1a',border:'none',padding:'8px 14px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:600,letterSpacing:'0.04em'}}>+ NEW ENTRY</button>
+          {/* Header row */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:12}}>
+            <div>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{fontSize:18,fontWeight:700,color:'#fff'}}>All Visitors Registry</div>
+                <span style={{background:'#333',border:'1px solid #444',color:'#ccc',padding:'3px 10px',borderRadius:4,fontSize:11,fontWeight:600}}>{allEntries.length} TODAY</span>
+              </div>
+              <div style={{fontSize:12,color:'#888',marginTop:4}}>Complete log of all entry requests — guests, deliveries, vendors, contractors & staff</div>
+            </div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              <button style={{background:'#2a2a2a',border:'1px solid #444',color:'#ccc',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> REFRESH
+              </button>
+              <button style={{background:'#2a2a2a',border:'1px solid #444',color:'#ccc',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> EXPORT CSV
+              </button>
+              <button onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(true); }} style={{background:'#ae9751',color:'#1a1a1a',border:'none',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',fontWeight:700,letterSpacing:'0.04em'}}>+ NEW ENTRY</button>
+            </div>
           </div>
 
-          <div className="sec-filter-row">
-            {secFilterOptions.map(f => (
-              <div key={f.key} className={`sec-filter-chip ${secVisitorFilter===f.key?'active':''}`} onClick={() => setSecVisitorFilter(f.key)} style={{cursor:'pointer'}}>{f.label} ({f.count})</div>
-            ))}
-          </div>
-
-          <table className="sec-entry-log-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>VISITOR</th>
-                <th>TYPE</th>
-                <th>UNIT</th>
-                <th>TIME IN</th>
-                <th>DURATION</th>
-                <th>STATUS</th>
-                <th>ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEntries.map((e,i) => (
-                <tr key={e.id}>
-                  <td>{i+1}</td>
-                  <td>{e.visitor}</td>
-                  <td>{e.type}</td>
-                  <td>{e.flat}</td>
-                  <td>{e.timeIn}</td>
-                  <td>{e.duration}</td>
-                  <td><span className={`status-badge status-${e.status.toLowerCase().replace(/\s+/g,'-')}`}>{e.status}</span></td>
-                  <td><button onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }} style={{background:'none',border:'none',color:'#ae9751',cursor:'pointer',fontSize:11,textDecoration:'underline'}}>View</button></td>
-                </tr>
+          {/* Filter tabs + Search */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:12}}>
+            <div className="sec-filter-row" style={{marginBottom:0}}>
+              {secFilterOptions.map(f => (
+                <div key={f.key} onClick={() => { setSecVisitorFilter(f.key); setVisRegPage(0); }}
+                  className={`sec-filter-chip ${secVisitorFilter===f.key?'active':''}`}
+                  style={{cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                  {f.label}
+                  <span style={{background: secVisitorFilter===f.key ? 'rgba(26,26,26,0.3)' : '#333',padding:'1px 6px',borderRadius:3,fontSize:9,fontWeight:600}}>{f.count}</span>
+                </div>
               ))}
-            </tbody>
-          </table>
-          {filteredEntries.length === 0 && <div style={{textAlign:'center',color:'#666',padding:24,fontSize:13}}>No entries match this filter.</div>}
+            </div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <div style={{position:'relative'}}>
+                <input value={visRegSearch} onChange={e => { setVisRegSearch(e.target.value); setVisRegPage(0); }}
+                  placeholder="Search name / unit / ID..."
+                  style={{padding:'8px 12px 8px 32px',background:'#2a2a2a',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:12,width:200,boxSizing:'border-box',outline:'none'}}/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)'}}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Full table */}
+          <div style={{overflowX:'auto'}}>
+            <table className="sec-entry-log-table" style={{minWidth:1000}}>
+              <thead>
+                <tr>
+                  <th style={{width:35}}>#</th>
+                  <th style={{width:120}}>REF ID</th>
+                  <th>VISITOR</th>
+                  <th>TYPE</th>
+                  <th style={{width:60}}>UNIT</th>
+                  <th>HOST / RESIDENT</th>
+                  <th>PURPOSE</th>
+                  <th>TIME IN</th>
+                  <th>TIME OUT</th>
+                  <th>DURATION</th>
+                  <th>ID DOC</th>
+                  <th style={{width:110}}>STATUS</th>
+                  <th style={{width:90}}>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedEntries.map((e,i) => {
+                  const sts = getStatusStyle(e.status);
+                  const rowNum = String(visRegPage * VIS_REG_PER_PAGE + i + 1).padStart(2,'0');
+                  const isInside = sts.label === 'INSIDE';
+                  const isPending = sts.label === 'PENDING';
+                  return (
+                    <tr key={e.id} style={{cursor:'pointer'}} onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }}>
+                      <td style={{color:'#555',fontSize:11}}>{rowNum}</td>
+                      <td style={{fontSize:10,color:'#888',fontFamily:'monospace'}}>{e.refId || '—'}</td>
+                      <td>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          <div style={{width:28,height:28,borderRadius:'50%',background:'#333',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:600,color:'#ae9751',flexShrink:0}}>
+                            {getInitials(e.visitor)}
+                          </div>
+                          <div>
+                            <div style={{fontWeight:600,color:'#fff',fontSize:12}}>{e.visitor}</div>
+                            <div style={{fontSize:10,color:'#888'}}>{e.phone || ''}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{background:'#333',border:'1px solid #444',padding:'3px 8px',borderRadius:3,fontSize:10,color:'#ccc',whiteSpace:'nowrap',display:'inline-block'}}>
+                          {(e.type||'').toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        <span style={{background:'#2a2a2a',border:'1px solid #555',padding:'3px 8px',borderRadius:3,fontSize:11,fontWeight:600,color:'#fff',display:'inline-block'}}>
+                          {e.flat || '—'}
+                        </span>
+                      </td>
+                      <td style={{fontSize:12,color:'#ccc'}}>{e.host || '—'}</td>
+                      <td style={{fontSize:11,color:'#999'}}>{e.purpose || '—'}</td>
+                      <td style={{fontSize:12,color:'#ccc',whiteSpace:'nowrap'}}>{e.timeIn || '—'}</td>
+                      <td style={{fontSize:12,color:'#888'}}>{e.timeOut || '—'}</td>
+                      <td style={{fontSize:12,color:'#ccc'}}>{e.duration || '—'}</td>
+                      <td style={{fontSize:10,color:'#888'}}>{e.idDoc || '—'}</td>
+                      <td>
+                        <span style={{background:sts.bg,color:sts.color,padding:'4px 10px',borderRadius:4,fontSize:10,fontWeight:700,display:'inline-block',letterSpacing:'0.03em',whiteSpace:'nowrap'}}>
+                          {sts.label}
+                        </span>
+                        {isPending && e.status === 'AWAITING APPROVAL' && (
+                          <div style={{fontSize:9,color:'#b8860b',marginTop:3}}>Calling resident</div>
+                        )}
+                      </td>
+                      <td onClick={(ev) => ev.stopPropagation()}>
+                        {isInside ? (
+                          <button onClick={() => handleCheckout(e)} style={{background:'none',border:'1px solid #444',color:'#ccc',padding:'4px 10px',borderRadius:3,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg> CHECKOUT
+                          </button>
+                        ) : isPending ? (
+                          <div style={{display:'flex',gap:4}}>
+                            <button style={{background:'#1b5e20',border:'none',color:'#fff',width:24,height:24,borderRadius:4,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </button>
+                            <button style={{background:'#c62828',border:'none',color:'#fff',width:24,height:24,borderRadius:4,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                          </div>
+                        ) : sts.label === 'APPROVED' ? (
+                          <button onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }} style={{background:'none',border:'1px solid #444',color:'#ccc',padding:'4px 10px',borderRadius:3,fontSize:10,cursor:'pointer'}}>DETAILS</button>
+                        ) : (
+                          <button onClick={() => { const match = findFullVisitor(e); if (match) setViewingVisitor(match); }} style={{background:'none',border:'1px solid #444',color:'#ccc',padding:'4px 10px',borderRadius:3,fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg> VIEW
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredEntries.length === 0 && <div style={{textAlign:'center',color:'#666',padding:32,fontSize:13}}>No entries match this filter.</div>}
+
+          {/* Pagination footer */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:16,flexWrap:'wrap',gap:8}}>
+            <div style={{fontSize:11,color:'#888'}}>
+              SHOWING {pagedEntries.length > 0 ? (visRegPage * VIS_REG_PER_PAGE + 1) + '–' + Math.min((visRegPage + 1) * VIS_REG_PER_PAGE, filteredEntries.length) : '0'} OF {filteredEntries.length} ENTRIES · ALL STATUSES · SORTED: TIME IN (LATEST FIRST)
+            </div>
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              <button disabled={visRegPage === 0} onClick={() => setVisRegPage(p => p - 1)}
+                style={{background:'#2a2a2a',border:'1px solid #444',color: visRegPage === 0 ? '#555' : '#ccc',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: visRegPage === 0 ? 'default' : 'pointer',display:'flex',alignItems:'center',gap:4}}>
+                ← PREV
+              </button>
+              {Array.from({length: Math.min(totalVisRegPages, 3)}, (_, i) => {
+                const pg = totalVisRegPages <= 3 ? i : Math.max(0, Math.min(visRegPage - 1, totalVisRegPages - 3)) + i;
+                return (
+                  <button key={pg} onClick={() => setVisRegPage(pg)}
+                    style={{background: pg === visRegPage ? '#ae9751' : '#2a2a2a', border:'1px solid ' + (pg === visRegPage ? '#ae9751' : '#444'), color: pg === visRegPage ? '#1a1a1a' : '#ccc', padding:'6px 10px', borderRadius:4, fontSize:10, cursor:'pointer', fontWeight: pg === visRegPage ? 700 : 400, minWidth:30}}>
+                    {pg + 1}
+                  </button>
+                );
+              })}
+              <span style={{fontSize:10,color:'#666'}}>PAGE {visRegPage + 1} / {totalVisRegPages}</span>
+              <button disabled={visRegPage >= totalVisRegPages - 1} onClick={() => setVisRegPage(p => p + 1)}
+                style={{background:'#2a2a2a',border:'1px solid #444',color: visRegPage >= totalVisRegPages - 1 ? '#555' : '#ccc',padding:'6px 12px',borderRadius:4,fontSize:10,cursor: visRegPage >= totalVisRegPages - 1 ? 'default' : 'pointer',display:'flex',alignItems:'center',gap:4}}>
+                NEXT →
+              </button>
+            </div>
+          </div>
+
+          {/* Footer info bar */}
+          <div style={{marginTop:20,padding:'10px 16px',background:'#111',border:'1px solid #222',borderRadius:4,textAlign:'center',fontSize:10,color:'#555',letterSpacing:'0.04em'}}>
+            ALL VISITOR DATA IS LOGGED IN REAL-TIME · AUTO-SYNCED WITH RESIDENT APP · RECORDS RETAINED FOR 90 DAYS
+          </div>
         </div>
       );
     }
@@ -5263,30 +5704,53 @@ const SecurityApp = ({ onLogout }) => {
   return (
     <div className="sec-app">
       {viewingVisitor && renderVisitorDetail()}
+      {/* Top bar — Security Guard label + screen name */}
+      <div style={{background:'#111',borderBottom:'1px solid #222',padding:'6px 20px',display:'flex',justifyContent:'space-between',fontSize:10,color:'#666',letterSpacing:'0.06em'}}>
+        <span>Security Guard</span>
+        <span>SCREEN: {currentTab === 'dashboard' ? 'MAIN DASHBOARD' : 'All Visitors'}</span>
+      </div>
       <div className="sec-header">
-        <div className="sec-header-left">
-          <div className="sec-header-left" style={{gap:12}}>
-            <div className="logo">V</div>
-            <div>
-              <div className="sec-building-name">Sky Tower</div>
-              <div className="sec-building-location">Al Reem Island — Shams Abu Dhabi</div>
+        {/* Building + Gate */}
+        <div style={{display:'flex',alignItems:'center',gap:14}}>
+          <div style={{width:40,height:40,background:'#2a2a2a',border:'1px solid #333',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ae9751" strokeWidth="1.5"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:'#666',letterSpacing:'0.06em'}}>[ BUILDING NAME ]</div>
+            <div style={{fontSize:14,fontWeight:600,color:'#fff'}}>Sky Tower</div>
+            <div style={{fontSize:10,color:'#888'}}>Al Reem Island — Shams Abu Dhabi — Abu Dhabi</div>
+            <div style={{display:'flex',gap:8,marginTop:6}}>
+              <span style={{background:'#ae9751',color:'#1a1a1a',padding:'2px 10px',borderRadius:3,fontSize:10,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>● MAIN GATE</span>
+              <button style={{background:'#2a2a2a',color:'#888',border:'1px solid #444',padding:'2px 10px',borderRadius:3,fontSize:10,cursor:'pointer'}}>CHANGE</button>
             </div>
           </div>
         </div>
-        <div className="sec-gate-selector">
-          <span className="sec-gate-badge">MAIN GATE</span>
-          <button className="sec-gate-change">CHANGE</button>
+        {/* Clock */}
+        <div style={{textAlign:'center'}}>
+          <div style={{fontSize:10,color:'#666',letterSpacing:'0.06em',marginBottom:2}}>{clockDate}</div>
+          <div style={{fontSize:36,fontWeight:300,color:'#fff',letterSpacing:'0.04em',lineHeight:1}}>{clockTime.replace(/:\d{2}\s/, ' ').split(' ')[0]}</div>
+          <div style={{fontSize:14,color:'#888',marginTop:2}}>{clockTime.includes('AM') ? 'AM' : 'PM'}</div>
         </div>
-        <div className="sec-clock">
-          <div className="sec-clock-time">{clockTime}</div>
-          <div className="sec-clock-date">{clockDate}</div>
+        {/* Guard on Duty */}
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:10,color:'#666',letterSpacing:'0.06em'}}>GUARD ON DUTY</div>
+          <div style={{fontSize:14,fontWeight:600,color:'#fff'}}>Suresh Kumar</div>
+          <div style={{fontSize:10,color:'#888'}}>ID: GRD-045</div>
+          <div style={{fontSize:10,color:'#888'}}>Shift: 06:00 — 14:00</div>
         </div>
-        <div className="sec-guard-info">
-          <div className="sec-guard-detail">
-            <div className="sec-guard-name">Suresh Kumar</div>
-            <div className="sec-shift">ID: GRD-045</div>
-            <div className="sec-shift">06:00 — 14:00</div>
-            <div className="sec-shift-status">ACTIVE ({shiftStr})</div>
+        {/* Shift Status + Icons */}
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+          <div style={{fontSize:10,color:'#666',letterSpacing:'0.06em'}}>SHIFT STATUS</div>
+          <div style={{background:'#2a2a2a',border:'1px solid #ae9751',borderRadius:4,padding:'4px 12px',fontSize:11,fontWeight:600,color:'#ae9751'}}>ACTIVE</div>
+          <div style={{fontSize:10,color:'#888'}}>{shiftStr} elapsed</div>
+          <div style={{display:'flex',gap:8,marginTop:4}}>
+            <div style={{width:30,height:30,background:'#2a2a2a',border:'1px solid #333',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+            </div>
+            <div style={{width:30,height:30,background:'#2a2a2a',border:'1px solid #333',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+              <div style={{position:'absolute',top:-3,right:-3,width:14,height:14,background:'#c62828',borderRadius:'50%',fontSize:8,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>3</div>
+            </div>
           </div>
         </div>
       </div>
@@ -5328,169 +5792,246 @@ const SecurityApp = ({ onLogout }) => {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
               <div>
                 <h2 style={{fontSize:18,fontWeight:600,color:'#fff',margin:0}}>New Visitor Request</h2>
-                <div style={{fontSize:12,color:'#888',marginTop:2}}>Create Request</div>
+                <div style={{fontSize:12,color:'#888',marginTop:2}}>{secFormStep === 'form' ? 'Create Request' : 'Review & Send'}</div>
               </div>
-              <button onClick={() => setShowNewVisitorForm(false)} style={{background:'#333',color:'#fff',border:'none',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Cancel</button>
-            </div>
-
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
-              {/* Section 01 — Visitor Identity */}
-              <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:20}}>
-                <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
-                  <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#333',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#888'}}>01</span> VISITOR IDENTITY</div>
-                  <span style={{fontSize:10,color:'#ae9751',letterSpacing:'0.06em'}}>REQUIRED</span>
-                </div>
-
-                {/* Visitor Type */}
-                <div style={{marginBottom:16}}>
-                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Visitor Type *</label>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
-                    {['Resident Guest','Contractor','Delivery','Domestic Staff','Service Vendor','Other'].map(t => (
-                      <div key={t} onClick={() => setNewVisitorData({...newVisitorData, visitorType: t})}
-                        style={{padding:'10px 6px',border: newVisitorData.visitorType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.visitorType === t ? '#333' : 'transparent',fontSize:11,color: newVisitorData.visitorType === t ? '#fff' : '#888'}}>
-                        {t}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Entry Type */}
-                <div style={{marginBottom:16}}>
-                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Entry Type *</label>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                    {['Walk-in','Drive In'].map(t => (
-                      <div key={t} onClick={() => setNewVisitorData({...newVisitorData, entryType: t})}
-                        style={{padding:10,border: newVisitorData.entryType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.entryType === t ? '#333' : 'transparent',fontSize:12,color: newVisitorData.entryType === t ? '#fff' : '#888'}}>
-                        {t}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Full Name */}
-                <div style={{marginBottom:16}}>
-                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Full Name *</label>
-                  <input value={newVisitorData.fullName} onChange={e => setNewVisitorData({...newVisitorData, fullName: e.target.value})}
-                    placeholder="Enter visitor's full name..."
-                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
-                </div>
-
-                {/* Mobile Number */}
-                <div style={{marginBottom:16}}>
-                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Mobile Number *</label>
-                  <input value={newVisitorData.mobile} onChange={e => setNewVisitorData({...newVisitorData, mobile: e.target.value})}
-                    placeholder="+971 XX XXX XXXX"
-                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
-                </div>
-
-                {/* ID Document Type */}
-                <div style={{marginBottom:16}}>
-                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>ID Document Type {newVisitorData.visitorType !== 'Resident Guest' ? '*' : ''}</label>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                    {['Passport','Emirates ID'].map(t => (
-                      <div key={t} onClick={() => setNewVisitorData({...newVisitorData, idDocType: newVisitorData.idDocType === t ? '' : t})}
-                        style={{padding:10,border: newVisitorData.idDocType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.idDocType === t ? '#333' : 'transparent',fontSize:12,color: newVisitorData.idDocType === t ? '#fff' : '#888'}}>
-                        {t}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Document Number */}
-                {newVisitorData.idDocType && (
-                  <div style={{marginBottom:16}}>
-                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Document Number *</label>
-                    <input value={newVisitorData.idDocNumber} onChange={e => setNewVisitorData({...newVisitorData, idDocNumber: e.target.value})}
-                      placeholder="Enter document number..."
-                      style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
-                  </div>
+              <div style={{display:'flex',gap:8}}>
+                {secFormStep === 'review' && (
+                  <button onClick={() => setSecFormStep('form')} style={{background:'#333',color:'#fff',border:'none',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Back to Edit</button>
                 )}
-
-                {/* Purpose */}
-                <div style={{marginBottom:0}}>
-                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Purpose of Visit</label>
-                  <input value={newVisitorData.purpose} onChange={e => setNewVisitorData({...newVisitorData, purpose: e.target.value})}
-                    placeholder="e.g. Personal visit, Delivery, Maintenance..."
-                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
-                </div>
-              </div>
-
-              {/* Section 02 — Visit Details */}
-              <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:20}}>
-                <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
-                  <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#333',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#888'}}>02</span> VISIT DETAILS</div>
-                  <span style={{fontSize:10,color:'#ae9751',letterSpacing:'0.06em'}}>REQUIRED</span>
-                </div>
-
-                {/* Flat / Unit */}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-                  <div>
-                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Flat / Unit No. *</label>
-                    <input value={newVisitorData.flat} onChange={e => setNewVisitorData({...newVisitorData, flat: e.target.value})}
-                      placeholder="Select unit..."
-                      style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
-                    {/* Quick unit buttons */}
-                    <div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>
-                      {['A-101','A-202','B-102','B-803','C-501','D-1102'].map(u => (
-                        <span key={u} onClick={() => setNewVisitorData({...newVisitorData, flat: u})}
-                          style={{padding:'3px 8px',background: newVisitorData.flat === u ? '#ae9751' : '#333',color: newVisitorData.flat === u ? '#1a1a1a' : '#888',borderRadius:3,fontSize:10,cursor:'pointer',border:'1px solid #444'}}>{u}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Tower / Block</label>
-                    <select value={newVisitorData.tower} onChange={e => setNewVisitorData({...newVisitorData, tower: e.target.value})}
-                      style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}>
-                      <option>Tower A</option><option>Tower B</option><option>Tower C</option><option>Tower D</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Host / Resident */}
-                <div style={{marginBottom:16}}>
-                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Host / Resident Name</label>
-                  <input value={newVisitorData.host} onChange={e => setNewVisitorData({...newVisitorData, host: e.target.value})}
-                    placeholder="Auto-populated on unit selection..."
-                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
-                </div>
-
-                {/* Additional Visitors + Vehicle */}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-                  <div>
-                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Additional Visitors</label>
-                    <div style={{display:'flex',alignItems:'center',gap:0}}>
-                      <button onClick={() => setNewVisitorData({...newVisitorData, additionalVisitors: Math.max(0, newVisitorData.additionalVisitors - 1)})}
-                        style={{width:36,height:36,background:'#333',border:'1px solid #444',borderRadius:'4px 0 0 4px',color:'#fff',fontSize:16,cursor:'pointer'}}>-</button>
-                      <div style={{width:48,height:36,background:'#2a2a2a',border:'1px solid #444',borderLeft:'none',borderRight:'none',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:600}}>{newVisitorData.additionalVisitors}</div>
-                      <button onClick={() => setNewVisitorData({...newVisitorData, additionalVisitors: newVisitorData.additionalVisitors + 1})}
-                        style={{width:36,height:36,background:'#333',border:'1px solid #444',borderRadius:'0 4px 4px 0',color:'#fff',fontSize:16,cursor:'pointer'}}>+</button>
-                    </div>
-                    <div style={{fontSize:10,color:'#666',marginTop:4}}>Total visitors: {1 + newVisitorData.additionalVisitors}</div>
-                  </div>
-                  <div>
-                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Vehicle Number (if any)</label>
-                    <input value={newVisitorData.vehicle} onChange={e => setNewVisitorData({...newVisitorData, vehicle: e.target.value})}
-                      placeholder="e.g. AB 12345 — leave blank if no"
-                      style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
-                  </div>
-                </div>
-
-                {/* Guard Notes */}
-                <div>
-                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Entry Remarks / Guard Notes</label>
-                  <textarea value={newVisitorData.guardNotes} onChange={e => setNewVisitorData({...newVisitorData, guardNotes: e.target.value})}
-                    placeholder="Add any observations or notes here..."
-                    rows={3}
-                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none',resize:'vertical',fontFamily:'inherit'}}/>
-                </div>
+                <button onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(false); }} style={{background:'#333',color:'#fff',border:'none',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Cancel</button>
               </div>
             </div>
 
-            {/* Submit Button */}
-            <button onClick={submitNewVisitor}
-              style={{width:'100%',padding:16,background:'#ae9751',color:'#1a1a1a',border:'none',borderRadius:4,fontSize:15,fontWeight:700,cursor:'pointer',marginTop:20,letterSpacing:'0.04em'}}>
-              Send Visitor Request
-            </button>
+            {secFormStep === 'form' ? (
+              <>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+                  {/* Section 01 — Visitor Identity */}
+                  <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:20}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
+                      <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#333',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#888'}}>01</span> VISITOR IDENTITY</div>
+                      <span style={{fontSize:10,color:'#ae9751',letterSpacing:'0.06em'}}>REQUIRED</span>
+                    </div>
+
+                    {/* Visitor Type */}
+                    <div style={{marginBottom:16}}>
+                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Visitor Type *</label>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+                        {['Resident Guest','Contractor / Worker','Delivery / Courier','Domestic Staff','Service Vendor','Other / Misc.'].map(t => (
+                          <div key={t} onClick={() => setNewVisitorData({...newVisitorData, visitorType: t, idDocType: t === 'Resident Guest' ? '' : newVisitorData.idDocType})}
+                            style={{padding:'10px 6px',border: newVisitorData.visitorType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.visitorType === t ? '#333' : 'transparent',fontSize:11,color: newVisitorData.visitorType === t ? '#fff' : '#888'}}>
+                            {t}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Entry Type */}
+                    <div style={{marginBottom:16}}>
+                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Entry Type *</label>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                        {['Walk-in','Drive In'].map(t => (
+                          <div key={t} onClick={() => setNewVisitorData({...newVisitorData, entryType: t})}
+                            style={{padding:10,border: newVisitorData.entryType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.entryType === t ? '#333' : 'transparent',fontSize:12,color: newVisitorData.entryType === t ? '#fff' : '#888'}}>
+                            {t}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Full Name */}
+                    <div style={{marginBottom:16}}>
+                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Full Name *</label>
+                      <input value={newVisitorData.fullName} onChange={e => setNewVisitorData({...newVisitorData, fullName: e.target.value})}
+                        placeholder="Enter visitor's full name..."
+                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                    </div>
+
+                    {/* Mobile Number */}
+                    <div style={{marginBottom:16}}>
+                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Mobile Number *</label>
+                      <input value={newVisitorData.mobile} onChange={e => setNewVisitorData({...newVisitorData, mobile: e.target.value})}
+                        placeholder="+971 XX XXX XXXX"
+                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                    </div>
+
+                    {/* ID Document Type — optional for Resident Guest, required for others */}
+                    <div style={{marginBottom:16}}>
+                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>
+                        ID Document Type {newVisitorData.visitorType !== 'Resident Guest' ? '*' : '(Optional)'}
+                      </label>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                        {['Passport','Emirates ID'].map(t => (
+                          <div key={t} onClick={() => setNewVisitorData({...newVisitorData, idDocType: newVisitorData.idDocType === t ? '' : t})}
+                            style={{padding:10,border: newVisitorData.idDocType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.idDocType === t ? '#333' : 'transparent',fontSize:12,color: newVisitorData.idDocType === t ? '#fff' : '#888'}}>
+                            {t}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Document Number */}
+                    {newVisitorData.idDocType && (
+                      <div style={{marginBottom:16}}>
+                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Document Number {newVisitorData.visitorType !== 'Resident Guest' ? '*' : ''}</label>
+                        <input value={newVisitorData.idDocNumber} onChange={e => setNewVisitorData({...newVisitorData, idDocNumber: e.target.value})}
+                          placeholder="Enter document number..."
+                          style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                      </div>
+                    )}
+
+                    {/* Purpose */}
+                    <div style={{marginBottom:0}}>
+                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Purpose of Visit</label>
+                      <input value={newVisitorData.purpose} onChange={e => setNewVisitorData({...newVisitorData, purpose: e.target.value})}
+                        placeholder="e.g. Personal visit, Delivery, Maintenance..."
+                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                    </div>
+                  </div>
+
+                  {/* Section 02 — Visit Details */}
+                  <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:20}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
+                      <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#333',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#888'}}>02</span> VISIT DETAILS</div>
+                      <span style={{fontSize:10,color:'#ae9751',letterSpacing:'0.06em'}}>REQUIRED</span>
+                    </div>
+
+                    {/* Flat / Unit */}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+                      <div>
+                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Flat / Unit No. *</label>
+                        <input value={newVisitorData.flat} onChange={e => setNewVisitorData({...newVisitorData, flat: e.target.value})}
+                          placeholder="Select unit..."
+                          style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                        <div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>
+                          {['A-101','A-202','B-102','B-803','C-501','D-1102'].map(u => (
+                            <span key={u} onClick={() => setNewVisitorData({...newVisitorData, flat: u})}
+                              style={{padding:'3px 8px',background: newVisitorData.flat === u ? '#ae9751' : '#333',color: newVisitorData.flat === u ? '#1a1a1a' : '#888',borderRadius:3,fontSize:10,cursor:'pointer',border:'1px solid #444'}}>{u}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Tower / Block</label>
+                        <select value={newVisitorData.tower} onChange={e => setNewVisitorData({...newVisitorData, tower: e.target.value})}
+                          style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}>
+                          <option>Tower A</option><option>Tower B</option><option>Tower C</option><option>Tower D</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Host / Resident */}
+                    <div style={{marginBottom:16}}>
+                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Host / Resident Name *</label>
+                      <input value={newVisitorData.host} onChange={e => setNewVisitorData({...newVisitorData, host: e.target.value})}
+                        placeholder="Auto-populated on unit selection..."
+                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                    </div>
+
+                    {/* Repeater */}
+                    <div style={{marginBottom:16}}>
+                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Visit Frequency</label>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                        {['Single Visit','Multiple Entry'].map(r => (
+                          <div key={r} onClick={() => setNewVisitorData({...newVisitorData, repeater: r})}
+                            style={{padding:10,border: newVisitorData.repeater === r ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.repeater === r ? '#333' : 'transparent',fontSize:12,color: newVisitorData.repeater === r ? '#fff' : '#888'}}>
+                            {r}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{fontSize:10,color:'#666',marginTop:4}}>
+                        {newVisitorData.repeater === 'Single Visit' ? 'Valid for today only' : 'Valid until cancelled by resident'}
+                      </div>
+                    </div>
+
+                    {/* Additional Visitors + Vehicle */}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+                      <div>
+                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Additional Visitors</label>
+                        <div style={{display:'flex',alignItems:'center',gap:0}}>
+                          <button onClick={() => setNewVisitorData({...newVisitorData, additionalVisitors: Math.max(0, newVisitorData.additionalVisitors - 1)})}
+                            style={{width:36,height:36,background:'#333',border:'1px solid #444',borderRadius:'4px 0 0 4px',color:'#fff',fontSize:16,cursor:'pointer'}}>-</button>
+                          <div style={{width:48,height:36,background:'#2a2a2a',border:'1px solid #444',borderLeft:'none',borderRight:'none',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:600}}>{newVisitorData.additionalVisitors}</div>
+                          <button onClick={() => setNewVisitorData({...newVisitorData, additionalVisitors: newVisitorData.additionalVisitors + 1})}
+                            style={{width:36,height:36,background:'#333',border:'1px solid #444',borderRadius:'0 4px 4px 0',color:'#fff',fontSize:16,cursor:'pointer'}}>+</button>
+                        </div>
+                        <div style={{fontSize:10,color:'#666',marginTop:4}}>Total visitors: {1 + newVisitorData.additionalVisitors}</div>
+                      </div>
+                      <div>
+                        <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Vehicle Number (if any)</label>
+                        <input value={newVisitorData.vehicle} onChange={e => setNewVisitorData({...newVisitorData, vehicle: e.target.value})}
+                          placeholder="e.g. AB 12345 — leave blank if no"
+                          style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                      </div>
+                    </div>
+
+                    {/* Guard Notes */}
+                    <div>
+                      <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Entry Remarks / Guard Notes</label>
+                      <textarea value={newVisitorData.guardNotes} onChange={e => setNewVisitorData({...newVisitorData, guardNotes: e.target.value})}
+                        placeholder="Add any observations or notes here..."
+                        rows={3}
+                        style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none',resize:'vertical',fontFamily:'inherit'}}/>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Review Button */}
+                <button onClick={validateNewVisitorForm}
+                  style={{width:'100%',padding:16,background:'#ae9751',color:'#1a1a1a',border:'none',borderRadius:4,fontSize:15,fontWeight:700,cursor:'pointer',marginTop:20,letterSpacing:'0.04em'}}>
+                  Review Visitor Request
+                </button>
+              </>
+            ) : (
+              /* REVIEW STEP */
+              <div style={{maxWidth:600,margin:'0 auto'}}>
+                <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:8,overflow:'hidden',marginBottom:20}}>
+                  {/* Review Header */}
+                  <div style={{background:'#333',padding:'16px 20px',borderBottom:'1px solid #444'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:12}}>
+                      <div style={{width:44,height:44,borderRadius:'50%',background:'#ae9751',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,color:'#1a1a1a'}}>
+                        {newVisitorData.fullName.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2)}
+                      </div>
+                      <div>
+                        <div style={{fontSize:16,fontWeight:600,color:'#fff'}}>{newVisitorData.fullName}</div>
+                        <div style={{fontSize:12,color:'#ae9751'}}>{newVisitorData.visitorType}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Review Details */}
+                  <div style={{padding:20}}>
+                    {[
+                      ['Mobile', newVisitorData.mobile],
+                      ['Entry Type', newVisitorData.entryType],
+                      ['ID Document', newVisitorData.idDocType ? (newVisitorData.idDocType + (newVisitorData.idDocNumber ? ': ' + newVisitorData.idDocNumber : '')) : 'Not provided'],
+                      ['Purpose', newVisitorData.purpose || newVisitorData.visitorType + ' visit'],
+                      ['Unit', newVisitorData.flat + ' — ' + newVisitorData.tower],
+                      ['Host / Resident', newVisitorData.host || 'Resident'],
+                      ['Visit Frequency', newVisitorData.repeater],
+                      ['Additional Visitors', newVisitorData.additionalVisitors > 0 ? '+' + newVisitorData.additionalVisitors + ' (' + (1 + newVisitorData.additionalVisitors) + ' total)' : 'None'],
+                      ['Vehicle', newVisitorData.vehicle || 'No vehicle'],
+                      ['Guard Notes', newVisitorData.guardNotes || '—']
+                    ].map(([label, val], i) => (
+                      <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'10px 0',borderBottom: i < 9 ? '1px solid #333' : 'none'}}>
+                        <span style={{fontSize:12,color:'#888'}}>{label}</span>
+                        <span style={{fontSize:12,color:'#fff',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Status indicator */}
+                  <div style={{padding:'12px 20px',background:'#1a3a2a',borderTop:'1px solid #2d6a4f',display:'flex',alignItems:'center',gap:8}}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" strokeWidth="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                    <span style={{fontSize:11,color:'#81c784'}}>This request will be sent to the resident for approval</span>
+                  </div>
+                </div>
+
+                {/* Send Button */}
+                <button onClick={submitNewVisitor}
+                  style={{width:'100%',padding:16,background:'#ae9751',color:'#1a1a1a',border:'none',borderRadius:6,fontSize:15,fontWeight:700,cursor:'pointer',letterSpacing:'0.04em'}}>
+                  Send Visitor Request
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
