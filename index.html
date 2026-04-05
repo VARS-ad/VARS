@@ -972,7 +972,7 @@ const LoginPage = ({ onLogin, syncStatus }) => {
         )}
 
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:16}}>
-          <p style={{fontSize:12,color:'#888'}}>Abu Dhabi · GST+4 · VARS PM v1.0 · Code updated: 05 Apr 2026, 10:10 GST</p>
+          <p style={{fontSize:12,color:'#888'}}>Abu Dhabi · GST+4 · VARS PM v1.0 · Code updated: 05 Apr 2026, 10:23 GST</p>
           <button
             onClick={() => { localStorage.removeItem('varspm_data'); try { if (typeof window.supabase !== 'undefined') { const sb = window.supabase.createClient('https://whgoaglmguopxrzfjifj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ29hZ2xtZ3VvcHhyemZqaWZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjY1MDEsImV4cCI6MjA5MDgwMjUwMX0.TL6klBDqfyAUvpgKXxha-1hpH6keaeARZvJk3rc5vhg'); sb.from('app_state').upsert({ id: 'main', data: {} }); } } catch(e){} window.location.reload(); }}
             style={{background:'none',border:'none',color:'#cc0000',fontSize:11,cursor:'pointer',textDecoration:'underline'}}
@@ -2384,17 +2384,8 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
     if (step === 'qr' && qrData && qrRef.current) {
       qrRef.current.innerHTML = '';
       if (qrInstance.current) { qrInstance.current = null; }
-      // Keep QR payload compact so it scans reliably
-      const qrText = JSON.stringify({
-        v: 1,
-        p: qrData.permit,
-        n: qrData.visitor,
-        ph: qrData.mobile,
-        u: qrData.unit,
-        t: qrData.type,
-        d: qrData.date,
-        tm: qrData.time
-      });
+      // QR contains just the permit ref — Security app looks up full data
+      const qrText = qrData.permit || 'UNKNOWN';
       try {
         qrInstance.current = new QRCode(qrRef.current, {
           text: qrText,
@@ -2779,10 +2770,7 @@ const ResidentApp = ({ onLogout }) => {
     if (currentPage === 'viewVisitor' && selectedVisitor && selectedVisitor.qrPayload && viewQrRef.current) {
       viewQrRef.current.innerHTML = '';
       const sp = selectedVisitor.qrPayload;
-      const qrText = JSON.stringify({
-        v: 1, p: sp.permit, n: sp.visitor, ph: sp.mobile,
-        u: sp.unit, t: sp.type, d: sp.date, tm: sp.time
-      });
+      const qrText = sp.permit || 'UNKNOWN';
       try {
         new QRCode(viewQrRef.current, { text: qrText, width: 280, height: 280, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L });
       } catch(err) { console.log('QR regen error:', err); }
@@ -3530,10 +3518,7 @@ const SecurityApp = ({ onLogout }) => {
     if (viewingVisitor && viewingVisitor.qrPayload && secQrRef.current) {
       secQrRef.current.innerHTML = '';
       const vp = viewingVisitor.qrPayload;
-      const qrText = JSON.stringify({
-        v: 1, p: vp.permit, n: vp.visitor, ph: vp.mobile,
-        u: vp.unit, t: vp.type, d: vp.date, tm: vp.time
-      });
+      const qrText = vp.permit || 'UNKNOWN';
       try {
         new QRCode(secQrRef.current, { text: qrText, width: 280, height: 280, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L });
       } catch(err) { console.log('QR regen error:', err); }
