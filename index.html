@@ -719,14 +719,13 @@ const initialData = {
     general: { language: 'English', dateFormat: 'DD/MM/YYYY', timeFormat: '24-hour', timezone: 'UTC+04:00', defaultPageSize: '10 rows' }
   },
   household: [
-    { id: 1, name: 'Nitin Sharma', phone: '+971 50 123 4567', status: 'Verified', type: 'Owner' },
-    { id: 2, name: 'Priya Sharma', phone: '+971 50 234 5678', status: 'Verified', type: 'Co-resident' },
-    { id: 3, name: 'Arjun Sharma', phone: 'Not Shared', status: 'Pending', type: 'Family Member' }
+    { id: 1, name: 'Zainab', phone: '+12 123 456 789', relation: 'Sister', status: 'Active' },
+    { id: 2, name: 'Faiza', phone: '+12 123 456 789', relation: 'Mother', status: 'Active' },
   ],
   regularVisitors: [
-    { id: 1, name: 'Mohammad Hassan', phone: '+971 55 111 2222', role: 'Maid', schedule: 'Daily', hours: '09:00–11:00', status: 'Active' },
-    { id: 2, name: 'Fatima Al-Mansoori', phone: '+971 55 222 3333', role: 'Nanny', schedule: 'Weekdays', hours: '14:00–18:00', status: 'Active' },
-    { id: 3, name: 'Ahmed Abu Dhabi Taxi', phone: '+971 55 333 4444', role: 'Driver', schedule: 'As Needed', hours: 'Flexible', status: 'Inactive' }
+    { id: 1, name: 'Asma', phone: '+12 123 456 789', role: 'Maid', schedule: 'Mon, Wed, Fri', hours: '9:00 AM to 17:00 PM', status: 'Active' },
+    { id: 2, name: 'Ibrahim', phone: '+12 123 456 789', role: 'Nanny', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', status: 'Active' },
+    { id: 3, name: 'Hamza', phone: '+12 123 456 789', role: 'Driver', schedule: 'Mon to Fri', hours: '9:00 AM to 18:00 PM', status: 'Active' }
   ],
   pendingApprovals: [
     { id: 1, name: 'Marcus Johnson', type: 'Guest', flat: 'B-102', timeWaiting: '04:57', calledBy: 'Nitin Sharma' },
@@ -2375,8 +2374,8 @@ const PlaceholderPage = ({ title, description }) => (
 
 // ==================== PRE-APPROVE FORM + QR CODE ====================
 const PreApproveForm = ({ onBack, showToast, data, setData }) => {
-  const [step, setStep] = useState('form'); // form | qr
-  const [visitorType, setVisitorType] = useState('Guest');
+  const [step, setStep] = useState('form'); // form | review | qr
+  const [visitorType, setVisitorType] = useState('Resident Guest');
   const [entryType, setEntryType] = useState('Walk-in');
   const [fullName, setFullName] = useState('');
   const [mobile, setMobile] = useState('');
@@ -2387,6 +2386,7 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
   const [remarks, setRemarks] = useState('');
   const [visitDate, setVisitDate] = useState('');
   const [visitTime, setVisitTime] = useState('');
+  const [repeater, setRepeater] = useState('Single Visit');
   const [qrData, setQrData] = useState(null);
   const qrRef = useRef(null);
   const qrInstance = useRef(null);
@@ -2403,6 +2403,15 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
 
     const permitRef = generatePermitRef();
     const now = new Date();
+    const baseDate = visitDate ? new Date(visitDate) : now;
+    // Calculate validity based on repeater type
+    let validUntil = '';
+    let repeaterLabel = repeater;
+    if (repeater === 'Single Visit') {
+      validUntil = (visitDate || now.toLocaleDateString('en-GB')) + ' 23:59';
+    } else {
+      validUntil = 'Until cancelled';
+    }
     const qrPayload = {
       permit: permitRef,
       property: 'Sky Tower - The Pinnacle Residences',
@@ -2417,13 +2426,14 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
       idDoc: idDocType + (docNumber ? ': ' + docNumber : ''),
       date: visitDate || now.toLocaleDateString('en-GB'),
       time: visitTime || now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}),
-      validUntil: visitDate ? visitDate + ' 23:59' : now.toLocaleDateString('en-GB') + ' 23:59',
+      validUntil: validUntil,
+      repeater: repeater,
       status: 'PRE-APPROVED',
       created: now.toISOString()
     };
 
     setQrData(qrPayload);
-    setStep('qr');
+    setStep('review');
     // Visitor is NOT saved to the system yet — only saved when resident clicks "Pre-Approve" on the review page
   };
 
@@ -2444,6 +2454,8 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
       permitRef: qrData.permit,
       duration: '—',
       qrCode: 'Pre-approved',
+      repeater: qrData.repeater || 'Single Visit',
+      validUntil: qrData.validUntil,
       qrPayload: qrData
     };
     const logEntry = {
@@ -2472,7 +2484,7 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
       todaySchedule: [...prev.todaySchedule, pmScheduleEntry].sort((a, b) => a.time.localeCompare(b.time))
     }));
     showToast('Pre-approval confirmed and saved!');
-    onBack();
+    setStep('qr');
   };
 
   // QR contains just the permit ref — scanned only through Security app
@@ -2499,6 +2511,7 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
       '📅 Date: ' + d.date,
       '⏰ Time: ' + d.time,
       '🚗 Vehicle: ' + d.vehicle,
+      '🔄 Repeater: ' + (d.repeater || 'Single Visit'),
       '',
       '📋 Show this message or QR code at the gate.',
       'Valid until: ' + d.validUntil
@@ -2528,7 +2541,8 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
         const details = qrData ? [
           ['Visitor', qrData.visitor], ['Phone', qrData.mobile], ['Property', qrData.property],
           ['Unit', qrData.unit], ['Host', qrData.resident], ['Type', qrData.type],
-          ['Date', qrData.date], ['Time', qrData.time], ['Vehicle', qrData.vehicle], ['Valid Until', qrData.validUntil],
+          ['Date', qrData.date], ['Time', qrData.time], ['Vehicle', qrData.vehicle],
+          ['Repeater', qrData.repeater || 'Single Visit'], ['Valid Until', qrData.validUntil],
         ] : [];
         let y = 298;
         details.forEach(([label, val]) => {
@@ -2602,8 +2616,8 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
     URL.revokeObjectURL(url);
   };
 
-  // ---- REVIEW SCREEN (not yet saved to system) ----
-  if (step === 'qr') {
+  // ---- STEP 2: REVIEW SCREEN (pass details, not yet saved) ----
+  if (step === 'review') {
     return (
       <div className="res-content" style={{paddingBottom:80}}>
         <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
@@ -2611,46 +2625,76 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
           <h3 style={{fontFamily:'Georgia,serif',fontSize:18,fontWeight:500,letterSpacing:'0.02em',margin:0}}>Review Pre-Approval</h3>
         </div>
 
+        <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:20,marginBottom:16}}>
+          <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:12,fontWeight:600}}>Pass Details</div>
+          {qrData && (() => {
+            const rows = [
+              ['Property', qrData.property],
+              ['Unit / Flat', qrData.unit],
+              ['Host', qrData.resident],
+              ['Visitor', qrData.visitor],
+              ['Phone', qrData.mobile],
+              ['Type', qrData.type],
+              ['Total Guests', String(qrData.guests)],
+              ['Vehicle', qrData.vehicle],
+              ['Date', qrData.date],
+              ['Time', qrData.time],
+              ['Repeater', qrData.repeater || 'Single Visit'],
+              ['Valid Until', qrData.validUntil],
+            ];
+            return rows.map(([label, val], i) => (
+              <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom: i < rows.length - 1 ? '1px solid #f0f0f0' : 'none'}}>
+                <span style={{fontSize:12,color:'#8a8a8a'}}>{label}</span>
+                <span style={{fontSize:12,color: label === 'Valid Until' && val === 'Until cancelled' ? '#2d6a4f' : '#1a1a1a',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
+              </div>
+            ));
+          })()}
+        </div>
+
+        <button onClick={() => setStep('form')} style={{width:'100%',padding:14,background:'#fff',color:'#1a1a1a',border:'1px solid #d0d0d0',borderRadius:6,fontSize:14,fontWeight:500,cursor:'pointer',marginBottom:12,letterSpacing:'0.03em'}}>
+          Edit Details
+        </button>
+
+        <button onClick={confirmPreApproval} style={{width:'100%',padding:16,background:'#2d6a4f',color:'#fff',border:'none',borderRadius:6,fontSize:15,fontWeight:700,cursor:'pointer',letterSpacing:'0.04em'}}>
+          Pre-Approve Visitor
+        </button>
+      </div>
+    );
+  }
+
+  // ---- STEP 3: QR CODE SCREEN (after confirmed, visitor saved) ----
+  if (step === 'qr') {
+    return (
+      <div className="res-content" style={{paddingBottom:80}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
+          <button onClick={onBack} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#4d4d4f'}}>←</button>
+          <h3 style={{fontFamily:'Georgia,serif',fontSize:18,fontWeight:500,letterSpacing:'0.02em',margin:0}}>Visitor Pre-Approved</h3>
+        </div>
+
         <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:24,textAlign:'center',marginBottom:16}}>
-          <div style={{background:'#fff3cd',color:'#856404',padding:'8px 16px',borderRadius:4,display:'inline-block',fontSize:13,fontWeight:600,letterSpacing:'0.04em',marginBottom:16}}>PENDING REVIEW</div>
+          <div style={{background:'#e8f5e9',color:'#2d6a4f',padding:'8px 16px',borderRadius:4,display:'inline-block',fontSize:13,fontWeight:600,letterSpacing:'0.04em',marginBottom:16}}>VISITOR PRE-APPROVED</div>
           <div ref={qrRef} style={{display:'flex',justifyContent:'center',marginBottom:16}}></div>
           <div style={{fontSize:11,color:'#8a8a8a',marginBottom:8}}>Scan this QR code at the gate</div>
           <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a',marginBottom:4}}>{qrData && qrData.permit}</div>
-          <div style={{fontSize:12,color:'#4d4d4f'}}>{qrData && qrData.visitor}</div>
-        </div>
-
-        <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:20,marginBottom:16}}>
-          <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:12,fontWeight:600}}>Pass Details</div>
-          {qrData && [
-            ['Property', qrData.property],
-            ['Unit / Flat', qrData.unit],
-            ['Host', qrData.resident],
-            ['Visitor', qrData.visitor],
-            ['Phone', qrData.mobile],
-            ['Type', qrData.type],
-            ['Total Guests', String(qrData.guests)],
-            ['Vehicle', qrData.vehicle],
-            ['Date', qrData.date],
-            ['Time', qrData.time],
-            ['Valid Until', qrData.validUntil],
-          ].map(([label, val], i) => (
-            <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom: i < 10 ? '1px solid #f0f0f0' : 'none'}}>
-              <span style={{fontSize:12,color:'#8a8a8a'}}>{label}</span>
-              <span style={{fontSize:12,color:'#1a1a1a',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
-            </div>
-          ))}
+          <div style={{fontSize:12,color:'#4d4d4f',marginBottom:4}}>{qrData && qrData.visitor}</div>
+          <div style={{fontSize:11,color:'#8a8a8a'}}>{qrData && qrData.type} · {qrData && qrData.date} · {qrData && qrData.time}</div>
+          {qrData && qrData.repeater && qrData.repeater !== 'Single Visit' && (
+            <div style={{fontSize:11,color:'#1565c0',marginTop:4}}>{qrData.repeater} — Valid until cancelled</div>
+          )}
         </div>
 
         <button onClick={sharePass} style={{width:'100%',padding:14,background:'#fff',color:'#1a1a1a',border:'1px solid #d0d0d0',borderRadius:6,fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:12,letterSpacing:'0.03em'}}>
-          📤 Share QR Pass
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+          Share QR Pass
         </button>
 
-        <button onClick={confirmPreApproval} style={{width:'100%',padding:16,background:'#2d6a4f',color:'#fff',border:'none',borderRadius:6,fontSize:15,fontWeight:700,cursor:'pointer',letterSpacing:'0.04em',marginBottom:10}}>
-          ✓ Pre-Approve Visitor
-        </button>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+          <button onClick={shareToWhatsApp} style={{padding:12,background:'#25D366',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}}>WhatsApp</button>
+          <button onClick={shareToTelegram} style={{padding:12,background:'#0088cc',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}}>Telegram</button>
+        </div>
 
-        <button onClick={() => setStep('form')} style={{width:'100%',padding:12,background:'none',color:'#8a8a8a',border:'1px solid #e0e0e0',borderRadius:6,fontSize:13,cursor:'pointer'}}>
-          ← Edit Details
+        <button onClick={onBack} style={{width:'100%',padding:14,background:'#1a1a1a',color:'#fff',border:'none',borderRadius:6,fontSize:14,fontWeight:600,cursor:'pointer',letterSpacing:'0.03em'}}>
+          Done
         </button>
       </div>
     );
@@ -2667,11 +2711,11 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
         </div>
       </div>
 
-      {/* Visitor Type */}
+      {/* Guest Type */}
       <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:20,marginBottom:12}}>
-        <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:10,fontWeight:600}}>Visitor Type *</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
-          {['Guest','Contractor','Delivery','Domestic Staff','Vendor','Other'].map(t => (
+        <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:10,fontWeight:600}}>Guest Type *</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+          {['Resident Guest','Family Guest','Business Guest','VIP Guest'].map(t => (
             <div key={t} onClick={() => setVisitorType(t)}
               style={{padding:'12px 8px',border: visitorType===t ? '2px solid #1a1a1a' : '1px solid #e0e0e0',
               borderRadius:6,textAlign:'center',cursor:'pointer',background: visitorType===t ? '#faf8f5' : '#fff',
@@ -2751,6 +2795,27 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
             style={{width:'100%',padding:12,border:'1px solid #e0e0e0',borderRadius:6,fontSize:14,outline:'none',boxSizing:'border-box'}} />
         </div>
 
+        {/* Repeater */}
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:12,color:'#4d4d4f',fontWeight:500,marginBottom:8,display:'block'}}>Repeater</label>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {['Single Visit','Everyday','Every Week','Every Two Weeks'].map(r => (
+              <div key={r} onClick={() => setRepeater(r)}
+                style={{padding:'12px 10px',border: repeater===r ? '2px solid #1a1a1a' : '1px solid #e0e0e0',
+                borderRadius:6,textAlign:'center',cursor:'pointer',background: repeater===r ? '#faf8f5' : '#fff',
+                fontSize:12,fontWeight: repeater===r ? 600 : 400,color:'#1a1a1a',transition:'all .15s'}}>
+                {r}
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:11,color:'#8a8a8a',marginTop:8,lineHeight:'1.5'}}>
+            {repeater === 'Single Visit' && 'QR code will be valid for one day only (visit date).'}
+            {repeater === 'Everyday' && 'QR code will remain valid every day until you cancel the approval.'}
+            {repeater === 'Every Week' && 'QR code will remain valid once per week until you cancel the approval.'}
+            {repeater === 'Every Two Weeks' && 'QR code will remain valid once every two weeks until you cancel the approval.'}
+          </div>
+        </div>
+
         <div>
           <label style={{fontSize:12,color:'#4d4d4f',fontWeight:500,marginBottom:4,display:'block'}}>Entry Remarks</label>
           <textarea value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Add any notes for the guard..."
@@ -2781,6 +2846,11 @@ const ResidentApp = ({ onLogout }) => {
   const [dismissedNotifIds, setDismissedNotifIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem('varspm_dismissed_notifs') || '[]'); } catch(e) { return []; }
   });
+  const [resHhTab, setResHhTab] = useState('family');
+  const [resHhShowCreate, setResHhShowCreate] = useState(false);
+  const [resHhForm, setResHhForm] = useState({ name: '', phone: '', relation: 'Sister', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', allowAccess: false });
+  const [resVisFilter, setResVisFilter] = useState('All');
+  const [resVisFilterOpen, setResVisFilterOpen] = useState(false);
   const prevVisitorStatesRef = React.useRef({});
 
   // Track visitor status changes for live notifications
@@ -3033,24 +3103,28 @@ const ResidentApp = ({ onLogout }) => {
             ) : (
               <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:20,marginBottom:16}}>
                 <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:12,fontWeight:600}}>Pass Details</div>
-                {[
-                  ['Property', vp ? vp.property : 'Sky Tower - The Pinnacle Residences'],
-                  ['Unit / Flat', selectedVisitor.flat],
-                  ['Host', selectedVisitor.resident],
-                  ['Visitor', selectedVisitor.name],
-                  ['Phone', selectedVisitor.contact],
-                  ['Type', selectedVisitor.type],
-                  ['Total Guests', vp ? String(vp.guests) : '1'],
-                  ['Vehicle', vp ? vp.vehicle : 'N/A'],
-                  ['Date', selectedVisitor.date],
-                  ['Time', selectedVisitor.time],
-                  ['Valid Until', vp ? vp.validUntil : '—'],
-                ].map(([label, val], i) => (
-                  <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom: i < 10 ? '1px solid #f0f0f0' : 'none'}}>
-                    <span style={{fontSize:12,color:'#8a8a8a'}}>{label}</span>
-                    <span style={{fontSize:12,color:'#1a1a1a',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
-                  </div>
-                ))}
+                {(() => {
+                  const rows = [
+                    ['Property', vp ? vp.property : 'Sky Tower - The Pinnacle Residences'],
+                    ['Unit / Flat', selectedVisitor.flat],
+                    ['Host', selectedVisitor.resident],
+                    ['Visitor', selectedVisitor.name],
+                    ['Phone', selectedVisitor.contact],
+                    ['Type', selectedVisitor.type],
+                    ['Total Guests', vp ? String(vp.guests) : '1'],
+                    ['Vehicle', vp ? vp.vehicle : 'N/A'],
+                    ['Date', selectedVisitor.date],
+                    ['Time', selectedVisitor.time],
+                    ['Repeater', selectedVisitor.repeater || (vp ? vp.repeater : '') || 'Single Visit'],
+                    ['Valid Until', selectedVisitor.validUntil || (vp ? vp.validUntil : '—')],
+                  ];
+                  return rows.map(([label, val], i) => (
+                    <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom: i < rows.length - 1 ? '1px solid #f0f0f0' : 'none'}}>
+                      <span style={{fontSize:12,color:'#8a8a8a'}}>{label}</span>
+                      <span style={{fontSize:12,color: label === 'Valid Until' && val === 'Until cancelled' ? '#2d6a4f' : label === 'Repeater' && val !== 'Single Visit' ? '#1565c0' : '#1a1a1a',fontWeight:500,textAlign:'right',maxWidth:'60%'}}>{val}</span>
+                    </div>
+                  ));
+                })()}
               </div>
             )}
 
@@ -3127,55 +3201,59 @@ const ResidentApp = ({ onLogout }) => {
           </div>
         );
       case 'payment':
-        const bills = [
-          { cat: 'Property Management', items: [
-            { name: 'Annual Service Charge', amount: 'AED 12,500', due: '15 Apr 2026', status: 'Due' },
-            { name: 'Parking Fee (2 slots)', amount: 'AED 3,000', due: '01 Apr 2026', status: 'Paid' },
-            { name: 'Property Management Fee (Q2)', amount: 'AED 4,500', due: '15 Apr 2026', status: 'Unpaid' },
-            { name: 'Sinking Fund', amount: 'AED 1,200', due: '15 Apr 2026', status: 'Due' },
-            { name: 'Community Maintenance', amount: 'AED 800', due: '01 Apr 2026', status: 'Paid' },
+        const transactions = [
+          { month: 'MARCH 2026', items: [
+            { title: 'Maintenance — Mar', detail: 'Mar 5 · UPI · Ref #84920', amount: 'AED 2,400', status: 'Paid' },
+            { title: 'Water charges — Mar', detail: 'Mar 5 · UPI · Ref #84921', amount: 'AED 400', status: 'Paid' },
           ]},
-          { cat: 'Utility Bills', items: [
-            { name: 'TAQA — Electricity', amount: 'AED 487.50', due: '10 Apr 2026', status: 'Due' },
-            { name: 'ADDC — Water', amount: 'AED 125.00', due: '10 Apr 2026', status: 'Due' },
-            { name: 'ADNOC Gas', amount: 'AED 68.00', due: '12 Apr 2026', status: 'Due' },
-            { name: 'Etisalat — Internet & Phone', amount: 'AED 399.00', due: '08 Apr 2026', status: 'Overdue' },
-            { name: 'Du — Mobile', amount: 'AED 199.00', due: '05 Apr 2026', status: 'Unpaid' },
+          { month: 'FEBRUARY 2026', items: [
+            { title: 'Maintenance — Feb', detail: 'Feb 4 · Card · Ref #79103', amount: 'AED 2,400', status: 'Paid' },
+            { title: 'Late payment penalty', detail: 'Feb 18 · Auto-deducted', amount: 'AED 200', status: 'Penalty' },
           ]},
-          { cat: 'Services', items: [
-            { name: 'Cleaning Service (Monthly)', amount: 'AED 600', due: '05 Apr 2026', status: 'Due' },
-            { name: 'Move-In/Move-Out Fee', amount: 'AED 1,500', due: '—', status: 'Paid' },
-            { name: 'Plumber — Bathroom Fix', amount: 'AED 250', due: '02 Apr 2026', status: 'Paid' },
-            { name: 'AC Maintenance', amount: 'AED 350', due: '20 Apr 2026', status: 'Upcoming' },
+          { month: 'JANUARY 2026', items: [
+            { title: 'Maintenance — Jan', detail: 'Jan 5 · UPI · Ref #74210', amount: 'AED 2,400', status: 'Paid' },
+            { title: 'Parking fee — Q1', detail: 'Jan 10 · Card · Ref #74305', amount: 'AED 750', status: 'Paid' },
           ]},
         ];
-        const totalDue = 'AED 15,829.50';
         return (
-          <div className="res-content" style={{paddingBottom:80}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-              <button onClick={() => setCurrentPage('home')} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#4d4d4f'}}>←</button>
-              <h3 style={{fontFamily:'Georgia,serif',fontSize:18,fontWeight:500,margin:0}}>Payments & Bills</h3>
+          <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
+            <div style={{fontSize:20,fontWeight:600,color:'#1a1a1a',marginBottom:20}}>Payment</div>
+
+            {/* Total Due Card */}
+            <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:10,padding:20,marginBottom:28}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                <span style={{fontSize:12,color:'#888'}}>Total due this month</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <div style={{fontSize:32,fontWeight:700,color:'#1a1a1a',marginBottom:4}}>AED 3,200</div>
+              <div style={{fontSize:12,color:'#888',marginBottom:14}}>Due by Apr 10, 2026</div>
+              <div style={{display:'flex',gap:12}}>
+                <button onClick={() => showToast('Payment gateway coming soon')} style={{padding:'8px 18px',border:'1px solid #1a1a1a',borderRadius:4,background:'#fff',color:'#1a1a1a',fontSize:12,fontWeight:600,cursor:'pointer'}}>Pay Now</button>
+                <button onClick={() => showToast('Detailed breakdown coming soon')} style={{padding:'8px 18px',border:'none',borderRadius:4,background:'none',color:'#888',fontSize:12,fontWeight:500,cursor:'pointer'}}>Check details</button>
+              </div>
             </div>
-            <div style={{background:'#1a1a1a',borderRadius:8,padding:20,marginBottom:20,color:'#fff'}}>
-              <div style={{fontSize:11,color:'#999',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>Total Outstanding</div>
-              <div style={{fontSize:28,fontWeight:700,color:'#ae9751'}}>{totalDue}</div>
-              <div style={{fontSize:12,color:'#888',marginTop:4}}>Unit B-102 — Nitin Sharma</div>
+
+            {/* Transaction History */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <span style={{fontSize:16,fontWeight:600,color:'#1a1a1a'}}>Transaction history</span>
+              <span style={{fontSize:11,color:'#888',cursor:'pointer'}}>Download PDF</span>
             </div>
-            {bills.map((cat, ci) => (
-              <div key={ci} style={{marginBottom:20}}>
-                <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:10,fontWeight:600}}>{cat.cat}</div>
-                {cat.items.map((item, i) => (
-                  <div key={i} style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:'14px 16px',marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:500,color:'#1a1a1a',marginBottom:2}}>{item.name}</div>
-                      <div style={{fontSize:11,color:'#888'}}>Due: {item.due}</div>
+
+            {transactions.map((group, gi) => (
+              <div key={gi} style={{marginBottom:20}}>
+                <div style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.08em',fontWeight:600,marginBottom:10}}>{group.month}</div>
+                {group.items.map((t, ti) => (
+                  <div key={ti} style={{display:'flex',alignItems:'center',gap:12,marginBottom:16,paddingBottom:16,borderBottom: ti < group.items.length - 1 ? '1px solid #f0f0f0' : 'none'}}>
+                    <div style={{width:40,height:40,borderRadius:8,background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                     </div>
-                    <div style={{textAlign:'right'}}>
-                      <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{item.amount}</div>
-                      <div style={{fontSize:10,fontWeight:600,marginTop:2,padding:'2px 8px',borderRadius:4,display:'inline-block',
-                        background: item.status==='Paid' ? '#e8f5e9' : item.status==='Overdue' ? '#ffebee' : item.status==='Upcoming' ? '#f3f4f6' : '#fff3cd',
-                        color: item.status==='Paid' ? '#2d6a4f' : item.status==='Overdue' ? '#c62828' : item.status==='Upcoming' ? '#666' : '#856404'
-                      }}>{item.status.toUpperCase()}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:14,fontWeight:500,color:'#1a1a1a'}}>{t.title}</div>
+                      <div style={{fontSize:11,color:'#8a8a8a'}}>{t.detail}</div>
+                    </div>
+                    <div style={{textAlign:'right',flexShrink:0}}>
+                      <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>– {t.amount}</div>
+                      <span style={{fontSize:10,color: t.status === 'Penalty' ? '#c62828' : '#888',fontWeight:500,border:'1px solid '+(t.status === 'Penalty' ? '#ef9a9a' : '#e0e0e0'),padding:'1px 8px',borderRadius:4}}>{t.status}</span>
                     </div>
                   </div>
                 ))}
@@ -3185,201 +3263,205 @@ const ResidentApp = ({ onLogout }) => {
         );
 
       case 'services':
+      case 'book':
+        const popularServices = [
+          { label: 'Plumbing', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><path d="M4 22V12M4 12H8M4 12V8H2V6h4V4h2v2h4V4h2v2h2v2h-2v4h4v2h-4v8h-2v-8H8v8H6"/></svg>) },
+          { label: 'Electrician', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>) },
+          { label: 'Housekeeping', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>) },
+          { label: 'Personal Trainer', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><circle cx="12" cy="5" r="3"/><path d="M6.5 8h11L19 10l-3 1v4l2 6h-2l-2-5h-4l-2 5H6l2-6v-4L5 10l1.5-2z"/></svg>) },
+          { label: 'Swimming Pool', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><path d="M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M8 14V8a2 2 0 114 0v1"/></svg>) },
+          { label: 'Table Tennis', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><circle cx="10" cy="10" r="7"/><path d="M15 15l6 6M14 10a4 4 0 01-4 4"/></svg>) },
+          { label: 'Squash', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><circle cx="12" cy="10" r="6"/><path d="M10 16l-2 6M14 16l2 6"/></svg>) },
+        ];
+        const upcomingRequests = [
+          { id: 1, title: 'Plumber visit', detail: 'Today, 3:00 PM', status: 'In Progress' },
+          { id: 2, title: 'Leaky tap complaint', detail: 'Raised 2 days ago', status: 'In Progress' },
+        ];
+        const serviceHistory = [
+          { id: 1, title: 'Electrician', detail: 'Mar 28 · AED 499', status: 'Done' },
+          { id: 2, title: 'Noise complaint', detail: 'Mar 22 · Ticket #1042', status: 'Closed' },
+          { id: 3, title: 'Maintenance payment', detail: 'Mar 15 · AED 250', status: 'Paid' },
+        ];
         return (
-          <div className="res-content" style={{paddingBottom:80}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-              <button onClick={() => setCurrentPage('home')} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#4d4d4f'}}>←</button>
-              <h3 style={{fontFamily:'Georgia,serif',fontSize:18,fontWeight:500,margin:0}}>Services & Requests</h3>
+          <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
+            <div style={{fontSize:20,fontWeight:600,color:'#1a1a1a',marginBottom:20}}>Service</div>
+
+            {/* Popular Services */}
+            <div style={{marginBottom:24}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                <span style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>Popular services</span>
+                <span style={{fontSize:11,color:'#888',cursor:'pointer'}}>see all</span>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+                {popularServices.map((svc, i) => (
+                  <div key={i} onClick={() => showToast('Request for ' + svc.label + ' submitted')} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',padding:'4px 0'}}>
+                    <div style={{width:48,height:48,borderRadius:'50%',background:'#f5f5f5',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid #e8e8e8'}}>
+                      {svc.icon}
+                    </div>
+                    <span style={{fontSize:10,color:'#555',textAlign:'center',lineHeight:'1.3'}}>{svc.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:10,fontWeight:600}}>Request a Service</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:24}}>
-              {[
-                {icon:'🔧',name:'Maintenance',desc:'AC, plumbing, electrical'},
-                {icon:'🧹',name:'Cleaning',desc:'Deep clean, regular service'},
-                {icon:'📦',name:'Move In / Out',desc:'Moving assistance & permits'},
-                {icon:'🪳',name:'Pest Control',desc:'Scheduled or emergency'},
-                {icon:'🔑',name:'Locksmith',desc:'Lock change, key copy'},
-                {icon:'🎨',name:'Painting',desc:'Touch-up or full repaint'},
-              ].map((s,i) => (
-                <div key={i} onClick={() => showToast('Request for ' + s.name + ' submitted — PM will contact you shortly')}
-                  style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:8,padding:16,cursor:'pointer',transition:'all .15s'}}>
-                  <div style={{fontSize:24,marginBottom:6}}>{s.icon}</div>
-                  <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a',marginBottom:2}}>{s.name}</div>
-                  <div style={{fontSize:11,color:'#888'}}>{s.desc}</div>
+
+            {/* Upcoming Requests */}
+            <div style={{marginBottom:24}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                <span style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>Upcoming requests</span>
+                <span style={{fontSize:11,color:'#888',cursor:'pointer'}}>See all</span>
+              </div>
+              {upcomingRequests.map(r => (
+                <div key={r.id} style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:10,padding:16,marginBottom:10,display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{width:40,height:40,borderRadius:8,background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{r.title}</div>
+                    <div style={{fontSize:11,color:'#8a8a8a'}}>{r.detail}</div>
+                  </div>
+                  <span style={{fontSize:11,color:'#555',background:'#f5f5f5',padding:'4px 10px',borderRadius:20,fontWeight:500,border:'1px solid #e8e8e8'}}>{r.status}</span>
                 </div>
               ))}
             </div>
-            <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:10,fontWeight:600}}>Contact Property Management</div>
-            <div onClick={() => setHelpModal('pm')} style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:8,padding:16,cursor:'pointer',display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
-              <div style={{width:40,height:40,borderRadius:'50%',background:'#1a1a1a',color:'#ae9751',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>HP</div>
-              <div>
-                <div style={{fontSize:13,fontWeight:600}}>Chat with Property Manager</div>
-                <div style={{fontSize:11,color:'#888'}}>Hassan Al-PM — Available 8am–8pm</div>
-              </div>
-            </div>
-            <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:10,marginTop:20,fontWeight:600}}>Recent Requests</div>
-            {data.serviceRequests.filter(r => r.flat === 'B-0803' || true).slice(0,4).map((r,i) => (
-              <div key={i} style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:'12px 16px',marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:500}}>{r.type}</div>
-                  <div style={{fontSize:11,color:'#888'}}>{r.date} — {r.resident}</div>
-                </div>
-                <div style={{fontSize:10,fontWeight:600,padding:'2px 8px',borderRadius:4,
-                  background: r.status==='Completed' ? '#e8f5e9' : r.status==='Scheduled' ? '#fff3cd' : '#f0f4ff',
-                  color: r.status==='Completed' ? '#2d6a4f' : r.status==='Scheduled' ? '#856404' : '#1565c0'
-                }}>{r.status.toUpperCase()}</div>
-              </div>
-            ))}
-          </div>
-        );
 
-      case 'book':
-        const amenities = [
-          { icon: '🏊', name: 'Swimming Pool', slots: ['06:00–08:00','08:00–10:00','10:00–12:00','14:00–16:00','16:00–18:00','18:00–20:00'], booked: [1,4] },
-          { icon: '🏋️', name: 'Gym', slots: ['06:00–08:00','08:00–10:00','10:00–12:00','14:00–16:00','16:00–18:00','18:00–20:00'], booked: [0] },
-          { icon: '🧖', name: 'Sauna & Steam', slots: ['08:00–10:00','10:00–12:00','14:00–16:00','16:00–18:00','18:00–20:00'], booked: [2] },
-          { icon: '🎾', name: 'Tennis Court', slots: ['07:00–08:00','08:00–09:00','09:00–10:00','16:00–17:00','17:00–18:00','18:00–19:00'], booked: [0,3] },
-          { icon: '🏸', name: 'Badminton Court', slots: ['07:00–08:00','08:00–09:00','17:00–18:00','18:00–19:00','19:00–20:00'], booked: [] },
-          { icon: '🏀', name: 'Basketball Court', slots: ['07:00–09:00','09:00–11:00','16:00–18:00','18:00–20:00'], booked: [2] },
-        ];
-        return (
-          <div className="res-content" style={{paddingBottom:80}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-              <button onClick={() => setCurrentPage('home')} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#4d4d4f'}}>←</button>
-              <h3 style={{fontFamily:'Georgia,serif',fontSize:18,fontWeight:500,margin:0}}>Book Amenities</h3>
-            </div>
-            <div style={{fontSize:12,color:'#888',marginBottom:16}}>Today — {new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
-            {amenities.map((a, ai) => (
-              <div key={ai} style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:8,padding:16,marginBottom:12}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-                  <span style={{fontSize:22}}>{a.icon}</span>
-                  <span style={{fontSize:14,fontWeight:600}}>{a.name}</span>
-                </div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                  {a.slots.map((slot,si) => {
-                    const isBooked = a.booked.includes(si);
-                    return (
-                      <div key={si} onClick={() => { if (!isBooked) showToast(a.name + ' booked for ' + slot + '!'); }}
-                        style={{padding:'8px 12px',borderRadius:6,fontSize:11,fontWeight:500,cursor: isBooked ? 'default' : 'pointer',
-                        background: isBooked ? '#f5f5f5' : '#e8f5e9',
-                        color: isBooked ? '#bbb' : '#2d6a4f',
-                        border: isBooked ? '1px solid #e0e0e0' : '1px solid #a5d6a7',
-                        textDecoration: isBooked ? 'line-through' : 'none'
-                      }}>{slot}</div>
-                    );
-                  })}
-                </div>
+            {/* Service History */}
+            <div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                <span style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>Service history</span>
+                <span style={{fontSize:11,color:'#888',cursor:'pointer'}}>View all</span>
               </div>
-            ))}
+              {serviceHistory.map(h => (
+                <div key={h.id} style={{display:'flex',alignItems:'center',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid #f0f0f0'}}>
+                  <div style={{width:40,height:40,borderRadius:8,background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:500,color:'#1a1a1a'}}>{h.title}</div>
+                    <div style={{fontSize:11,color:'#8a8a8a'}}>{h.detail}</div>
+                  </div>
+                  <span style={{fontSize:11,color: h.status==='Done' ? '#2d6a4f' : h.status==='Paid' ? '#1565c0' : '#888',fontWeight:500}}>{h.status}</span>
+                </div>
+              ))}
+            </div>
           </div>
         );
 
       case 'viewall':
-        const allVisitors = data.visitors;
-        const preApproved = allVisitors.filter(v => v.status === 'Scheduled');
-        const passedSecurity = allVisitors.filter(v => v.status === 'Inside');
-        const onHold = allVisitors.filter(v => v.status === 'On Hold');
-        const rejectedVisitors = allVisitors.filter(v => v.status === 'Rejected');
-        const checkedOutVisitors = allVisitors.filter(v => v.status === 'Checked Out');
-        const pendingVisitors = allVisitors.filter(v => v.status === 'Pending');
-        const statusBadge = (status) => {
-          const styles = {
-            'Scheduled': { bg: '#fff8e1', color: '#f57f17', border: '#ffe082', label: 'PRE-APPROVED', icon: '📋' },
-            'Inside': { bg: '#e8f5e9', color: '#2e7d32', border: '#a5d6a7', label: 'PASSED SECURITY', icon: '✓' },
-            'On Hold': { bg: '#fff3e0', color: '#e65100', border: '#ffcc80', label: 'ON HOLD', icon: '⏸' },
-            'Rejected': { bg: '#ffebee', color: '#c62828', border: '#ef9a9a', label: 'REJECTED BY SECURITY', icon: '✕' },
-            'Checked Out': { bg: '#f5f5f5', color: '#616161', border: '#e0e0e0', label: 'CHECKED OUT', icon: '→' },
-            'Pending': { bg: '#e3f2fd', color: '#1565c0', border: '#90caf9', label: 'PENDING APPROVAL', icon: '⏳' }
+        const allVisitors = data.visitors || [];
+        const visFilterTypes = ['All', 'Resident Guest', 'Family Guest', 'Business Guest', 'VIP Guest'];
+
+        // Status badge
+        const vStatusBadge = (status) => {
+          const map = {
+            'Inside': { bg: '#e8f5e9', color: '#2e7d32', label: 'In' },
+            'Scheduled': { bg: '#fff8e1', color: '#f57f17', label: 'Pre-Approved' },
+            'Checked Out': { bg: '#f5f5f5', color: '#616161', label: 'Out' },
+            'Rejected': { bg: '#ffebee', color: '#c62828', label: 'Rejected' },
+            'On Hold': { bg: '#fff3e0', color: '#e65100', label: 'Hold' },
+            'Pending': { bg: '#e3f2fd', color: '#1565c0', label: 'Pending' }
           };
-          const s = styles[status] || { bg: '#f5f5f5', color: '#888', border: '#ddd', label: status.toUpperCase(), icon: '•' };
-          return (<span style={{background:s.bg,color:s.color,border:'1px solid '+s.border,padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:600,height:'fit-content',whiteSpace:'nowrap'}}>{s.icon} {s.label}</span>);
+          const s = map[status] || { bg: '#f5f5f5', color: '#888', label: status };
+          return <span style={{background:s.bg,color:s.color,padding:'3px 10px',borderRadius:4,fontSize:10,fontWeight:600}}>{s.label}</span>;
         };
-        const visitorCard = (v, borderColor) => (
-          <div key={'va-'+v.id} className="res-visitor-card" style={{borderLeft:'3px solid '+(borderColor||'#ddd'),cursor:'pointer',marginBottom:8}} onClick={() => { setSelectedVisitor(v); setCurrentPage('viewVisitor'); }}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div className="name">{v.name}</div>
-                <div style={{fontSize:12,color:'#888'}}>{v.type} — {v.contact || v.resident}</div>
-                <div style={{fontSize:11,color:'#999'}}>{v.date} at {v.time}</div>
-                {v.securityPassedTime && <div style={{fontSize:11,color:'#2e7d32',marginTop:2}}>Passed security at {v.securityPassedTime}</div>}
-                {v.securityHoldTime && <div style={{fontSize:11,color:'#e65100',marginTop:2}}>On hold since {v.securityHoldTime}</div>}
-                {v.securityRejectTime && <div style={{fontSize:11,color:'#c62828',marginTop:2}}>Rejected at {v.securityRejectTime}</div>}
-                {v.permitRef && <div style={{fontSize:10,color:'#bbb',marginTop:2}}>Ref: {v.permitRef}</div>}
-              </div>
-              {statusBadge(v.status)}
-            </div>
-          </div>
-        );
-        const sectionHeader = (title, count, color) => (
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,marginTop:16}}>
-            <div style={{width:8,height:8,borderRadius:'50%',background:color}}></div>
-            <div style={{fontSize:11,color:'#8a8a8a',letterSpacing:'0.06em',textTransform:'uppercase',fontWeight:600}}>{title} ({count})</div>
-          </div>
-        );
+
+        // Group visitors by date
+        const parseVisDate = (dateStr) => {
+          if (!dateStr) return 'Unknown';
+          // Try DD/MM/YYYY
+          const parts = dateStr.split('/');
+          if (parts.length === 3) return parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');
+          return dateStr;
+        };
+        const todayStr = new Date().toISOString().slice(0,10);
+
+        // Apply type filter
+        const filteredVisitors = resVisFilter === 'All' ? allVisitors : allVisitors.filter(v => v.type === resVisFilter);
+
+        // Group by date
+        const grouped = {};
+        filteredVisitors.forEach(v => {
+          const key = parseVisDate(v.date);
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(v);
+        });
+        const sortedDateKeys = Object.keys(grouped).sort((a,b) => b.localeCompare(a));
+
+        const formatDateLabel = (key) => {
+          if (key === todayStr) return 'Today';
+          // Convert YYYY-MM-DD back to DD-MM-YYYY
+          const parts = key.split('-');
+          if (parts.length === 3) return parts[2] + '-' + parts[1] + '-' + parts[0];
+          return key;
+        };
+
         return (
-          <div className="res-content" style={{paddingBottom:80}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-              <button onClick={() => setCurrentPage('home')} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#4d4d4f'}}>←</button>
-              <h3 style={{fontFamily:'Georgia,serif',fontSize:18,fontWeight:500,margin:0}}>All Visitors ({allVisitors.length})</h3>
-            </div>
-            {/* Status flow legend */}
-            <div style={{background:'#faf8f5',border:'1px solid #e8e8e8',borderRadius:8,padding:12,marginBottom:16}}>
-              <div style={{fontSize:10,color:'#999',letterSpacing:'0.04em',textTransform:'uppercase',marginBottom:8,fontWeight:600}}>Status Flow</div>
-              <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',fontSize:11}}>
-                <span style={{background:'#fff8e1',color:'#f57f17',padding:'2px 6px',borderRadius:3,fontWeight:600,fontSize:10}}>Pre-Approved</span>
-                <span style={{color:'#ccc'}}>→</span>
-                <span style={{background:'#e8f5e9',color:'#2e7d32',padding:'2px 6px',borderRadius:3,fontWeight:600,fontSize:10}}>Passed Security</span>
-                <span style={{color:'#ccc'}}>→</span>
-                <span style={{background:'#f5f5f5',color:'#616161',padding:'2px 6px',borderRadius:3,fontWeight:600,fontSize:10}}>Checked Out</span>
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',fontSize:11,marginTop:6}}>
-                <span style={{color:'#ccc',marginLeft:0}}>or →</span>
-                <span style={{background:'#fff3e0',color:'#e65100',padding:'2px 6px',borderRadius:3,fontWeight:600,fontSize:10}}>On Hold</span>
-                <span style={{color:'#ccc'}}>/</span>
-                <span style={{background:'#ffebee',color:'#c62828',padding:'2px 6px',borderRadius:3,fontWeight:600,fontSize:10}}>Rejected</span>
-              </div>
-            </div>
-            {/* Summary counts */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16}}>
-              <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:'10px 12px',textAlign:'center'}}>
-                <div style={{fontSize:20,fontWeight:600,color:'#f57f17'}}>{preApproved.length}</div>
-                <div style={{fontSize:10,color:'#999'}}>Pre-Approved</div>
-              </div>
-              <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:'10px 12px',textAlign:'center'}}>
-                <div style={{fontSize:20,fontWeight:600,color:'#2e7d32'}}>{passedSecurity.length}</div>
-                <div style={{fontSize:10,color:'#999'}}>Inside</div>
-              </div>
-              <div style={{background:'#fff',border:'1px solid #e8e8e8',borderRadius:6,padding:'10px 12px',textAlign:'center'}}>
-                <div style={{fontSize:20,fontWeight:600,color:'#616161'}}>{checkedOutVisitors.length + rejectedVisitors.length + onHold.length}</div>
-                <div style={{fontSize:10,color:'#999'}}>Other</div>
+          <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
+            {/* Header */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+              <div style={{fontSize:18,fontWeight:600,color:'#1a1a1a'}}>Visitors</div>
+              <div style={{position:'relative'}}>
+                <button onClick={() => setResVisFilterOpen(!resVisFilterOpen)} style={{background:'none',border:'1px solid #d0d0d0',borderRadius:6,padding:'6px 14px',fontSize:12,color:'#555',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+                  Filter
+                </button>
+                {resVisFilterOpen && (
+                  <div style={{position:'absolute',top:36,right:0,background:'#fff',border:'1px solid #e0e0e0',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,0.1)',zIndex:100,minWidth:180,overflow:'hidden'}}>
+                    <div style={{padding:'10px 14px',fontSize:11,color:'#888',borderBottom:'1px solid #f0f0f0',fontWeight:600}}>Type</div>
+                    {visFilterTypes.map(t => (
+                      <div key={t} onClick={() => { setResVisFilter(t); setResVisFilterOpen(false); }}
+                        style={{padding:'10px 14px',fontSize:13,color: resVisFilter === t ? '#1a1a1a' : '#555',fontWeight: resVisFilter === t ? 600 : 400,cursor:'pointer',background: resVisFilter === t ? '#f5f5f5' : '#fff'}}>
+                        {t}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            {preApproved.length > 0 && (<React.Fragment>
-              {sectionHeader('Pre-Approved — Awaiting Security', preApproved.length, '#f57f17')}
-              {preApproved.map(v => visitorCard(v, '#f57f17'))}
-            </React.Fragment>)}
-            {passedSecurity.length > 0 && (<React.Fragment>
-              {sectionHeader('Passed Security — Currently Inside', passedSecurity.length, '#2e7d32')}
-              {passedSecurity.map(v => visitorCard(v, '#2e7d32'))}
-            </React.Fragment>)}
-            {onHold.length > 0 && (<React.Fragment>
-              {sectionHeader('On Hold by Security', onHold.length, '#e65100')}
-              {onHold.map(v => visitorCard(v, '#e65100'))}
-            </React.Fragment>)}
-            {rejectedVisitors.length > 0 && (<React.Fragment>
-              {sectionHeader('Rejected by Security', rejectedVisitors.length, '#c62828')}
-              {rejectedVisitors.map(v => visitorCard(v, '#c62828'))}
-            </React.Fragment>)}
-            {checkedOutVisitors.length > 0 && (<React.Fragment>
-              {sectionHeader('Checked Out', checkedOutVisitors.length, '#616161')}
-              {checkedOutVisitors.map(v => visitorCard(v, '#9e9e9e'))}
-            </React.Fragment>)}
-            {pendingVisitors.length > 0 && (<React.Fragment>
-              {sectionHeader('Pending Approval', pendingVisitors.length, '#1565c0')}
-              {pendingVisitors.map(v => visitorCard(v, '#1565c0'))}
-            </React.Fragment>)}
-            {allVisitors.length === 0 && (
-              <div style={{textAlign:'center',color:'#999',padding:40,fontSize:13}}>No visitors yet. Pre-approve a visitor to get started.</div>
+
+            {/* Active filter chip */}
+            {resVisFilter !== 'All' && (
+              <div style={{display:'flex',gap:8,marginBottom:12}}>
+                <span style={{background:'#f0f0f0',borderRadius:20,padding:'4px 12px',fontSize:12,color:'#1a1a1a',display:'flex',alignItems:'center',gap:6}}>
+                  {resVisFilter}
+                  <span onClick={() => setResVisFilter('All')} style={{cursor:'pointer',color:'#888',fontWeight:700,fontSize:14}}>×</span>
+                </span>
+              </div>
+            )}
+
+            {/* Date-grouped visitor cards */}
+            {sortedDateKeys.map(dateKey => (
+              <div key={dateKey} style={{marginBottom:20}}>
+                <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a',marginBottom:10}}>{formatDateLabel(dateKey)}</div>
+                {grouped[dateKey].map(v => (
+                  <div key={'vc-'+v.id} onClick={() => { setSelectedVisitor(v); setCurrentPage('viewVisitor'); }}
+                    style={{background:'#f5f5f5',borderRadius:10,padding:14,marginBottom:8,cursor:'pointer'}}>
+                    <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+                      <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e8e8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
+                          <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
+                          {vStatusBadge(v.status)}
+                        </div>
+                        <div style={{fontSize:12,color:'#666',marginBottom:3}}>{v.type || 'Resident Guest'} — Personal visit</div>
+                        <div style={{fontSize:11,color:'#999',marginBottom:3}}>{v.date} at {v.time}</div>
+                        <div style={{fontSize:11,color:'#999'}}>
+                          {v.status === 'Scheduled' ? 'Pre-Approved by: ' + (v.resident || 'Resident') :
+                           v.status === 'Inside' ? 'Approved by: Security Guard' :
+                           v.status === 'Rejected' ? 'Rejected by: Security Guard' :
+                           v.status === 'Checked Out' ? 'Checked out' :
+                           'Pre-Approved by: ' + (v.resident || 'Resident')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            {filteredVisitors.length === 0 && (
+              <div style={{textAlign:'center',color:'#999',padding:40,fontSize:13}}>No visitors found.</div>
             )}
           </div>
         );
@@ -3388,7 +3470,8 @@ const ResidentApp = ({ onLogout }) => {
         const pendingVisitors_home = data.visitors.filter(v => v.status === 'Pending' || v.status === 'Waiting');
         const waitingApprovals = data.pendingApprovals || [];
         const scheduledVisitors = data.visitors.filter(v => v.status === 'Scheduled');
-        const upcomingServices = data.visitors.filter(v => v.type === 'Vendor' || v.type === 'Contractor' || v.type === 'Service');
+        // Services are booked separately — not from pre-approved visitors
+        const upcomingServices = [];
         const recentAnnouncements = data.announcements ? data.announcements.filter(a => a.status === 'Live' || a.status === 'Sent').slice(0,2) : [];
         const bookingServices = [
           { label: 'Plumbing', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><path d="M4 22V12M4 12H8M4 12V8H2V6h4V4h2v2h4V4h2v2h2v2h-2v4h4v2h-4v8h-2v-8H8v8H6"/></svg>) },
@@ -3435,14 +3518,14 @@ const ResidentApp = ({ onLogout }) => {
               )}
             </div>
 
-            {/* Upcoming Visitor */}
+            {/* Upcoming Visitor — all pre-approved guests */}
             <div style={{background:'#fff',borderRadius:12,padding:16,marginBottom:12,border:'1px solid #e8e8e8'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Upcoming Visitor</span>
                 <span onClick={() => setCurrentPage('viewall')} style={{fontSize:11,color:'#888',cursor:'pointer'}}>See All ›</span>
               </div>
-              {scheduledVisitors.length > 0 ? scheduledVisitors.slice(0,1).map(v => (
-                <div key={'up-'+v.id} style={{display:'flex',alignItems:'center',gap:12,cursor:'pointer'}} onClick={() => { setSelectedVisitor(v); setCurrentPage('viewVisitor'); }}>
+              {scheduledVisitors.length > 0 ? scheduledVisitors.slice(0,3).map(v => (
+                <div key={'up-'+v.id} style={{display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom: 10,paddingBottom:10,borderBottom:'1px solid #f5f5f5'}} onClick={() => { setSelectedVisitor(v); setCurrentPage('viewVisitor'); }}>
                   <div style={{width:40,height:40,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
                   </div>
@@ -3450,6 +3533,7 @@ const ResidentApp = ({ onLogout }) => {
                     <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
                     <div style={{fontSize:11,color:'#8a8a8a'}}>{v.type} — {v.purpose || 'Personal visit'}</div>
                     <div style={{fontSize:11,color:'#8a8a8a'}}>Time : {v.time}</div>
+                    {v.repeater && v.repeater !== 'Single Visit' && <div style={{fontSize:10,color:'#1565c0',marginTop:2}}>{v.repeater}</div>}
                   </div>
                   <div style={{cursor:'pointer',padding:6}}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
@@ -3458,38 +3542,24 @@ const ResidentApp = ({ onLogout }) => {
               )) : (
                 <div style={{textAlign:'center',color:'#bbb',fontSize:12,padding:8}}>No upcoming visitors</div>
               )}
-              <button onClick={() => setCurrentPage('preapprove')} style={{width:'100%',marginTop:14,padding:'12px 0',borderRadius:8,border:'none',background:'#2c3e50',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'0.02em'}}>+ Pre-Approved Guest</button>
+              <button onClick={() => setCurrentPage('preapprove')} style={{width:'100%',marginTop:4,padding:'12px 0',borderRadius:8,border:'none',background:'#2c3e50',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'0.02em'}}>+ Pre-Approved Guest</button>
             </div>
 
-            {/* Upcoming Service */}
+            {/* Upcoming Service — booked separately */}
             <div style={{background:'#fff',borderRadius:12,padding:16,marginBottom:12,border:'1px solid #e8e8e8'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Upcoming Service</span>
                 <span onClick={() => setCurrentPage('services')} style={{fontSize:11,color:'#888',cursor:'pointer'}}>See All ›</span>
               </div>
-              {upcomingServices.length > 0 ? upcomingServices.slice(0,1).map(v => (
-                <div key={'svc-'+v.id} style={{display:'flex',alignItems:'center',gap:12}}>
-                  <div style={{width:40,height:40,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
-                    <div style={{fontSize:11,color:'#8a8a8a'}}>Service {v.type} — {v.purpose || 'Maintenance'}</div>
-                    <div style={{fontSize:11,color:'#8a8a8a'}}>{v.contact || ''}</div>
-                    <div style={{fontSize:11,color:'#8a8a8a'}}>Time : {v.time}</div>
-                  </div>
-                </div>
-              )) : (
-                <div style={{textAlign:'center',color:'#bbb',fontSize:12,padding:8}}>No upcoming services</div>
-              )}
-              <button onClick={() => setCurrentPage('services')} style={{width:'100%',marginTop:14,padding:'12px 0',borderRadius:8,border:'none',background:'#7f8c8d',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'0.02em'}}>+ Add Service request</button>
+              <div style={{textAlign:'center',color:'#bbb',fontSize:12,padding:8}}>No upcoming services booked</div>
+              <button onClick={() => setCurrentPage('services')} style={{width:'100%',marginTop:4,padding:'12px 0',borderRadius:8,border:'none',background:'#7f8c8d',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'0.02em'}}>+ Add Service request</button>
             </div>
 
             {/* Recent Announcements */}
             <div style={{background:'#fff',borderRadius:12,padding:16,marginBottom:12,border:'1px solid #e8e8e8'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Recent Announcements</span>
-                <span style={{fontSize:11,color:'#888',cursor:'pointer'}}>See All ›</span>
+                <span onClick={() => setCurrentPage('resAnnouncements')} style={{fontSize:11,color:'#888',cursor:'pointer'}}>See All ›</span>
               </div>
               {recentAnnouncements.length > 0 ? recentAnnouncements.slice(0,1).map(a => (
                 <div key={a.id}>
@@ -3585,39 +3655,244 @@ const ResidentApp = ({ onLogout }) => {
           </div>
         );
       case 'household':
+        const [hhTab, setHhTab] = [resHhTab, setResHhTab];
+        const [hhShowCreate, setHhShowCreate] = [resHhShowCreate, setResHhShowCreate];
+        const [hhForm, setHhForm] = [resHhForm, setResHhForm];
+
+        const saveHhMember = () => {
+          if (!hhForm.name.trim()) { showToast('Please enter a name'); return; }
+          if (!hhForm.phone.trim()) { showToast('Please enter a mobile number'); return; }
+          if (hhTab === 'family') {
+            const newMember = { id: Date.now(), name: hhForm.name.trim(), phone: hhForm.phone.trim(), relation: hhForm.relation, status: 'Active' };
+            setData(prev => ({ ...prev, household: [...prev.household, newMember] }));
+          } else {
+            const newVisitor = { id: Date.now(), name: hhForm.name.trim(), phone: hhForm.phone.trim(), role: hhForm.role, schedule: hhForm.schedule, hours: hhForm.hours, status: 'Active' };
+            setData(prev => ({ ...prev, regularVisitors: [...prev.regularVisitors, newVisitor] }));
+          }
+          setHhShowCreate(false);
+          setHhForm({ name: '', phone: '', relation: 'Sister', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', allowAccess: false });
+          showToast((hhTab === 'family' ? 'Family member' : 'Regular visitor') + ' added');
+        };
+
+        const deleteHhMember = (id) => {
+          if (hhTab === 'family') {
+            setData(prev => ({ ...prev, household: prev.household.filter(m => m.id !== id) }));
+          } else {
+            setData(prev => ({ ...prev, regularVisitors: prev.regularVisitors.filter(v => v.id !== id) }));
+          }
+          showToast('Removed');
+        };
+
+        // Create form
+        if (hhShowCreate) {
+          return (
+            <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
+                <button onClick={() => setHhShowCreate(false)} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#4d4d4f'}}>‹</button>
+                <span style={{fontSize:16,fontWeight:500,color:'#1a1a1a'}}>Add {hhTab === 'family' ? 'family member' : 'regular visitor'}</span>
+              </div>
+
+              <div style={{background:'#f5f5f5',borderRadius:8,overflow:'hidden',marginBottom:20}}>
+                <div style={{background:'#e8e8e8',padding:'10px 16px',fontSize:12,fontWeight:600,color:'#1a1a1a',letterSpacing:'0.02em'}}>
+                  {hhTab === 'family' ? 'Resident Identity' : 'Visitor Identity'}
+                </div>
+                <div style={{padding:16}}>
+                  <div style={{marginBottom:14}}>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Full Name</label>
+                    <input value={hhForm.name} onChange={e => setHhForm(p => ({...p, name: e.target.value}))} placeholder={hhTab === 'family' ? 'Enter Resident full name...' : 'Enter visitor full name...'}
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,outline:'none',boxSizing:'border-box',background:'#fff'}} />
+                  </div>
+                  <div style={{marginBottom:14}}>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Mobile Number *</label>
+                    <input value={hhForm.phone} onChange={e => setHhForm(p => ({...p, phone: e.target.value}))} placeholder="+971 XXXXX XXXX" type="tel"
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,outline:'none',boxSizing:'border-box',background:'#fff'}} />
+                  </div>
+                </div>
+              </div>
+
+              {hhTab === 'family' ? (
+                <div style={{background:'#f5f5f5',borderRadius:8,padding:16,marginBottom:20}}>
+                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Relation Type</label>
+                  <select value={hhForm.relation} onChange={e => setHhForm(p => ({...p, relation: e.target.value}))}
+                    style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,background:'#fff',outline:'none',boxSizing:'border-box'}}>
+                    {['Sister','Brother','Mother','Father','Spouse','Son','Daughter','Other'].map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  <div style={{marginTop:14}}>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Allow Access for Request</label>
+                    <div onClick={() => setHhForm(p => ({...p, allowAccess: !p.allowAccess}))} style={{width:20,height:20,border:'1px solid #ccc',borderRadius:3,background: hhForm.allowAccess ? '#1a1a1a' : '#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      {hhForm.allowAccess && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{background:'#f5f5f5',borderRadius:8,padding:16,marginBottom:20}}>
+                  <div style={{marginBottom:14}}>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Role</label>
+                    <select value={hhForm.role} onChange={e => setHhForm(p => ({...p, role: e.target.value}))}
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,background:'#fff',outline:'none',boxSizing:'border-box'}}>
+                      {['Maid','Nanny','Driver','Cook','Gardener','Tutor','Other'].map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div style={{marginBottom:14}}>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Schedule</label>
+                    <select value={hhForm.schedule} onChange={e => setHhForm(p => ({...p, schedule: e.target.value}))}
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,background:'#fff',outline:'none',boxSizing:'border-box'}}>
+                      {['Mon to Fri','Mon, Wed, Fri','Tue, Thu, Sat','Everyday','Weekends','Custom'].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6,fontWeight:600}}>Hours</label>
+                    <input value={hhForm.hours} onChange={e => setHhForm(p => ({...p, hours: e.target.value}))} placeholder="9:00 AM to 17:00 PM"
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #e0e0e0',borderRadius:4,fontSize:13,outline:'none',boxSizing:'border-box',background:'#fff'}} />
+                  </div>
+                </div>
+              )}
+
+              <button onClick={saveHhMember} style={{width:'100%',padding:16,background:'#1a1a1a',color:'#fff',border:'none',borderRadius:4,fontSize:14,fontWeight:600,cursor:'pointer'}}>Save</button>
+            </div>
+          );
+        }
+
         return (
-          <div className="res-content">
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-              <h3 className="res-section-title" style={{margin:0}}>My Household & Regular Visitors</h3>
-              <button style={{background:'#1a1a1a',color:'#fff',border:'none',padding:'6px 12px',borderRadius:6,fontSize:12,cursor:'pointer'}}>+ Create</button>
+          <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
+            <div style={{fontSize:20,fontWeight:600,color:'#1a1a1a',marginBottom:16}}>My Household & Regular Visitors</div>
+
+            {/* Tabs */}
+            <div style={{display:'flex',marginBottom:16,borderRadius:6,overflow:'hidden',border:'1px solid #1a1a1a'}}>
+              <button onClick={() => setHhTab('family')} style={{flex:1,padding:'12px 0',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',background: hhTab==='family' ? '#1a1a1a' : '#fff',color: hhTab==='family' ? '#fff' : '#1a1a1a'}}>Family member</button>
+              <button onClick={() => setHhTab('regular')} style={{flex:1,padding:'12px 0',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',background: hhTab==='regular' ? '#1a1a1a' : '#fff',color: hhTab==='regular' ? '#fff' : '#1a1a1a'}}>Regular Visitor</button>
             </div>
 
-            <div className="res-tab-toggle">
-              <button className="active">👨‍👩‍👧 Family member</button>
-              <button>👤 Regular Visitor</button>
-            </div>
+            {/* Create button */}
+            <button onClick={() => { setHhForm({ name: '', phone: '', relation: 'Sister', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', allowAccess: false }); setHhShowCreate(true); }}
+              style={{background:'#fff',border:'1px solid #1a1a1a',borderRadius:4,padding:'8px 16px',fontSize:13,fontWeight:600,cursor:'pointer',marginBottom:16,color:'#1a1a1a'}}>+ Create</button>
 
-            {data.household.map(m => (
-              <div key={m.id} className="res-household-card">
-                <div className="name">{m.name}</div>
-                <div className="details">{m.phone}</div>
-                <span className="status-badge">{m.status}</span>
-              </div>
-            ))}
-
-            <h3 className="res-section-title">Regular Visitors</h3>
-            {data.regularVisitors.map(v => (
-              <div key={v.id} className="res-household-card">
-                <div className="name">{v.name}</div>
-                <div className="details">{v.phone} • {v.role}</div>
-                <div style={{fontSize:11,color:'#666',marginTop:6}}>{v.schedule} • {v.hours}</div>
-                <span className="status-badge">{v.status}</span>
-              </div>
-            ))}
+            {hhTab === 'family' ? (
+              /* Family Members */
+              data.household.length === 0 ? (
+                <div style={{textAlign:'center',color:'#bbb',padding:32,fontSize:13}}>No family members added yet.</div>
+              ) : data.household.map(m => (
+                <div key={m.id} style={{background:'#f5f5f5',border:'1px solid #e0e0e0',borderRadius:8,padding:16,marginBottom:12,position:'relative'}}>
+                  <div style={{position:'absolute',top:12,right:12,cursor:'pointer',color:'#888',fontSize:14}} onClick={() => deleteHhMember(m.id)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:14,fontWeight:600,color:'#1a1a1a',marginBottom:6}}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                    {m.name}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#888',marginBottom:4}}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.11 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                    {m.phone}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#888',marginBottom:8}}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+                    {m.relation || 'Family'}
+                  </div>
+                  <span style={{fontSize:11,border:'1px solid #ccc',borderRadius:4,padding:'2px 10px',color:'#555',fontWeight:500}}>{m.status}</span>
+                </div>
+              ))
+            ) : (
+              /* Regular Visitors */
+              data.regularVisitors.length === 0 ? (
+                <div style={{textAlign:'center',color:'#bbb',padding:32,fontSize:13}}>No regular visitors added yet.</div>
+              ) : data.regularVisitors.map(v => (
+                <div key={v.id} style={{background:'#f5f5f5',border:'1px solid #e0e0e0',borderRadius:8,padding:16,marginBottom:12,position:'relative'}}>
+                  <div style={{position:'absolute',top:12,right:12,cursor:'pointer',color:'#888',fontSize:14}} onClick={() => deleteHhMember(v.id)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:14,fontWeight:600,color:'#1a1a1a',marginBottom:6}}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                    {v.name}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'#888',marginBottom:4}}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.11 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                    {v.phone}
+                  </div>
+                  <div style={{fontSize:12,color:'#555',fontWeight:500,marginBottom:4}}>{v.role}</div>
+                  <div style={{fontSize:12,color:'#888',marginBottom:4}}>{v.schedule}</div>
+                  <div style={{fontSize:12,color:'#888',marginBottom:8}}>{v.hours}</div>
+                  <div style={{borderTop:'1px solid #ddd',paddingTop:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:11,border:'1px solid #ccc',borderRadius:4,padding:'2px 10px',color:'#555',fontWeight:500}}>{v.status}</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5" style={{cursor:'pointer'}}><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         );
       case 'preapprove':
         return <PreApproveForm onBack={() => setCurrentPage('home')} showToast={showToast} data={data} setData={setData} />;
+
+      case 'resAnnouncements':
+        const allAnns = data.announcements ? data.announcements.filter(a => a.status === 'Live' || a.status === 'Sent') : [];
+        const defaultAnns = [
+          { id: 'd1', title: 'Water Shortage', body: 'Due to pipeline blast there are water cutoff in apartments, Sorry for the inconvenience.', created: '2hr ago' },
+          { id: 'd2', title: 'Electric Shortage', body: 'Due to electric short circuit in area there will be electric cutoff in apartments for 3 hours, Sorry for the inconvenience.', created: '6hr ago' }
+        ];
+        const annsToShow = allAnns.length > 0 ? allAnns : defaultAnns;
+        return (
+          <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+              <button onClick={() => setCurrentPage('home')} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#4d4d4f'}}>‹</button>
+              <span style={{fontSize:18,fontWeight:600,color:'#1a1a1a'}}>Announcements</span>
+            </div>
+            {/* Filter chips */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <span style={{background:'#f0f0f0',borderRadius:20,padding:'5px 14px',fontSize:12,color:'#1a1a1a',display:'flex',alignItems:'center',gap:6}}>
+                Unread <span style={{cursor:'pointer',color:'#888',fontWeight:700,fontSize:13}}>×</span>
+              </span>
+              <div style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'#555',cursor:'pointer'}}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                Filter
+              </div>
+            </div>
+            {/* Announcement cards */}
+            {annsToShow.map(a => (
+              <div key={a.id} style={{background:'#f5f5f5',borderRadius:10,padding:16,marginBottom:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                  <div style={{fontSize:15,fontWeight:600,color:'#1a1a1a'}}>{a.title}</div>
+                  <span style={{fontSize:11,color:'#888',cursor:'pointer',whiteSpace:'nowrap',marginLeft:12}}>See All ›</span>
+                </div>
+                <div style={{fontSize:13,color:'#555',lineHeight:'1.6',marginBottom:8}}>{a.body}</div>
+                <div style={{fontSize:11,color:'#bbb'}}>{a.created || '2hr ago'}</div>
+              </div>
+            ))}
+            {annsToShow.length === 0 && (
+              <div style={{textAlign:'center',color:'#999',padding:40,fontSize:13}}>No announcements yet.</div>
+            )}
+          </div>
+        );
+
+      case 'profile':
+        return (
+          <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:24}}>
+              <button onClick={() => setCurrentPage('home')} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#4d4d4f'}}>‹</button>
+              <span style={{fontSize:18,fontWeight:600,color:'#1a1a1a'}}>Profile</span>
+            </div>
+            {/* Avatar */}
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',marginBottom:28}}>
+              <div style={{width:80,height:80,borderRadius:'50%',border:'2px solid #d0d0d0',background:'#f5f5f5',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:14}}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+              </div>
+              <div style={{fontSize:18,fontWeight:600,color:'#1a1a1a',marginBottom:4}}>Rashid | Resident</div>
+              <div style={{fontSize:13,color:'#999'}}>Block C — 127</div>
+            </div>
+            {/* Menu items */}
+            {['Personal Information','General Setting','Visitor log','Preference','Accounts','Help & Support'].map((item, i) => (
+              <div key={i} onClick={() => {
+                if (item === 'Visitor log') setCurrentPage('viewall');
+              }} style={{background:'#f5f5f5',borderRadius:8,padding:'14px 16px',marginBottom:10,cursor:'pointer'}}>
+                <div style={{fontSize:14,fontWeight:500,color:'#1a1a1a'}}>{item}</div>
+              </div>
+            ))}
+            {/* Logout */}
+            <div onClick={onLogout} style={{background:'#f5f5f5',borderRadius:8,padding:'14px 16px',marginBottom:10,marginTop:10,cursor:'pointer',borderLeft:'3px solid #c62828'}}>
+              <div style={{fontSize:14,fontWeight:500,color:'#c62828'}}>Logout</div>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -3627,7 +3902,7 @@ const ResidentApp = ({ onLogout }) => {
     <div className="res-app">
       <div className="res-header">
         <div className="res-header-left" style={{display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:36,height:36,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div onClick={() => setCurrentPage('profile')} style={{width:36,height:36,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
           </div>
           <div>
@@ -3637,10 +3912,10 @@ const ResidentApp = ({ onLogout }) => {
           </div>
         </div>
         <div className="res-header-right" style={{position:'relative',display:'flex',alignItems:'center',gap:8}}>
-          <div onClick={() => setCurrentPage('more')} style={{width:34,height:34,borderRadius:'50%',border:'1px solid #d0d0d0',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',background:'#fff'}}>
+          <div onClick={() => setCurrentPage('profile')} style={{width:34,height:34,borderRadius:'50%',border:'1px solid #d0d0d0',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',background:'#fff'}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
           </div>
-          <div onClick={() => setShowNotifications(!showNotifications)} style={{width:34,height:34,borderRadius:'50%',border:'1px solid #d0d0d0',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative',background:'#fff'}}>
+          <div onClick={() => setCurrentPage('resAnnouncements')} style={{width:34,height:34,borderRadius:'50%',border:'1px solid #d0d0d0',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative',background:'#fff'}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
             {unreadCount > 0 && (
               <div style={{position:'absolute',top:-2,right:-2,width:16,height:16,background:'#c62828',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'#fff',fontWeight:700,border:'2px solid #fff'}}>{unreadCount > 9 ? '9+' : unreadCount}</div>
@@ -5261,7 +5536,6 @@ const App = () => {
     return (
       <AppContext.Provider value={{ data, setData, showToast }}>
         <ResidentApp onLogout={handleLogout}/>
-        <SyncDot/>
         {toast && <div className="toast">{toast}</div>}
       </AppContext.Provider>
     );
