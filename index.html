@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -922,9 +922,9 @@ const LoginPage = ({ onLogin, syncStatus }) => {
 
           <div style={{background:'#f5f5f5',border:'1px solid #e0e0e0',borderRadius:8,padding:12,marginBottom:16,fontSize:12,color:'#666'}}>
             <strong style={{color:'#333'}}>Demo Credentials:</strong><br/>
-            {selectedRole==='resident' && 'Email: nitin@resident.ae<br/>Password: resident123'}
-            {selectedRole==='security' && 'Email: suresh@security.ae<br/>Password: guard123'}
-            {selectedRole==='manager' && 'Email: hassan@pinnaclepm.ae<br/>Password: admin123'}
+            {selectedRole==='resident' && <span>Email: nitin@resident.ae<br/>Password: resident123</span>}
+            {selectedRole==='security' && <span>Email: suresh@security.ae<br/>Password: guard123</span>}
+            {selectedRole==='manager' && <span>Email: hassan@pinnaclepm.ae<br/>Password: admin123</span>}
           </div>
 
           {error && <p style={{color:'#dc3545',fontSize:13,marginBottom:12}}>{error}</p>}
@@ -3651,21 +3651,22 @@ const STORAGE_KEY = 'varspm_data';
 const SUPABASE_URL = 'https://whgoaglmguopxrzfjifj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ29hZ2xtZ3VvcHhyemZqaWZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjY1MDEsImV4cCI6MjA5MDgwMjUwMX0.TL6klBDqfyAUvpgKXxha-1hpH6keaeARZvJk3rc5vhg';
 
-let supabase = null;
+let supabaseClient = null;
 let supabaseReady = false;
 try {
-  console.log('Supabase library loaded:', typeof window.supabase !== 'undefined');
-  if (typeof window.supabase !== 'undefined') {
-    console.log('createClient available:', typeof window.supabase.createClient);
-    if (window.supabase.createClient) {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      supabaseReady = true;
-      console.log('Supabase client initialized successfully');
-    }
+  // The CDN exposes a global 'supabase' object with createClient
+  const _sb = window.supabase;
+  console.log('Supabase global found:', !!_sb);
+  if (_sb && typeof _sb.createClient === 'function') {
+    supabaseClient = _sb.createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabaseReady = true;
+    console.log('Supabase client initialized successfully');
+  } else if (_sb) {
+    console.log('Supabase object keys:', Object.keys(_sb));
   } else {
-    console.log('Supabase library NOT loaded — check CDN script tag');
+    console.log('Supabase library NOT loaded — CDN script may have failed');
   }
-} catch(e) { console.log('Supabase init error:', e.message, e); }
+} catch(e) { console.log('Supabase init error:', e.message); }
 
 const loadPersistedData = () => {
   try {
@@ -3692,10 +3693,10 @@ const App = () => {
 
   // Load initial data from Supabase on mount
   useEffect(() => {
-    if (!supabaseReady || !supabase) return;
+    if (!supabaseReady || !supabaseClient) return;
     const loadFromCloud = async () => {
       try {
-        const { data: rows, error } = await supabase
+        const { data: rows, error } = await supabaseClient
           .from('app_state')
           .select('data')
           .eq('id', 'main')
@@ -3705,7 +3706,7 @@ const App = () => {
           // Table might not exist yet — try to create initial row
           if (error.code === 'PGRST116') {
             console.log('No data row found — inserting initial data');
-            await supabase.from('app_state').upsert({ id: 'main', data: initialData });
+            await supabaseClient.from('app_state').upsert({ id: 'main', data: initialData });
           }
           setSyncStatus('offline');
           return;
@@ -3727,8 +3728,8 @@ const App = () => {
 
   // Subscribe to real-time changes from Supabase (other devices)
   useEffect(() => {
-    if (!supabaseReady || !supabase) return;
-    const channel = supabase
+    if (!supabaseReady || !supabaseClient) return;
+    const channel = supabaseClient
       .channel('app_state_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'id=eq.main' }, (payload) => {
         const now = Date.now();
@@ -3747,7 +3748,7 @@ const App = () => {
           console.log('Supabase real-time subscription active');
         }
       });
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabaseClient.removeChannel(channel); };
   }, []);
 
   // Write data to Supabase + localStorage when data changes (debounced)
@@ -3756,12 +3757,12 @@ const App = () => {
     // Save to localStorage immediately
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
     // Debounce Supabase writes (300ms) to avoid hammering the DB
-    if (supabaseReady && supabase) {
+    if (supabaseReady && supabaseClient) {
       if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
       writeTimerRef.current = setTimeout(async () => {
         lastWriteRef.current = Date.now();
         try {
-          const { error } = await supabase
+          const { error } = await supabaseClient
             .from('app_state')
             .upsert({ id: 'main', data: data, updated_at: new Date().toISOString() });
           if (error) {
