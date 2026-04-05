@@ -444,9 +444,10 @@ body{font-family:'Arial','Helvetica Neue',sans-serif;background:#f5f5f3;color:#1
 .sec-guard-name{font-weight:600;color:#1a1a1a}
 .sec-shift{color:#8a8a8a;margin-top:2px}
 .sec-shift-status{background:#2d6a4f;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;margin-top:4px}
-.sec-tabs{display:flex;border-bottom:1px solid #e0e0e0;padding:0 16px;gap:24px;margin-bottom:0;background:#fff}
-.sec-tab{padding:12px 0;border:none;background:none;color:#8a8a8a;cursor:pointer;font-size:12px;font-weight:500;border-bottom:2px solid transparent;position:relative;top:1px}
-.sec-tab.active{color:#1a1a1a;border-bottom-color:#1a1a1a;font-weight:600}
+.sec-tabs{display:flex;align-items:center;padding:10px 16px;gap:8px;margin-bottom:0;background:#fff;border-bottom:1px solid #e0e0e0}
+.sec-tab{padding:8px 20px;border:1px solid #e0e0e0;background:#fff;color:#8a8a8a;cursor:pointer;font-size:11px;font-weight:600;border-radius:6px;position:relative;letter-spacing:0.04em;transition:all .15s}
+.sec-tab:hover{background:#f5f5f5;color:#1a1a1a}
+.sec-tab.active{color:#fff;background:#1a1a1a;border-color:#1a1a1a}
 .sec-main-content{padding:16px;flex:1;overflow-y:auto}
 .sec-quick-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
 .sec-quick-action-btn{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px 16px;text-align:center;cursor:pointer;color:#1a1a1a;transition:all .2s}
@@ -539,8 +540,8 @@ body{font-family:'Arial','Helvetica Neue',sans-serif;background:#f5f5f3;color:#1
   .sec-guard-info{display:none}
   .sec-clock{position:absolute;right:12px;top:12px}
   .sec-clock-time{font-size:14px}
-  .sec-tabs{padding:0 8px;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .sec-tab{padding:10px 8px;font-size:11px;white-space:nowrap;flex-shrink:0}
+  .sec-tabs{padding:8px 8px;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .sec-tab{padding:7px 14px;font-size:10px;white-space:nowrap;flex-shrink:0}
   .sec-main-content{padding:10px}
   .sec-quick-actions{grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
   .sec-quick-action-btn{padding:10px 6px}
@@ -4822,6 +4823,12 @@ const SecurityApp = ({ onLogout }) => {
   const [visRegDateFrom, setVisRegDateFrom] = useState('');
   const [visRegDateTo, setVisRegDateTo] = useState('');
   const [selectedGate, setSelectedGate] = useState('Main Gate');
+  const [secContactModal, setSecContactModal] = useState(null); // 'security' | 'pm' | null
+  const [showSecNotifications, setShowSecNotifications] = useState(false);
+  const [showSecProfile, setShowSecProfile] = useState(false);
+  const [dismissedSecNotifIds, setDismissedSecNotifIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('varspm_sec_dismissed_notifs') || '[]'); } catch(e) { return []; }
+  });
   const [secFormStep, setSecFormStep] = useState('form'); // form | review
   const [newVisitorData, setNewVisitorData] = useState({
     visitorType: 'Resident Guest',
@@ -4840,6 +4847,64 @@ const SecurityApp = ({ onLogout }) => {
     repeater: 'Single Visit'
   });
   const secQrRef = React.useRef(null);
+
+  // Security notifications computed from entry log + pending approvals
+  const secNotifications = React.useMemo(() => {
+    const notifs = [];
+    (data.entryLog || []).slice(0, 15).forEach(e => {
+      if (e.status === 'INSIDE' || e.status === 'PASSED SECURITY' || e.status === 'CLEARED') {
+        notifs.push({
+          id: 'entry-' + e.id,
+          icon: '🟢', iconBg: '#e8f5e9', iconColor: '#2e7d32',
+          title: e.visitor + ' entered',
+          body: 'Via ' + (e.gate || 'Main Gate') + ' at ' + e.time,
+          time: e.time
+        });
+      }
+      if (e.status === 'CHECKED OUT') {
+        notifs.push({
+          id: 'checkout-' + e.id,
+          icon: '🔴', iconBg: '#ffebee', iconColor: '#c62828',
+          title: e.visitor + ' checked out',
+          body: 'Checked out at ' + (e.timeOut || '—'),
+          time: e.timeOut || e.time
+        });
+      }
+    });
+    (data.pendingApprovals || []).forEach(p => {
+      notifs.push({
+        id: 'pending-' + p.id,
+        icon: '⏳', iconBg: '#fff3e0', iconColor: '#e65100',
+        title: p.name + ' — awaiting approval',
+        body: (p.type || 'Visitor') + ' • ' + (p.flat || 'Unknown unit'),
+        time: p.time || 'Now'
+      });
+    });
+    // Static system notifications
+    notifs.push({
+      id: 'sys-shift', icon: '🔔', iconBg: '#e3f2fd', iconColor: '#1565c0',
+      title: 'Shift Change Reminder', body: 'Next shift starts at 14:00 — Rajesh Menon', time: '1h ago'
+    });
+    notifs.push({
+      id: 'sys-maintenance', icon: '🔧', iconBg: '#f3e5f5', iconColor: '#7b1fa2',
+      title: 'Gate B Maintenance', body: 'Side Gate B under maintenance until 16:00', time: '3h ago'
+    });
+    return notifs;
+  }, [data.entryLog, data.pendingApprovals]);
+
+  const secUnreadCount = secNotifications.filter(n => !dismissedSecNotifIds.includes(n.id)).length;
+
+  const dismissSecNotif = (id) => {
+    const updated = [...dismissedSecNotifIds, id];
+    setDismissedSecNotifIds(updated);
+    try { localStorage.setItem('varspm_sec_dismissed_notifs', JSON.stringify(updated)); } catch(e) {}
+  };
+
+  const clearAllSecNotifs = () => {
+    const allIds = secNotifications.map(n => n.id);
+    setDismissedSecNotifIds(allIds);
+    try { localStorage.setItem('varspm_sec_dismissed_notifs', JSON.stringify(allIds)); } catch(e) {}
+  };
 
   const resetNewVisitorForm = () => {
     setSecFormStep('form');
@@ -5491,51 +5556,97 @@ const SecurityApp = ({ onLogout }) => {
             </div>
           </div>
 
-          {/* UTILITY ACTIONS */}
+          {/* UTILITY ACTIONS — Clickable contact cards */}
           <div className="sec-utility-cards" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
-            <div className="sec-utility-card" style={{textAlign:'left',padding:'16px 18px'}}>
+            <div className="sec-utility-card" onClick={() => setSecContactModal('security')} style={{textAlign:'left',padding:'16px 18px',cursor:'pointer'}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
-                <div style={{width:38,height:38,borderRadius:'50%',background:'#1a1a1a',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                </div>
+                <div style={{width:38,height:38,borderRadius:'50%',background:'#1a1a1a',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,color:'#fff',fontSize:13,fontWeight:700}}>KR</div>
                 <div>
                   <div style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.04em',marginBottom:1}}>SECURITY HEAD</div>
                   <div style={{fontSize:13,fontWeight:700,color:'#1a1a1a'}}>Khalid Al-Rashidi</div>
                 </div>
               </div>
-              <div style={{borderTop:'1px solid #f0f0f0',paddingTop:10,display:'flex',flexDirection:'column',gap:5}}>
-                <a href="tel:+971508001122" style={{display:'flex',alignItems:'center',gap:8,textDecoration:'none',color:'#1a1a1a',fontSize:12}}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                  +971 50 800 1122
-                </a>
-                <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,color:'#8a8a8a'}}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  On duty 06:00 - 18:00
-                </div>
-              </div>
+              <div style={{borderTop:'1px solid #f0f0f0',paddingTop:10,fontSize:11,color:'#8a8a8a'}}>Tap to view contact details</div>
             </div>
-            <div className="sec-utility-card" style={{textAlign:'left',padding:'16px 18px'}}>
+            <div className="sec-utility-card" onClick={() => setSecContactModal('pm')} style={{textAlign:'left',padding:'16px 18px',cursor:'pointer'}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
-                <div style={{width:38,height:38,borderRadius:'50%',background:'#1a1a1a',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                </div>
+                <div style={{width:38,height:38,borderRadius:'50%',background:'#1a1a1a',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,color:'#fff',fontSize:13,fontWeight:700}}>NS</div>
                 <div>
                   <div style={{fontSize:10,color:'#8a8a8a',letterSpacing:'0.04em',marginBottom:1}}>PROPERTY MANAGER</div>
                   <div style={{fontSize:13,fontWeight:700,color:'#1a1a1a'}}>Nitin Sharma</div>
                 </div>
               </div>
-              <div style={{borderTop:'1px solid #f0f0f0',paddingTop:10,display:'flex',flexDirection:'column',gap:5}}>
-                <a href="tel:+971552003344" style={{display:'flex',alignItems:'center',gap:8,textDecoration:'none',color:'#1a1a1a',fontSize:12}}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                  +971 55 200 3344
-                </a>
-                <a href="mailto:n.sharma@skytower.ae" style={{display:'flex',alignItems:'center',gap:8,textDecoration:'none',color:'#8a8a8a',fontSize:11}}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                  n.sharma@skytower.ae
-                </a>
-              </div>
+              <div style={{borderTop:'1px solid #f0f0f0',paddingTop:10,fontSize:11,color:'#8a8a8a'}}>Tap to view contact details</div>
             </div>
           </div>
+
+          {/* Security Head Contact Modal */}
+          {secContactModal === 'security' && (
+            <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={() => setSecContactModal(null)}>
+              <div style={{background:'#fff',borderRadius:12,padding:24,maxWidth:380,width:'100%',boxShadow:'0 8px 32px rgba(0,0,0,.2)'}} onClick={e => e.stopPropagation()}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                  <h3 style={{margin:0,fontSize:16,fontWeight:600}}>Security Head</h3>
+                  <button onClick={() => setSecContactModal(null)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>&times;</button>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+                  <div style={{width:48,height:48,borderRadius:'50%',background:'#1a1a1a',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:700}}>KR</div>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:14}}>Khalid Al-Rashidi</div>
+                    <div style={{fontSize:12,color:'#888'}}>Head of Security — Sky Tower</div>
+                    <div style={{fontSize:11,color:'#8a8a8a',marginTop:2}}>Shift: 06:00 - 18:00</div>
+                  </div>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  <a href="tel:+971508001122" style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:'#f8f8f8',borderRadius:8,textDecoration:'none',color:'#1a1a1a'}}>
+                    <span style={{fontSize:18}}>📞</span>
+                    <div><div style={{fontSize:13,fontWeight:500}}>Phone Call</div><div style={{fontSize:12,color:'#888'}}>+971 50 800 1122</div></div>
+                  </a>
+                  <a href="https://wa.me/971508001122" target="_blank" style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:'#e8f5e9',borderRadius:8,textDecoration:'none',color:'#1a1a1a'}}>
+                    <span style={{fontSize:18}}>💬</span>
+                    <div><div style={{fontSize:13,fontWeight:500}}>WhatsApp</div><div style={{fontSize:12,color:'#888'}}>+971 50 800 1122</div></div>
+                  </a>
+                  <a href="mailto:k.rashidi@skytower.ae" style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:'#f0f4ff',borderRadius:8,textDecoration:'none',color:'#1a1a1a'}}>
+                    <span style={{fontSize:18}}>✉️</span>
+                    <div><div style={{fontSize:13,fontWeight:500}}>Email</div><div style={{fontSize:12,color:'#888'}}>k.rashidi@skytower.ae</div></div>
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Property Manager Contact Modal */}
+          {secContactModal === 'pm' && (
+            <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={() => setSecContactModal(null)}>
+              <div style={{background:'#fff',borderRadius:12,padding:24,maxWidth:380,width:'100%',boxShadow:'0 8px 32px rgba(0,0,0,.2)'}} onClick={e => e.stopPropagation()}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                  <h3 style={{margin:0,fontSize:16,fontWeight:600}}>Property Manager</h3>
+                  <button onClick={() => setSecContactModal(null)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>&times;</button>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+                  <div style={{width:48,height:48,borderRadius:'50%',background:'#1a1a1a',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:700}}>NS</div>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:14}}>Nitin Sharma</div>
+                    <div style={{fontSize:12,color:'#888'}}>Property Manager — Sky Tower</div>
+                    <div style={{fontSize:11,color:'#8a8a8a',marginTop:2}}>Al Reem Island, Abu Dhabi</div>
+                  </div>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  <a href="tel:+971552003344" style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:'#f8f8f8',borderRadius:8,textDecoration:'none',color:'#1a1a1a'}}>
+                    <span style={{fontSize:18}}>📞</span>
+                    <div><div style={{fontSize:13,fontWeight:500}}>Phone Call</div><div style={{fontSize:12,color:'#888'}}>+971 55 200 3344</div></div>
+                  </a>
+                  <a href="https://wa.me/971552003344" target="_blank" style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:'#e8f5e9',borderRadius:8,textDecoration:'none',color:'#1a1a1a'}}>
+                    <span style={{fontSize:18}}>💬</span>
+                    <div><div style={{fontSize:13,fontWeight:500}}>WhatsApp</div><div style={{fontSize:12,color:'#888'}}>+971 55 200 3344</div></div>
+                  </a>
+                  <a href="mailto:n.sharma@skytower.ae" style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:'#f0f4ff',borderRadius:8,textDecoration:'none',color:'#1a1a1a'}}>
+                    <span style={{fontSize:18}}>✉️</span>
+                    <div><div style={{fontSize:13,fontWeight:500}}>Email</div><div style={{fontSize:12,color:'#888'}}>n.sharma@skytower.ae</div></div>
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -5620,8 +5731,8 @@ const SecurityApp = ({ onLogout }) => {
               <button style={{background:'#fff',border:'1px solid #d0d0d0',color:'#1a1a1a',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> REFRESH
               </button>
-              <button style={{background:'#fff',border:'1px solid #d0d0d0',color:'#1a1a1a',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> EXPORT CSV
+              <button onClick={handleExportFullDatabase} style={{background:'#1a1a1a',border:'none',color:'#fff',padding:'8px 14px',borderRadius:4,fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:600}}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> EXPORT EXCEL
               </button>
             </div>
           </div>
@@ -5838,32 +5949,98 @@ const SecurityApp = ({ onLogout }) => {
           <div style={{background:'#fff',border:'1px solid #1a1a1a',borderRadius:4,padding:'4px 12px',fontSize:11,fontWeight:600,color:'#1a1a1a'}}>ACTIVE</div>
           <div style={{fontSize:10,color:'#8a8a8a'}}>{shiftStr} elapsed</div>
           <div style={{display:'flex',gap:8,marginTop:4}}>
-            <div style={{width:30,height:30,background:'#fff',border:'1px solid #e0e0e0',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+            {/* Account Icon */}
+            <div style={{position:'relative'}}>
+              <div onClick={() => { setShowSecProfile(!showSecProfile); setShowSecNotifications(false); }} style={{width:34,height:34,borderRadius:'50%',background:'#1a1a1a',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#ae9751',fontSize:12,fontWeight:700,border:'2px solid ' + (showSecProfile ? '#ae9751' : 'transparent'),transition:'border-color .15s'}}>SK</div>
+              {showSecProfile && (
+                <div onClick={e => e.stopPropagation()} style={{position:'absolute',top:42,right:0,width:260,background:'#fff',borderRadius:12,boxShadow:'0 8px 32px rgba(0,0,0,.18)',border:'1px solid #e0e0e0',zIndex:999,overflow:'hidden'}}>
+                  <div style={{padding:'20px 16px 16px',borderBottom:'1px solid #f0f0f0',textAlign:'center'}}>
+                    <div style={{width:52,height:52,borderRadius:'50%',background:'#1a1a1a',color:'#ae9751',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,margin:'0 auto 10px'}}>SK</div>
+                    <div style={{fontSize:15,fontWeight:600,color:'#1a1a1a'}}>Suresh Kumar</div>
+                    <div style={{fontSize:11,color:'#8a8a8a',marginTop:2}}>Security Guard • ID: GRD-045</div>
+                    <div style={{fontSize:11,color:'#8a8a8a'}}>Shift: 06:00 — 14:00</div>
+                  </div>
+                  <div style={{padding:8}}>
+                    <div style={{padding:'10px 12px',borderRadius:8,cursor:'pointer',fontSize:12,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}} onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                      My Profile
+                    </div>
+                    <div style={{padding:'10px 12px',borderRadius:8,cursor:'pointer',fontSize:12,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}} onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                      Settings
+                    </div>
+                  </div>
+                  <div style={{borderTop:'1px solid #f0f0f0',padding:8}}>
+                    <div onClick={() => { setShowSecProfile(false); onLogout(); }} style={{padding:'10px 12px',borderRadius:8,cursor:'pointer',fontSize:12,color:'#c62828',fontWeight:600,display:'flex',alignItems:'center',gap:8}} onMouseEnter={e => e.currentTarget.style.background='#fff5f5'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="1.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                      Logout
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={{width:30,height:30,background:'#fff',border:'1px solid #e0e0e0',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-              <div style={{position:'absolute',top:-3,right:-3,width:14,height:14,background:'#c62828',borderRadius:'50%',fontSize:8,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>3</div>
+            {/* Notification Bell */}
+            <div style={{position:'relative'}}>
+              <div onClick={() => { setShowSecNotifications(!showSecNotifications); setShowSecProfile(false); }} style={{width:34,height:34,borderRadius:'50%',border:'1px solid #d0d0d0',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative',background:'#fff'}}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                {secUnreadCount > 0 && (
+                  <div style={{position:'absolute',top:-2,right:-2,width:16,height:16,background:'#c62828',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'#fff',fontWeight:700,border:'2px solid #fff'}}>{secUnreadCount > 9 ? '9+' : secUnreadCount}</div>
+                )}
+              </div>
+              {showSecNotifications && (
+                <div onClick={e => e.stopPropagation()} style={{position:'absolute',top:42,right:0,width:340,maxHeight:420,background:'#fff',borderRadius:12,boxShadow:'0 8px 32px rgba(0,0,0,.18)',border:'1px solid #e0e0e0',zIndex:999,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                  <div style={{padding:'14px 16px 10px',borderBottom:'1px solid #f0f0f0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>Notifications</div>
+                    {secUnreadCount > 0 && (
+                      <button onClick={clearAllSecNotifs} style={{background:'none',border:'none',fontSize:11,color:'#8a8a8a',cursor:'pointer',padding:0}}>Mark all as read</button>
+                    )}
+                  </div>
+                  <div style={{overflowY:'auto',flex:1,maxHeight:360}}>
+                    {secNotifications.length === 0 ? (
+                      <div style={{padding:30,textAlign:'center',color:'#8a8a8a',fontSize:12}}>No notifications</div>
+                    ) : secNotifications.map(n => {
+                      const isRead = dismissedSecNotifIds.includes(n.id);
+                      return (
+                        <div key={n.id} onClick={() => dismissSecNotif(n.id)} style={{padding:'12px 16px',borderBottom:'1px solid #f8f8f8',display:'flex',gap:10,alignItems:'flex-start',cursor:'pointer',background:isRead ? '#fff' : '#fafafa',transition:'background .15s'}} onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'} onMouseLeave={e => e.currentTarget.style.background=isRead?'#fff':'#fafafa'}>
+                          <div style={{width:32,height:32,borderRadius:'50%',background:n.iconBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,flexShrink:0}}>{n.icon}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:12,fontWeight:isRead?400:600,color:'#1a1a1a',lineHeight:1.3}}>{n.title}</div>
+                            <div style={{fontSize:11,color:'#8a8a8a',marginTop:2,lineHeight:1.3}}>{n.body}</div>
+                          </div>
+                          <div style={{fontSize:10,color:'#aaa',flexShrink:0,marginTop:2}}>{n.time}</div>
+                          {!isRead && <div style={{width:6,height:6,borderRadius:'50%',background:'#c62828',flexShrink:0,marginTop:5}}/>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="sec-tabs" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:0}}>
-        <div style={{display:'flex',gap:0}}>
+      <div className="sec-tabs" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div style={{display:'flex',gap:8}}>
           <button className={`sec-tab ${currentTab==='dashboard'?'active':''}`} onClick={() => setCurrentTab('dashboard')}>MAIN DASHBOARD</button>
           <button className={`sec-tab ${currentTab==='visitors'?'active':''}`} onClick={() => setCurrentTab('visitors')}>ALL VISITORS</button>
         </div>
-        <button className="sec-tab" style={{marginLeft:'auto'}}>Access Policies</button>
+        <button className="sec-tab" style={{marginLeft:'auto',background:'#f5f5f5',borderColor:'#e0e0e0',color:'#8a8a8a'}}>
+          <span style={{display:'flex',alignItems:'center',gap:6}}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            ACCESS POLICIES
+          </span>
+        </button>
       </div>
 
       <div className="sec-main-content">
         {renderContent()}
       </div>
 
-      <div style={{position:'fixed',bottom:16,right:16,background:'#fff',border:'1px solid #e0e0e0',borderRadius:8,padding:8}}>
-        <button onClick={onLogout} style={{background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:12,padding:'8px 12px'}}>🚪 Logout</button>
-      </div>
+      {/* Click-away to close dropdowns */}
+      {(showSecNotifications || showSecProfile) && (
+        <div onClick={() => { setShowSecNotifications(false); setShowSecProfile(false); }} style={{position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:998}} />
+      )}
 
       {showScanner && (
         <QrScannerModal
