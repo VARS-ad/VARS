@@ -877,8 +877,8 @@ const SimpleChart = ({ heights = [15,25,20,30,35,20,10], labels = ['Mon','Tue','
 );
 
 // ==================== LOGIN PAGE ====================
-const LoginPage = ({ onLogin, syncStatus, scanRef }) => {
-  const [selectedRole, setSelectedRole] = useState(scanRef ? 'security' : 'resident');
+const LoginPage = ({ onLogin, syncStatus }) => {
+  const [selectedRole, setSelectedRole] = useState('resident');
   const [email, setEmail] = useState('nitin@resident.ae');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -911,9 +911,6 @@ const LoginPage = ({ onLogin, syncStatus, scanRef }) => {
       <div className="login-card" style={{maxWidth:500}}>
         <div className="logo"><div className="v-badge">V</div><span style={{fontSize:20,fontWeight:700}}>VARS PM</span></div>
         <h1>Welcome back</h1>
-        {scanRef && <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:8,padding:'10px 14px',marginBottom:16,fontSize:13,color:'#856404'}}>
-          Visitor pass <strong>{scanRef}</strong> scanned. Log in as <strong>Security Guard</strong> to verify this visitor.
-        </div>}
         <p>Select your role and sign in</p>
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:24}}>
@@ -975,7 +972,7 @@ const LoginPage = ({ onLogin, syncStatus, scanRef }) => {
         )}
 
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:16}}>
-          <p style={{fontSize:12,color:'#888'}}>Abu Dhabi · GST+4 · VARS PM v1.0 · Code updated: 05 Apr 2026, 11:02 GST</p>
+          <p style={{fontSize:12,color:'#888'}}>Abu Dhabi · GST+4 · VARS PM v1.0 · Code updated: 05 Apr 2026, 11:10 GST</p>
           <button
             onClick={() => { localStorage.removeItem('varspm_data'); try { if (typeof window.supabase !== 'undefined') { const sb = window.supabase.createClient('https://whgoaglmguopxrzfjifj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ29hZ2xtZ3VvcHhyemZqaWZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjY1MDEsImV4cCI6MjA5MDgwMjUwMX0.TL6klBDqfyAUvpgKXxha-1hpH6keaeARZvJk3rc5vhg'); sb.from('app_state').upsert({ id: 'main', data: {} }); } } catch(e){} window.location.reload(); }}
             style={{background:'none',border:'none',color:'#cc0000',fontSize:11,cursor:'pointer',textDecoration:'underline'}}
@@ -2383,11 +2380,8 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
     }));
   };
 
-  // QR contains a URL so iPhone camera opens the app directly
-  const getQrImgUrl = (permit) => {
-    const appUrl = 'https://alexfinance.github.io/VARS/?scan=' + encodeURIComponent(permit || 'UNKNOWN');
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(appUrl);
-  };
+  // QR contains just the permit ref — scanned only through Security app
+  const getQrImgUrl = (permit) => 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(permit || 'UNKNOWN');
 
   useEffect(() => {
     if (step === 'qr' && qrData && qrRef.current) {
@@ -2725,11 +2719,8 @@ const ResidentApp = ({ onLogout }) => {
 
   const viewQrRef = React.useRef(null);
 
-  // QR URL for saved visitor view
-  const getViewQrImgUrl = (permit) => {
-    const appUrl = 'https://alexfinance.github.io/VARS/?scan=' + encodeURIComponent(permit || 'UNKNOWN');
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(appUrl);
-  };
+  // QR for saved visitor view — just permit ref
+  const getViewQrImgUrl = (permit) => 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(permit || 'UNKNOWN');
 
   useEffect(() => {
     if (currentPage === 'viewVisitor' && selectedVisitor && selectedVisitor.qrPayload && viewQrRef.current) {
@@ -3083,31 +3074,39 @@ const QrScannerModal = ({ onClose, onScanned }) => {
     let mounted = true;
     const startScanner = async () => {
       if (!scannerRef.current) return;
+      // Check if Html5Qrcode library is loaded
+      if (typeof Html5Qrcode === 'undefined') {
+        if (mounted) { setError('QR scanner library not loaded. Use manual entry.'); setShowManual(true); }
+        return;
+      }
       try {
         const html5QrCode = new Html5Qrcode('sec-qr-reader');
         html5QrCodeRef.current = html5QrCode;
         await html5QrCode.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
           (decodedText) => {
             if (!mounted) return;
-            html5QrCode.stop().catch(() => {});
+            try { html5QrCode.stop().catch(() => {}); } catch(e) {}
             onScanned(decodedText);
           },
           () => {}
         );
       } catch (err) {
+        console.log('QR scanner error:', err);
         if (mounted) {
-          setError('Camera not available. Use manual entry below.');
+          setError('Camera not available — use manual entry below.');
           setShowManual(true);
         }
       }
     };
-    startScanner();
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(startScanner, 300);
     return () => {
       mounted = false;
+      clearTimeout(timer);
       if (html5QrCodeRef.current) {
-        html5QrCodeRef.current.stop().catch(() => {});
+        try { html5QrCodeRef.current.stop().catch(() => {}); } catch(e) {}
       }
     };
   }, []);
@@ -3173,114 +3172,85 @@ const ScannedVisitorForm = ({ scannedData, onClose, onSave }) => {
 
   const parsed = React.useMemo(() => {
     if (!scannedData) return {};
-
-    // Try JSON first
     try {
-      const j = JSON.parse(scannedData);
-      // New compact format (v, p, n, ph, u, t, d, tm)
-      if (j.v === 1 && j.p) {
+      // Step 1: Extract the permit ref from whatever was scanned
+      let input = scannedData.trim();
+
+      // If it's a URL with ?scan= param, extract the permit ref
+      if (input.startsWith('http')) {
+        try {
+          const url = new URL(input);
+          const scanParam = url.searchParams.get('scan');
+          if (scanParam) input = scanParam;
+        } catch(e) {}
+      }
+
+      // If it's JSON, try to extract permit from it
+      try {
+        const j = JSON.parse(input);
+        if (j.v === 1 && j.p) input = j.p;
+        else if (j._varspm && j.permit) input = j.permit;
+      } catch(e) {}
+
+      // Step 2: Look up the permit ref in visitors data
+      const match = data.visitors.find(v =>
+        v.permitRef === input ||
+        v.name === input ||
+        v.name.toLowerCase() === input.toLowerCase() ||
+        (v.permitRef && input.includes(v.permitRef))
+      );
+      if (match) {
+        // If visitor has qrPayload, use it for full details
+        const qp = match.qrPayload || {};
         return {
-          permit: j.p || '',
+          permit: match.permitRef || '',
+          property: qp.property || 'Sky Tower',
+          unit: match.flat || qp.unit || '',
+          host: match.resident || qp.resident || '',
+          visitor: match.name || '',
+          phone: match.contact || qp.mobile || '',
+          type: match.type || qp.type || '',
+          guests: qp.guests || '0',
+          vehicle: qp.vehicle || '',
+          id: qp.idDoc || '',
+          date: match.date || qp.date || '',
+          time: match.time || qp.time || '',
+          'valid until': qp.validUntil || '',
+          status: match.status === 'Scheduled' ? 'PRE-APPROVED' : (match.status || 'PRE-APPROVED')
+        };
+      }
+
+      // Step 3: Try matching in entryLog
+      const logMatch = data.entryLog.find(e =>
+        e.refId === input ||
+        e.visitor === input ||
+        e.visitor.toLowerCase() === input.toLowerCase()
+      );
+      if (logMatch) {
+        return {
+          permit: logMatch.refId || '',
           property: 'Sky Tower',
-          unit: j.u || '',
-          host: '',
-          visitor: j.n || '',
-          phone: j.ph || '',
-          type: j.t || '',
+          unit: logMatch.flat || '',
+          host: logMatch.host || '',
+          visitor: logMatch.visitor || '',
+          phone: logMatch.phone || '',
+          type: logMatch.type || '',
           guests: '0',
           vehicle: '',
-          id: '',
-          date: j.d || '',
-          time: j.tm || '',
+          id: logMatch.idDoc || '',
+          date: '',
+          time: logMatch.timeIn || '',
           'valid until': '',
-          status: 'PRE-APPROVED'
+          status: logMatch.status
         };
       }
-      // Old full format (_varspm)
-      if (j._varspm) {
-        return {
-          permit: j.permit || '',
-          property: j.property || '',
-          unit: j.unit || '',
-          host: j.host || '',
-          visitor: j.visitor || '',
-          phone: j.phone || '',
-          type: j.type || '',
-          guests: j.guests || '0',
-          vehicle: j.vehicle || '',
-          id: j.id || '',
-          date: j.date || '',
-          time: j.time || '',
-          'valid until': j.validUntil || '',
-          status: j.status || 'PRE-APPROVED'
-        };
-      }
-    } catch(e) {}
 
-    // Try old text format (key: value lines)
-    const d = {};
-    const lines = scannedData.split('\n');
-    lines.forEach(line => {
-      const idx = line.indexOf(': ');
-      if (idx > -1) {
-        const key = line.substring(0, idx).trim().replace(/^[^\w]*/, '');
-        const val = line.substring(idx + 2).trim();
-        d[key.toLowerCase()] = val;
-      }
-    });
-    if (Object.keys(d).length > 2) return d;
-
-    // Try permit ref lookup in existing data
-    const input = scannedData.trim();
-    const match = data.visitors.find(v =>
-      v.permitRef === input ||
-      v.name.toLowerCase() === input.toLowerCase() ||
-      (v.permitRef && input.includes(v.permitRef))
-    );
-    if (match) {
-      return {
-        permit: match.permitRef || '',
-        property: 'Sky Tower',
-        unit: match.flat || '',
-        host: match.resident || '',
-        visitor: match.name || '',
-        phone: match.contact || '',
-        type: match.type || '',
-        guests: '0',
-        vehicle: '',
-        id: '',
-        date: match.date || '',
-        time: match.time || '',
-        'valid until': '',
-        status: match.status === 'Scheduled' ? 'PRE-APPROVED' : match.status
-      };
+      // Step 4: Return minimal data with just the permit ref
+      return { permit: input, visitor: '', status: 'UNKNOWN' };
+    } catch(e) {
+      console.log('Parse error:', e);
+      return {};
     }
-
-    // Also try matching in entryLog
-    const logMatch = data.entryLog.find(e =>
-      e.refId === input ||
-      e.visitor.toLowerCase() === input.toLowerCase()
-    );
-    if (logMatch) {
-      return {
-        permit: logMatch.refId || '',
-        property: 'Sky Tower',
-        unit: logMatch.flat || '',
-        host: logMatch.host || '',
-        visitor: logMatch.visitor || '',
-        phone: logMatch.phone || '',
-        type: logMatch.type || '',
-        guests: '0',
-        vehicle: '',
-        id: logMatch.idDoc || '',
-        date: '',
-        time: logMatch.timeIn || '',
-        'valid until': '',
-        status: logMatch.status
-      };
-    }
-
-    return d;
   }, [scannedData, data]);
 
   const isExpired = React.useMemo(() => {
@@ -3451,25 +3421,14 @@ const ScannedVisitorForm = ({ scannedData, onClose, onSave }) => {
   );
 };
 
-const SecurityApp = ({ onLogout, initialScanRef }) => {
+const SecurityApp = ({ onLogout }) => {
   const { data, setData, showToast } = useApp();
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [selectedVisitor, setSelectedVisitor] = useState(null);
   const [viewingVisitor, setViewingVisitor] = useState(null); // for detail view
   const [showScanner, setShowScanner] = useState(false);
-  const [scannedData, setScannedData] = useState(initialScanRef || null);
+  const [scannedData, setScannedData] = useState(null);
   const secQrRef = React.useRef(null);
-  const initialScanUsed = React.useRef(false);
-
-  // If opened via QR URL scan, auto-trigger lookup after data loads from cloud
-  useEffect(() => {
-    if (initialScanRef && !initialScanUsed.current && data && data.visitors && data.visitors.length > 0) {
-      initialScanUsed.current = true;
-      setScannedData(initialScanRef);
-      // Clean the URL so refreshing doesn't re-trigger
-      try { window.history.replaceState({}, '', window.location.pathname); } catch(e) {}
-    }
-  }, [initialScanRef, data]);
 
   // Look up full visitor data (with qrPayload) by permit ref or name
   const findFullVisitor = (entry) => {
@@ -3488,11 +3447,8 @@ const SecurityApp = ({ onLogout, initialScanRef }) => {
     return null;
   };
 
-  // QR URL for security visitor detail
-  const getSecQrImgUrl = (permit) => {
-    const appUrl = 'https://alexfinance.github.io/VARS/?scan=' + encodeURIComponent(permit || 'UNKNOWN');
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(appUrl);
-  };
+  // QR for security visitor detail — just permit ref
+  const getSecQrImgUrl = (permit) => 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(permit || 'UNKNOWN');
 
   useEffect(() => {
     if (viewingVisitor && viewingVisitor.qrPayload && secQrRef.current) {
@@ -3943,19 +3899,8 @@ const loadPersistedData = () => {
   return initialData;
 };
 
-// ==================== URL SCAN DETECTION ====================
-// Check if opened via QR code scan (URL like ?scan=VPR-2026-1234)
-const getUrlScanParam = () => {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('scan') || null;
-  } catch(e) { return null; }
-};
-const URL_SCAN_REF = getUrlScanParam();
-
 // ==================== MAIN APP ====================
 const App = () => {
-  // QR scan URL only works if already logged in as security — no auto-login
   const [role, setRole] = useState(() => {
     try { return localStorage.getItem('varspm_role') || null; } catch(e) { return null; }
   });
@@ -4075,7 +4020,7 @@ const App = () => {
   if (!role) return <LoginPage onLogin={(selectedRole) => {
     try { localStorage.setItem('varspm_role', selectedRole); } catch(e) {}
     setRole(selectedRole);
-  }} syncStatus={syncStatus} scanRef={URL_SCAN_REF}/>;
+  }} syncStatus={syncStatus}/>;
 
   // If logged in as resident, show resident app
   if (role === 'resident') {
@@ -4091,7 +4036,7 @@ const App = () => {
   if (role === 'security') {
     return (
       <AppContext.Provider value={{ data, setData, showToast }}>
-        <SecurityApp onLogout={handleLogout} initialScanRef={URL_SCAN_REF}/>
+        <SecurityApp onLogout={handleLogout}/>
         {toast && <div className="toast">{toast}</div>}
       </AppContext.Provider>
     );
