@@ -1093,6 +1093,10 @@ const TopBar = ({ onCreateClick, onMenuToggle, onLogout }) => {
 // ==================== OVERVIEW PAGE ====================
 const OverviewPage = () => {
   const { data } = useApp();
+  const [pmNow, setPmNow] = useState(new Date());
+  useEffect(() => { const t = setInterval(() => setPmNow(new Date()), 60000); return () => clearInterval(t); }, []);
+  const pmTime = pmNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Dubai' });
+  const pmDate = pmNow.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Dubai' });
   const insideCount = data.visitors.filter(v => v.status === 'Inside').length;
   const scheduledCount = data.visitors.filter(v => v.status === 'Scheduled').length;
   const pendingCount = data.visitors.filter(v => v.status === 'Pending').length;
@@ -1110,10 +1114,10 @@ const OverviewPage = () => {
     <div>
       <div className="page-header">
         <div><h1>PM Dashboard — Overview</h1></div>
-        <div style={{fontSize:13,color:'#666'}}>Abu Dhabi · GST+4 &nbsp; 05 Apr 2026, 10:18 AM</div>
+        <div style={{fontSize:13,color:'#666'}}>Abu Dhabi · GST+4 &nbsp; {pmDate + ', ' + pmTime}</div>
       </div>
       <div style={{fontSize:13,color:'#666',marginBottom:8}}>
-        <strong>Key Performance Indicators</strong> <span style={{background:'#f0f0f0',padding:'2px 8px',borderRadius:4,fontSize:11,marginLeft:8}}>Live · Updated 10:18 AM</span>
+        <strong>Key Performance Indicators</strong> <span style={{background:'#f0f0f0',padding:'2px 8px',borderRadius:4,fontSize:11,marginLeft:8}}>Live · Updated {pmTime}</span>
       </div>
       <div className="kpi-row">
         {kpis.map((k,i) => (
@@ -1530,24 +1534,84 @@ const ServiceRequestsPage = () => {
 
 // ==================== ANNOUNCEMENTS PAGE ====================
 const AnnouncementsPage = () => {
-  const { data } = useApp();
+  const { data, setData, showToast } = useApp();
   const [filter, setFilter] = useState('All');
   const [showComposer, setShowComposer] = useState(false);
   const [composerStep, setComposerStep] = useState(1);
   const [showDelete, setShowDelete] = useState(null);
+  const [editingAnn, setEditingAnn] = useState(null);
+  const [annForm, setAnnForm] = useState({ title: '', body: '', priority: 'Normal', audience: 'All Residents', publishMode: 'now', ackRequired: false });
 
-  const filters = [{label:'All',count:5},{label:'Live',count:1},{label:'Scheduled',count:1},{label:'Draft',count:1},{label:'Sent',count:2}];
+  const resetForm = () => setAnnForm({ title: '', body: '', priority: 'Normal', audience: 'All Residents', publishMode: 'now', ackRequired: false });
+
+  const liveCount = data.announcements.filter(a => a.status === 'Live').length;
+  const scheduledCount = data.announcements.filter(a => a.status === 'Scheduled').length;
+  const draftCount = data.announcements.filter(a => a.status === 'Draft').length;
+  const sentCount = data.announcements.filter(a => a.status === 'Sent').length;
+  const filters = [{label:'All',count:data.announcements.length},{label:'Live',count:liveCount},{label:'Scheduled',count:scheduledCount},{label:'Draft',count:draftCount},{label:'Sent',count:sentCount}];
   const filtered = filter === 'All' ? data.announcements : data.announcements.filter(a => a.status === filter);
+
+  const handlePublish = () => {
+    if (!annForm.title.trim()) { showToast('Title is required'); return; }
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Dubai' });
+    const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Dubai' });
+    const status = annForm.publishMode === 'now' ? 'Live' : annForm.publishMode === 'schedule' ? 'Scheduled' : 'Draft';
+
+    if (editingAnn) {
+      setData(prev => ({
+        ...prev,
+        announcements: prev.announcements.map(a => a.id === editingAnn.id ? {
+          ...a, title: annForm.title, audience: annForm.audience, priority: annForm.priority, ackRequired: annForm.ackRequired, status: status, body: annForm.body
+        } : a)
+      }));
+      showToast('Announcement updated');
+    } else {
+      const newAnn = {
+        id: Date.now(),
+        title: annForm.title,
+        body: annForm.body,
+        audience: annForm.audience,
+        author: 'Hassan Al-PM',
+        created: dateStr + ', ' + timeStr,
+        status: status,
+        priority: annForm.priority,
+        ackRequired: annForm.ackRequired,
+        delivered: status === 'Live' ? 1240 : 0,
+        read: 0,
+        acknowledged: 0
+      };
+      setData(prev => ({ ...prev, announcements: [newAnn, ...prev.announcements] }));
+      showToast('Announcement ' + (status === 'Live' ? 'published' : status === 'Scheduled' ? 'scheduled' : 'saved as draft'));
+    }
+    setShowComposer(false);
+    setEditingAnn(null);
+    resetForm();
+  };
+
+  const handleDelete = (ann) => {
+    setData(prev => ({ ...prev, announcements: prev.announcements.filter(a => a.id !== ann.id) }));
+    setShowDelete(null);
+    showToast('Announcement deleted');
+  };
+
+  const handleEdit = (ann) => {
+    setEditingAnn(ann);
+    setAnnForm({ title: ann.title, body: ann.body || '', priority: ann.priority, audience: ann.audience, publishMode: ann.status === 'Scheduled' ? 'schedule' : ann.status === 'Draft' ? 'draft' : 'now', ackRequired: ann.ackRequired });
+    setComposerStep(1);
+    setShowComposer(true);
+  };
 
   return (
     <div>
       <div className="page-header">
-        <div><h1>Announcements — Composer & Feed</h1><div className="subtitle">1 live · 1 scheduled · 1 draft · 2 sent</div></div>
-        <button className="btn btn-primary" onClick={()=>{setShowComposer(true);setComposerStep(1)}}>+ New Announcement</button>
+        <div><h1>Announcements — Composer & Feed</h1><div className="subtitle">{liveCount} live · {scheduledCount} scheduled · {draftCount} draft · {sentCount} sent</div></div>
+        <button className="btn btn-primary" onClick={()=>{resetForm();setEditingAnn(null);setShowComposer(true);setComposerStep(1)}}>+ New Announcement</button>
       </div>
       <div className="filter-row">
         {filters.map(f => <span key={f.label} className={`chip ${filter===f.label?'active':''}`} onClick={()=>setFilter(f.label)}>{f.label} {f.count}</span>)}
       </div>
+      {filtered.length === 0 && <div style={{textAlign:'center',color:'#888',padding:40}}>No announcements in this category.</div>}
       {filtered.map(a => (
         <div key={a.id} className="announcement-card">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
@@ -1558,19 +1622,20 @@ const AnnouncementsPage = () => {
                 {a.ackRequired && <span style={{fontSize:11,color:'#666'}}>Ack Required</span>}
               </div>
               <h3>{a.title}</h3>
+              {a.body && <p style={{fontSize:13,color:'#555',margin:'4px 0 8px'}}>{a.body}</p>}
               <div className="meta">Audience: <strong>{a.audience}</strong> &nbsp; By: {a.author} &nbsp; Created: {a.created}</div>
             </div>
             <div style={{display:'flex',gap:4}}>
-              {a.status==='Scheduled' && <button className="btn btn-sm"><Icon name="edit" size={12}/></button>}
+              <button className="btn btn-sm" onClick={()=>handleEdit(a)}><Icon name="edit" size={12}/></button>
               <button className="btn btn-sm" onClick={()=>setShowDelete(a)}><Icon name="trash" size={12}/></button>
             </div>
           </div>
           {(a.delivered > 0 || a.read > 0) && (
-            <div style={{display:'flex',gap:24,alignItems:'center'}}>
+            <div style={{display:'flex',gap:24,alignItems:'center',flexWrap:'wrap'}}>
               <div className="stats"><div><div className="stat-label">Delivered</div><div className="stat-value">{a.delivered.toLocaleString()}</div></div></div>
               <div className="stats"><div><div className="stat-label">Read</div><div className="stat-value">{a.read.toLocaleString()}</div></div></div>
               {a.acknowledged > 0 && <div className="stats"><div><div className="stat-label">Acknowledged</div><div className="stat-value">{a.acknowledged.toLocaleString()}</div></div></div>}
-              {a.read > 0 && <div style={{flex:1,display:'flex',alignItems:'center',gap:8}}>
+              {a.read > 0 && a.delivered > 0 && <div style={{flex:1,display:'flex',alignItems:'center',gap:8,minWidth:120}}>
                 <div className="progress-bar"><div className="fill" style={{width:`${Math.round(a.read/a.delivered*100)}%`}}/></div>
                 <span style={{fontSize:11,color:'#888'}}>{Math.round(a.read/a.delivered*100)}% read rate</span>
               </div>}
@@ -1581,39 +1646,45 @@ const AnnouncementsPage = () => {
       ))}
 
       {showComposer && (
-        <div className="modal-overlay" onClick={()=>setShowComposer(false)}>
+        <div className="modal-overlay" onClick={()=>{setShowComposer(false);setEditingAnn(null)}}>
           <div className="modal modal-wide" onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
-              <div><div className="modal-sub">modal/composer · Announcement Composer</div><h2>New Announcement</h2></div>
-              <button className="modal-close" onClick={()=>setShowComposer(false)}>×</button>
+              <div><div className="modal-sub">modal/composer · Announcement Composer</div><h2>{editingAnn ? 'Edit Announcement' : 'New Announcement'}</h2></div>
+              <button className="modal-close" onClick={()=>{setShowComposer(false);setEditingAnn(null)}}>×</button>
             </div>
             <div className="wizard-steps">
               {['Compose','Audience','Schedule','Preview'].map((s,i) => (
                 <React.Fragment key={s}>
                   {i>0 && <span className="wizard-sep">›</span>}
-                  <span className={`wizard-step ${composerStep===i+1?'active':''} ${composerStep>i+1?'completed':''}`}>
+                  <span className={`wizard-step ${composerStep===i+1?'active':''} ${composerStep>i+1?'completed':''}`} style={{cursor:'pointer'}} onClick={() => setComposerStep(i+1)}>
                     {i+1 < composerStep ? '✓' : `${i+1}`} {s}
                   </span>
                 </React.Fragment>
               ))}
             </div>
             {composerStep===1 && (<div>
-              <div className="form-group"><label>Title *</label><input className="form-input" placeholder="Announcement title"/></div>
+              <div className="form-group"><label>Title *</label><input className="form-input" placeholder="Announcement title" value={annForm.title} onChange={e => setAnnForm(p => ({...p, title: e.target.value}))}/></div>
               <div className="form-group"><label>Body</label>
-                <div style={{display:'flex',gap:4,marginBottom:6}}>
-                  {['B','I','U','• List','Link'].map(b => <button key={b} className="btn btn-sm" style={{padding:'4px 10px'}}>{b}</button>)}
-                </div>
-                <textarea className="form-input" rows={4} placeholder="Write your announcement here..."/>
+                <textarea className="form-input" rows={4} placeholder="Write your announcement here..." value={annForm.body} onChange={e => setAnnForm(p => ({...p, body: e.target.value}))}/>
               </div>
-              <div className="form-group"><label>Priority</label><div className="type-selector"><div className="type-btn active">Normal</div><div className="type-btn">△ High</div></div></div>
+              <div className="form-group"><label>Priority</label><div className="type-selector">
+                <div className={`type-btn ${annForm.priority==='Normal'?'active':''}`} onClick={() => setAnnForm(p => ({...p, priority:'Normal'}))}>Normal</div>
+                <div className={`type-btn ${annForm.priority==='High'?'active':''}`} onClick={() => setAnnForm(p => ({...p, priority:'High'}))}>△ High</div>
+              </div></div>
               <div className="form-group"><label>Attachment</label><div className="upload-area">Upload image or document<br/><span style={{fontSize:11}}>JPG, PNG, PDF up to 10MB</span></div></div>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}><span style={{fontSize:13}}>Acknowledgement Required</span><Toggle value={false} onChange={()=>{}}/></div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}><span style={{fontSize:13}}>Acknowledgement Required</span><Toggle value={annForm.ackRequired} onChange={() => setAnnForm(p => ({...p, ackRequired: !p.ackRequired}))}/></div>
               <button className="btn btn-primary" style={{width:'100%'}} onClick={()=>setComposerStep(2)}>Continue to Audience →</button>
             </div>)}
             {composerStep===2 && (<div>
               <p style={{color:'#666',marginBottom:16}}>Select who should receive this announcement.</p>
-              {['All Residents — 1,240 recipients','Specific Buildings — Tower A, B, C, D','Specific Flats — Select individual units','Security Guards — 18 guards on duty','Owners Only — 24 guards on duty'].map((a,i) => (
-                <div key={i} className="personnel-item" style={{marginBottom:8}}><div style={{width:32,height:32,background:'#f0f0f0',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name="user" size={14}/></div><div>{a}</div></div>
+              {[{label:'All Residents — 1,240 recipients',val:'All Residents'},{label:'Specific Buildings — Tower A, B, C, D',val:'Specific Buildings'},{label:'Specific Flats — Select individual units',val:'Specific Flats'},{label:'Security Guards — 18 guards on duty',val:'Security Guards'},{label:'Owners Only',val:'Owners Only'}].map((a,i) => (
+                <div key={i} className="personnel-item" style={{marginBottom:8,cursor:'pointer',background:annForm.audience===a.val?'#f0f7ff':'transparent',borderRadius:6,padding:'8px 12px'}} onClick={() => setAnnForm(p => ({...p, audience: a.val}))}>
+                  <div style={{width:32,height:32,background:annForm.audience===a.val?'#1565c0':'#f0f0f0',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <Icon name="user" size={14}/>
+                  </div>
+                  <div style={{flex:1}}>{a.label}</div>
+                  {annForm.audience===a.val && <span style={{color:'#1565c0',fontWeight:600}}>✓</span>}
+                </div>
               ))}
               <div className="grid-2" style={{marginTop:16}}>
                 <button className="btn" onClick={()=>setComposerStep(1)}>← Back</button>
@@ -1622,9 +1693,10 @@ const AnnouncementsPage = () => {
             </div>)}
             {composerStep===3 && (<div>
               <p style={{color:'#666',marginBottom:16}}>Choose when to publish this announcement.</p>
-              <div className="grid-2" style={{marginBottom:16}}>
-                <div className="type-btn active" style={{padding:16}}><strong>Publish Now</strong><br/><span style={{fontSize:12,color:'#888'}}>Send immediately</span></div>
-                <div className="type-btn" style={{padding:16}}><strong>Schedule</strong><br/><span style={{fontSize:12,color:'#888'}}>Set a future time</span></div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:16}}>
+                <div className={`type-btn ${annForm.publishMode==='now'?'active':''}`} style={{padding:16,cursor:'pointer'}} onClick={() => setAnnForm(p => ({...p, publishMode:'now'}))}><strong>Publish Now</strong><br/><span style={{fontSize:12,color:'#888'}}>Send immediately</span></div>
+                <div className={`type-btn ${annForm.publishMode==='schedule'?'active':''}`} style={{padding:16,cursor:'pointer'}} onClick={() => setAnnForm(p => ({...p, publishMode:'schedule'}))}><strong>Schedule</strong><br/><span style={{fontSize:12,color:'#888'}}>Set a future time</span></div>
+                <div className={`type-btn ${annForm.publishMode==='draft'?'active':''}`} style={{padding:16,cursor:'pointer'}} onClick={() => setAnnForm(p => ({...p, publishMode:'draft'}))}><strong>Save Draft</strong><br/><span style={{fontSize:12,color:'#888'}}>Edit later</span></div>
               </div>
               <div className="grid-2" style={{marginTop:16}}>
                 <button className="btn" onClick={()=>setComposerStep(2)}>← Back</button>
@@ -1633,20 +1705,26 @@ const AnnouncementsPage = () => {
             </div>)}
             {composerStep===4 && (<div>
               <div style={{background:'#f9f9f9',borderRadius:8,padding:16,marginBottom:16}}>
-                <div style={{display:'flex',gap:6,marginBottom:4}}><StatusBadge status="Live"/><span style={{fontSize:11}}>△ High Priority</span></div>
-                <div style={{fontWeight:600}}>[Your announcement title]</div>
-                <div style={{fontSize:12,color:'#888'}}>Audience: All Residents · Publish: Scheduled</div>
-                <div style={{fontSize:12,color:'#888'}}>Acknowledgement required</div>
+                <div style={{display:'flex',gap:6,marginBottom:4}}>
+                  <StatusBadge status={annForm.publishMode==='now'?'Live':annForm.publishMode==='schedule'?'Scheduled':'Draft'}/>
+                  {annForm.priority==='High' && <span style={{fontSize:11}}>△ High Priority</span>}
+                </div>
+                <div style={{fontWeight:600}}>{annForm.title || '[Untitled]'}</div>
+                {annForm.body && <p style={{fontSize:13,color:'#666',margin:'4px 0 0'}}>{annForm.body}</p>}
+                <div style={{fontSize:12,color:'#888',marginTop:4}}>Audience: {annForm.audience} · Publish: {annForm.publishMode==='now'?'Immediately':annForm.publishMode==='schedule'?'Scheduled':'Draft'}</div>
+                {annForm.ackRequired && <div style={{fontSize:12,color:'#888'}}>Acknowledgement required</div>}
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:13,marginBottom:16}}>
-                <div>Audience: <strong>All Residents</strong></div>
-                <div>Priority: <strong>High</strong></div>
-                <div>Publish: <strong>Scheduled</strong></div>
-                <div>Acknowledgement: <strong>Required</strong></div>
+                <div>Audience: <strong>{annForm.audience}</strong></div>
+                <div>Priority: <strong>{annForm.priority}</strong></div>
+                <div>Publish: <strong>{annForm.publishMode==='now'?'Immediately':annForm.publishMode==='schedule'?'Scheduled':'Draft'}</strong></div>
+                <div>Acknowledgement: <strong>{annForm.ackRequired ? 'Required' : 'Not required'}</strong></div>
               </div>
               <div className="grid-2">
                 <button className="btn" onClick={()=>setComposerStep(3)}>← Back</button>
-                <button className="btn btn-primary" onClick={()=>setShowComposer(false)}>✈ Schedule</button>
+                <button className="btn btn-primary" onClick={handlePublish}>
+                  {annForm.publishMode==='now' ? 'Publish Now' : annForm.publishMode==='schedule' ? 'Schedule' : 'Save Draft'}
+                </button>
               </div>
             </div>)}
           </div>
@@ -1657,9 +1735,9 @@ const AnnouncementsPage = () => {
         <div className="modal-overlay" onClick={()=>setShowDelete(null)}>
           <div className="modal" style={{maxWidth:400}} onClick={e=>e.stopPropagation()}>
             <h2 style={{marginBottom:8}}>Delete Announcement</h2>
-            <p style={{color:'#666',marginBottom:20}}>Are you sure you want to delete this announcement? This action cannot be undone.</p>
+            <p style={{color:'#666',marginBottom:20}}>Are you sure you want to delete "{showDelete.title}"? This action cannot be undone.</p>
             <div className="grid-2">
-              <button className="btn btn-primary" onClick={()=>setShowDelete(null)}>Delete</button>
+              <button className="btn btn-primary" onClick={()=>handleDelete(showDelete)}>Delete</button>
               <button className="btn" onClick={()=>setShowDelete(null)}>Cancel</button>
             </div>
           </div>
@@ -4074,7 +4152,110 @@ const SecurityApp = ({ onLogout }) => {
   const [viewingVisitor, setViewingVisitor] = useState(null); // for detail view
   const [showScanner, setShowScanner] = useState(false);
   const [scannedData, setScannedData] = useState(null);
+  const [showNewVisitorForm, setShowNewVisitorForm] = useState(false);
+  const [showFullInsideList, setShowFullInsideList] = useState(false);
+  const [secVisitorFilter, setSecVisitorFilter] = useState('ALL');
+  const [newVisitorData, setNewVisitorData] = useState({
+    visitorType: 'Resident Guest',
+    entryType: 'Walk-in',
+    fullName: '',
+    mobile: '',
+    idDocType: '',
+    idDocNumber: '',
+    flat: '',
+    tower: 'Tower A',
+    host: '',
+    additionalVisitors: 0,
+    vehicle: '',
+    guardNotes: '',
+    purpose: ''
+  });
   const secQrRef = React.useRef(null);
+
+  const resetNewVisitorForm = () => {
+    setNewVisitorData({
+      visitorType: 'Resident Guest', entryType: 'Walk-in', fullName: '', mobile: '',
+      idDocType: '', idDocNumber: '', flat: '', tower: 'Tower A', host: '',
+      additionalVisitors: 0, vehicle: '', guardNotes: '', purpose: ''
+    });
+  };
+
+  const submitNewVisitor = () => {
+    if (!newVisitorData.fullName.trim()) { showToast('Please enter visitor name'); return; }
+    if (!newVisitorData.mobile.trim()) { showToast('Please enter mobile number'); return; }
+    if (!newVisitorData.flat.trim()) { showToast('Please enter flat/unit number'); return; }
+    if (newVisitorData.visitorType !== 'Resident Guest' && !newVisitorData.idDocType) { showToast('ID document required for non-guest visitors'); return; }
+
+    const timeNow = new Date();
+    const timeStr = timeNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Dubai' });
+    const dateStr = timeNow.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Dubai' });
+    const permitRef = 'VIS-' + timeNow.getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+    const idDocFull = newVisitorData.idDocType ? (newVisitorData.idDocType + (newVisitorData.idDocNumber ? ': ' + newVisitorData.idDocNumber : '')) : '';
+
+    const visitorEntry = {
+      id: Date.now(),
+      name: newVisitorData.fullName.trim(),
+      resident: newVisitorData.host.trim() || 'Gate Entry',
+      flat: newVisitorData.flat.trim(),
+      contact: newVisitorData.mobile.trim(),
+      type: newVisitorData.visitorType,
+      gate: 'Main Gate',
+      status: 'Inside',
+      time: timeStr,
+      date: dateStr,
+      permitRef: permitRef,
+      duration: '—',
+      qrCode: 'Gate Entry',
+      securityPassedTime: timeStr,
+      securityActionTime: timeStr,
+      securityActionDate: dateStr
+    };
+
+    const logEntry = {
+      id: Date.now() + 1,
+      refId: permitRef,
+      visitor: newVisitorData.fullName.trim(),
+      phone: newVisitorData.mobile.trim(),
+      initials: newVisitorData.fullName.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
+      type: newVisitorData.visitorType,
+      flat: newVisitorData.flat.trim(),
+      host: newVisitorData.host.trim() || 'Gate Entry',
+      purpose: newVisitorData.purpose.trim() || newVisitorData.visitorType + ' visit',
+      timeIn: timeStr,
+      timeOut: '',
+      duration: '—',
+      idDoc: idDocFull,
+      status: 'PASSED SECURITY',
+      securityNotes: newVisitorData.guardNotes.trim(),
+      gateUsed: 'Main Gate'
+    };
+
+    setData(prev => ({
+      ...prev,
+      visitors: [visitorEntry, ...prev.visitors],
+      entryLog: [logEntry, ...prev.entryLog]
+    }));
+
+    showToast(newVisitorData.fullName.trim() + ' admitted — entry logged');
+    resetNewVisitorForm();
+    setShowNewVisitorForm(false);
+  };
+
+  // Live clock from device — updates every second
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const clockTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Dubai' });
+  const clockDate = now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Dubai' }).toUpperCase();
+  // Shift timer — assumes 06:00 start in Abu Dhabi timezone
+  const abuDhabiNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+  const shiftStart = new Date(abuDhabiNow); shiftStart.setHours(6, 0, 0, 0);
+  const shiftElapsed = Math.max(0, Math.floor((abuDhabiNow - shiftStart) / 60000));
+  const shiftHours = Math.floor(shiftElapsed / 60);
+  const shiftMins = shiftElapsed % 60;
+  const shiftStr = shiftHours + 'h ' + shiftMins + 'm';
 
   // Look up full visitor data (with qrPayload) by permit ref or name
   const findFullVisitor = (entry) => {
@@ -4161,18 +4342,26 @@ const SecurityApp = ({ onLogout }) => {
       return v;
     });
 
-    // Update matching entry in entryLog if it was pre-scheduled
-    const updatedEntryLog = data.entryLog.map(e => {
-      if (e.refId === info.permit && e.status === 'SCHEDULED') {
-        return { ...e, status: newStatus, timeIn: timeStr, securityNotes: info.securityNotes };
-      }
-      return e;
-    });
+    // Check if an entry with this refId already exists in entryLog (pre-scheduled entries)
+    const existingIdx = data.entryLog.findIndex(e => e.refId === info.permit);
+    let updatedEntryLog;
+    if (existingIdx >= 0) {
+      // Update existing entry in place instead of creating a duplicate
+      updatedEntryLog = data.entryLog.map(e => {
+        if (e.refId === info.permit) {
+          return { ...e, status: newStatus, timeIn: timeStr, securityNotes: info.securityNotes, idDoc: info.idDoc, idVerified: info.idVerified, vehicleVerified: info.vehicleVerified, gateUsed: info.gateUsed };
+        }
+        return e;
+      });
+    } else {
+      // No existing entry — prepend new one
+      updatedEntryLog = [logEntry, ...data.entryLog];
+    }
 
     setData(prev => ({
       ...prev,
       visitors: updatedVisitors,
-      entryLog: [logEntry, ...updatedEntryLog],
+      entryLog: updatedEntryLog,
       insideVisitors: insideEntry ? [insideEntry, ...prev.insideVisitors] : prev.insideVisitors
     }));
 
@@ -4244,20 +4433,17 @@ const SecurityApp = ({ onLogout }) => {
       return (
         <div>
           <div className="sec-quick-actions">
-            <div className="sec-quick-action-btn">
-              <div className="icon">👤</div>
+            <div className="sec-quick-action-btn" onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(true); }} style={{cursor:'pointer'}}>
+              <div className="icon" style={{fontSize:14}}>+</div>
               <div className="label">New Visitor Entry</div>
-              <div className="shortcut">F1</div>
             </div>
             <div className="sec-quick-action-btn" onClick={() => setShowScanner(true)} style={{borderColor:'#ae9751'}}>
-              <div className="icon">📱</div>
+              <div className="icon" style={{fontSize:14}}>—</div>
               <div className="label">Scan QR / Pre-Approved</div>
-              <div className="shortcut">F2</div>
             </div>
             <div className="sec-quick-action-btn">
-              <div className="icon">📢</div>
+              <div className="icon" style={{fontSize:14}}>—</div>
               <div className="label">Create Announcements</div>
-              <div className="shortcut">F3</div>
             </div>
           </div>
 
@@ -4277,7 +4463,7 @@ const SecurityApp = ({ onLogout }) => {
                   <div className="sec-breakdown-line"><span className="sec-breakdown-type">Contractors:</span><span className="sec-breakdown-count">{data.visitors.filter(v => v.type === 'Contractor').length}</span></div>
                   <div className="sec-breakdown-line"><span className="sec-breakdown-type">Service:</span><span className="sec-breakdown-count">{data.visitors.filter(v => v.type === 'Service' || v.type === 'Vendor').length}</span></div>
                 </div>
-                <button className="sec-view-all-btn">VIEW FULL INSIDE LIST</button>
+                <button className="sec-view-all-btn" onClick={() => setShowFullInsideList(true)}>VIEW FULL INSIDE LIST</button>
               </div>
             </div>
 
@@ -4395,16 +4581,37 @@ const SecurityApp = ({ onLogout }) => {
     }
 
     if(currentTab === 'visitors') {
+      const allEntries = data.entryLog;
+      const insideCount = allEntries.filter(e => e.status === 'PASSED SECURITY' || e.status === 'CLEARED').length;
+      const pendingCount = allEntries.filter(e => e.status === 'SCHEDULED' || e.status === 'PENDING').length;
+      const exitedCount = allEntries.filter(e => e.status === 'CHECKED OUT' || e.status === 'EXITED').length;
+      const rejectedCount = allEntries.filter(e => e.status === 'REJECTED').length;
+      const holdCount = allEntries.filter(e => e.status === 'ON HOLD').length;
+      const secFilterOptions = [
+        { key: 'ALL', label: 'ALL', count: allEntries.length },
+        { key: 'INSIDE', label: 'INSIDE', count: insideCount },
+        { key: 'PENDING', label: 'PENDING', count: pendingCount },
+        { key: 'ON HOLD', label: 'ON HOLD', count: holdCount },
+        { key: 'EXITED', label: 'EXITED', count: exitedCount },
+        { key: 'REJECTED', label: 'REJECTED', count: rejectedCount }
+      ];
+      const filteredEntries = secVisitorFilter === 'ALL' ? allEntries :
+        secVisitorFilter === 'INSIDE' ? allEntries.filter(e => e.status === 'PASSED SECURITY' || e.status === 'CLEARED') :
+        secVisitorFilter === 'PENDING' ? allEntries.filter(e => e.status === 'SCHEDULED' || e.status === 'PENDING') :
+        secVisitorFilter === 'ON HOLD' ? allEntries.filter(e => e.status === 'ON HOLD') :
+        secVisitorFilter === 'EXITED' ? allEntries.filter(e => e.status === 'CHECKED OUT' || e.status === 'EXITED') :
+        secVisitorFilter === 'REJECTED' ? allEntries.filter(e => e.status === 'REJECTED') :
+        allEntries;
       return (
         <div>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-            <div><div style={{fontSize:14,fontWeight:600,color:'#fff'}}>All Visitors Registry</div><div style={{fontSize:11,color:'#999'}}>24 TODAY</div></div>
-            <button style={{background:'#1a1a1a',color:'#fff',border:'none',padding:'8px 12px',borderRadius:6,fontSize:12,cursor:'pointer'}}>+ NEW ENTRY</button>
+            <div><div style={{fontSize:14,fontWeight:600,color:'#fff'}}>All Visitors Registry</div><div style={{fontSize:11,color:'#999'}}>{allEntries.length} TODAY</div></div>
+            <button onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(true); }} style={{background:'#ae9751',color:'#1a1a1a',border:'none',padding:'8px 14px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:600,letterSpacing:'0.04em'}}>+ NEW ENTRY</button>
           </div>
 
           <div className="sec-filter-row">
-            {['ALL (24)','INSIDE (8)','PENDING (4)','APPROVED (3)','EXITED (7)','REJECTED (1)','FLAGGED (2)'].map((f,i) => (
-              <div key={i} className={`sec-filter-chip ${i===0?'active':''}`}>{f}</div>
+            {secFilterOptions.map(f => (
+              <div key={f.key} className={`sec-filter-chip ${secVisitorFilter===f.key?'active':''}`} onClick={() => setSecVisitorFilter(f.key)} style={{cursor:'pointer'}}>{f.label} ({f.count})</div>
             ))}
           </div>
 
@@ -4422,7 +4629,7 @@ const SecurityApp = ({ onLogout }) => {
               </tr>
             </thead>
             <tbody>
-              {data.entryLog.map((e,i) => (
+              {filteredEntries.map((e,i) => (
                 <tr key={e.id}>
                   <td>{i+1}</td>
                   <td>{e.visitor}</td>
@@ -4436,6 +4643,7 @@ const SecurityApp = ({ onLogout }) => {
               ))}
             </tbody>
           </table>
+          {filteredEntries.length === 0 && <div style={{textAlign:'center',color:'#666',padding:24,fontSize:13}}>No entries match this filter.</div>}
         </div>
       );
     }
@@ -4461,15 +4669,15 @@ const SecurityApp = ({ onLogout }) => {
           <button className="sec-gate-change">CHANGE</button>
         </div>
         <div className="sec-clock">
-          <div className="sec-clock-time">09:42 AM</div>
-          <div className="sec-clock-date">THURSDAY, 5 MARCH 2026</div>
+          <div className="sec-clock-time">{clockTime}</div>
+          <div className="sec-clock-date">{clockDate}</div>
         </div>
         <div className="sec-guard-info">
           <div className="sec-guard-detail">
             <div className="sec-guard-name">Suresh Kumar</div>
             <div className="sec-shift">ID: GRD-045</div>
             <div className="sec-shift">06:00 — 14:00</div>
-            <div className="sec-shift-status">ACTIVE (3h 42m)</div>
+            <div className="sec-shift-status">ACTIVE ({shiftStr})</div>
           </div>
         </div>
       </div>
@@ -4502,6 +4710,246 @@ const SecurityApp = ({ onLogout }) => {
           onSave={handleVisitorSave}
         />
       )}
+
+      {/* New Visitor Entry Form */}
+      {showNewVisitorForm && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#1a1a1a',zIndex:1000,overflowY:'auto'}}>
+          <div style={{maxWidth:900,margin:'0 auto',padding:20}}>
+            {/* Header */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+              <div>
+                <h2 style={{fontSize:18,fontWeight:600,color:'#fff',margin:0}}>New Visitor Request</h2>
+                <div style={{fontSize:12,color:'#888',marginTop:2}}>Create Request</div>
+              </div>
+              <button onClick={() => setShowNewVisitorForm(false)} style={{background:'#333',color:'#fff',border:'none',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Cancel</button>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+              {/* Section 01 — Visitor Identity */}
+              <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:20}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#333',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#888'}}>01</span> VISITOR IDENTITY</div>
+                  <span style={{fontSize:10,color:'#ae9751',letterSpacing:'0.06em'}}>REQUIRED</span>
+                </div>
+
+                {/* Visitor Type */}
+                <div style={{marginBottom:16}}>
+                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Visitor Type *</label>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+                    {['Resident Guest','Contractor','Delivery','Domestic Staff','Service Vendor','Other'].map(t => (
+                      <div key={t} onClick={() => setNewVisitorData({...newVisitorData, visitorType: t})}
+                        style={{padding:'10px 6px',border: newVisitorData.visitorType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.visitorType === t ? '#333' : 'transparent',fontSize:11,color: newVisitorData.visitorType === t ? '#fff' : '#888'}}>
+                        {t}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Entry Type */}
+                <div style={{marginBottom:16}}>
+                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Entry Type *</label>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                    {['Walk-in','Drive In'].map(t => (
+                      <div key={t} onClick={() => setNewVisitorData({...newVisitorData, entryType: t})}
+                        style={{padding:10,border: newVisitorData.entryType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.entryType === t ? '#333' : 'transparent',fontSize:12,color: newVisitorData.entryType === t ? '#fff' : '#888'}}>
+                        {t}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Full Name */}
+                <div style={{marginBottom:16}}>
+                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Full Name *</label>
+                  <input value={newVisitorData.fullName} onChange={e => setNewVisitorData({...newVisitorData, fullName: e.target.value})}
+                    placeholder="Enter visitor's full name..."
+                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                </div>
+
+                {/* Mobile Number */}
+                <div style={{marginBottom:16}}>
+                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Mobile Number *</label>
+                  <input value={newVisitorData.mobile} onChange={e => setNewVisitorData({...newVisitorData, mobile: e.target.value})}
+                    placeholder="+971 XX XXX XXXX"
+                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                </div>
+
+                {/* ID Document Type */}
+                <div style={{marginBottom:16}}>
+                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>ID Document Type {newVisitorData.visitorType !== 'Resident Guest' ? '*' : ''}</label>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                    {['Passport','Emirates ID'].map(t => (
+                      <div key={t} onClick={() => setNewVisitorData({...newVisitorData, idDocType: newVisitorData.idDocType === t ? '' : t})}
+                        style={{padding:10,border: newVisitorData.idDocType === t ? '1.5px solid #ae9751' : '1px solid #444',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.idDocType === t ? '#333' : 'transparent',fontSize:12,color: newVisitorData.idDocType === t ? '#fff' : '#888'}}>
+                        {t}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Document Number */}
+                {newVisitorData.idDocType && (
+                  <div style={{marginBottom:16}}>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Document Number *</label>
+                    <input value={newVisitorData.idDocNumber} onChange={e => setNewVisitorData({...newVisitorData, idDocNumber: e.target.value})}
+                      placeholder="Enter document number..."
+                      style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                  </div>
+                )}
+
+                {/* Purpose */}
+                <div style={{marginBottom:0}}>
+                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Purpose of Visit</label>
+                  <input value={newVisitorData.purpose} onChange={e => setNewVisitorData({...newVisitorData, purpose: e.target.value})}
+                    placeholder="e.g. Personal visit, Delivery, Maintenance..."
+                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                </div>
+              </div>
+
+              {/* Section 02 — Visit Details */}
+              <div style={{background:'#2a2a2a',border:'1px solid #333',borderRadius:6,padding:20}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#333',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#888'}}>02</span> VISIT DETAILS</div>
+                  <span style={{fontSize:10,color:'#ae9751',letterSpacing:'0.06em'}}>REQUIRED</span>
+                </div>
+
+                {/* Flat / Unit */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+                  <div>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Flat / Unit No. *</label>
+                    <input value={newVisitorData.flat} onChange={e => setNewVisitorData({...newVisitorData, flat: e.target.value})}
+                      placeholder="Select unit..."
+                      style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                    {/* Quick unit buttons */}
+                    <div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>
+                      {['A-101','A-202','B-102','B-803','C-501','D-1102'].map(u => (
+                        <span key={u} onClick={() => setNewVisitorData({...newVisitorData, flat: u})}
+                          style={{padding:'3px 8px',background: newVisitorData.flat === u ? '#ae9751' : '#333',color: newVisitorData.flat === u ? '#1a1a1a' : '#888',borderRadius:3,fontSize:10,cursor:'pointer',border:'1px solid #444'}}>{u}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Tower / Block</label>
+                    <select value={newVisitorData.tower} onChange={e => setNewVisitorData({...newVisitorData, tower: e.target.value})}
+                      style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}>
+                      <option>Tower A</option><option>Tower B</option><option>Tower C</option><option>Tower D</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Host / Resident */}
+                <div style={{marginBottom:16}}>
+                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Host / Resident Name</label>
+                  <input value={newVisitorData.host} onChange={e => setNewVisitorData({...newVisitorData, host: e.target.value})}
+                    placeholder="Auto-populated on unit selection..."
+                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                </div>
+
+                {/* Additional Visitors + Vehicle */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+                  <div>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Additional Visitors</label>
+                    <div style={{display:'flex',alignItems:'center',gap:0}}>
+                      <button onClick={() => setNewVisitorData({...newVisitorData, additionalVisitors: Math.max(0, newVisitorData.additionalVisitors - 1)})}
+                        style={{width:36,height:36,background:'#333',border:'1px solid #444',borderRadius:'4px 0 0 4px',color:'#fff',fontSize:16,cursor:'pointer'}}>-</button>
+                      <div style={{width:48,height:36,background:'#2a2a2a',border:'1px solid #444',borderLeft:'none',borderRight:'none',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:600}}>{newVisitorData.additionalVisitors}</div>
+                      <button onClick={() => setNewVisitorData({...newVisitorData, additionalVisitors: newVisitorData.additionalVisitors + 1})}
+                        style={{width:36,height:36,background:'#333',border:'1px solid #444',borderRadius:'0 4px 4px 0',color:'#fff',fontSize:16,cursor:'pointer'}}>+</button>
+                    </div>
+                    <div style={{fontSize:10,color:'#666',marginTop:4}}>Total visitors: {1 + newVisitorData.additionalVisitors}</div>
+                  </div>
+                  <div>
+                    <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Vehicle Number (if any)</label>
+                    <input value={newVisitorData.vehicle} onChange={e => setNewVisitorData({...newVisitorData, vehicle: e.target.value})}
+                      placeholder="e.g. AB 12345 — leave blank if no"
+                      style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
+                  </div>
+                </div>
+
+                {/* Guard Notes */}
+                <div>
+                  <label style={{fontSize:10,color:'#888',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Entry Remarks / Guard Notes</label>
+                  <textarea value={newVisitorData.guardNotes} onChange={e => setNewVisitorData({...newVisitorData, guardNotes: e.target.value})}
+                    placeholder="Add any observations or notes here..."
+                    rows={3}
+                    style={{width:'100%',padding:'10px 12px',background:'#333',border:'1px solid #444',borderRadius:4,color:'#fff',fontSize:13,boxSizing:'border-box',outline:'none',resize:'vertical',fontFamily:'inherit'}}/>
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button onClick={submitNewVisitor}
+              style={{width:'100%',padding:16,background:'#ae9751',color:'#1a1a1a',border:'none',borderRadius:4,fontSize:15,fontWeight:700,cursor:'pointer',marginTop:20,letterSpacing:'0.04em'}}>
+              Send Visitor Request
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Full Inside List Overlay */}
+      {showFullInsideList && (() => {
+        const nowTime = new Date();
+        const insideVisitors = data.visitors.filter(v => v.status === 'Inside');
+        return (
+          <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#1a1a1a',zIndex:1000,overflowY:'auto'}}>
+            <div style={{maxWidth:900,margin:'0 auto',padding:20}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+                <div>
+                  <h2 style={{fontSize:18,fontWeight:600,color:'#fff',margin:0}}>Persons Currently Inside</h2>
+                  <div style={{fontSize:12,color:'#888',marginTop:2}}>{insideVisitors.length} visitor{insideVisitors.length !== 1 ? 's' : ''} in the building</div>
+                </div>
+                <button onClick={() => setShowFullInsideList(false)} style={{background:'#333',color:'#fff',border:'none',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',fontWeight:500}}>Close</button>
+              </div>
+
+              {insideVisitors.length === 0 ? (
+                <div style={{textAlign:'center',color:'#666',padding:40}}>No visitors currently inside the building.</div>
+              ) : (
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+                  <thead>
+                    <tr style={{borderBottom:'1px solid #333'}}>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>#</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>VISITOR</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>TYPE</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>UNIT / HOST</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>ENTRY TIME</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>DURATION</th>
+                      <th style={{textAlign:'left',padding:'10px 8px',color:'#888',fontSize:10,letterSpacing:'0.04em',fontWeight:600}}>STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {insideVisitors.map((v, i) => {
+                      let durationStr = '—';
+                      if (v.securityPassedTime) {
+                        try {
+                          const today = nowTime.toLocaleDateString('en-US', { timeZone: 'Asia/Dubai' });
+                          const entryDate = new Date(today + ' ' + v.securityPassedTime);
+                          const diffMs = nowTime - entryDate;
+                          if (diffMs > 0) {
+                            const diffMins = Math.floor(diffMs / 60000);
+                            if (diffMins < 60) durationStr = diffMins + ' min';
+                            else durationStr = Math.floor(diffMins / 60) + 'h ' + (diffMins % 60) + 'm';
+                          } else { durationStr = 'Just now'; }
+                        } catch(e) { durationStr = '—'; }
+                      }
+                      return (
+                        <tr key={v.id || i} style={{borderBottom:'1px solid #2a2a2a',cursor:'pointer'}} onClick={() => { setViewingVisitor(v); setShowFullInsideList(false); }}>
+                          <td style={{padding:'12px 8px',color:'#666'}}>{i + 1}</td>
+                          <td style={{padding:'12px 8px',color:'#fff',fontWeight:500}}>{v.name}</td>
+                          <td style={{padding:'12px 8px',color:'#ccc'}}>{v.type}</td>
+                          <td style={{padding:'12px 8px',color:'#ccc'}}>{v.flat || v.unit || '—'}{v.resident ? ' / ' + v.resident : ''}</td>
+                          <td style={{padding:'12px 8px',color:'#ae9751',fontWeight:500}}>{v.securityPassedTime || v.time || '—'}</td>
+                          <td style={{padding:'12px 8px',color:'#ccc'}}>{durationStr}</td>
+                          <td style={{padding:'12px 8px'}}><span style={{background:'#1b3a1b',color:'#4caf50',padding:'2px 8px',borderRadius:3,fontSize:10,fontWeight:600}}>INSIDE</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
