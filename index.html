@@ -5151,6 +5151,46 @@ const SecurityApp = ({ onLogout }) => {
     );
   };
 
+  // Full database export to Excel
+  const handleExportFullDatabase = () => {
+    const wb = XLSX.utils.book_new();
+    const today = new Date().toLocaleDateString('en-GB').replace(/\//g,'-');
+    const logCols = ['Ref ID','Visitor','Phone','Type','Unit','Host','Purpose','Time In','Check Out Time','Duration','Gate','ID Doc','Status'];
+    const logRows = data.entryLog.map(e => [e.refId||'',e.visitor||'',e.phone||'',e.type||'',e.flat||'',e.host||'',e.purpose||'',e.timeIn||'',e.timeOut||'',e.duration||'',e.gateUsed||'Main Gate',e.idDoc||'',e.status||'']);
+    const wsLog = XLSX.utils.aoa_to_sheet([logCols,...logRows]);
+    wsLog['!cols'] = logCols.map(h => ({wch:Math.max(h.length+2,16)}));
+    XLSX.utils.book_append_sheet(wb, wsLog, 'Entry Log');
+    const visCols = ['Permit Ref','Name','Phone','Type','Unit','Host','Purpose','Status','Entry Date','Visit Date','Repeater'];
+    const visRows = data.visitors.map(v => [v.permitRef||v.id||'',v.name||'',v.phone||'',v.type||'',v.flat||v.unit||'',v.host||'',v.purpose||'',v.status||'',v.registeredDate||'',v.visitDate||'',v.repeater||'']);
+    const wsVis = XLSX.utils.aoa_to_sheet([visCols,...visRows]);
+    wsVis['!cols'] = visCols.map(h => ({wch:Math.max(h.length+2,16)}));
+    XLSX.utils.book_append_sheet(wb, wsVis, 'All Visitors');
+    const pendCols = ['ID','Visitor','Unit','Host','Type','Purpose','Status','Requested At','Source'];
+    const pendRows = (data.pendingApprovals||[]).map(p => [p.id||'',p.visitorName||p.name||'',p.flat||p.unit||'',p.host||'',p.type||'',p.purpose||'',p.status||'',p.requestedAt||'',p.source||'resident']);
+    const wsPend = XLSX.utils.aoa_to_sheet([pendCols,...pendRows]);
+    wsPend['!cols'] = pendCols.map(h => ({wch:Math.max(h.length+2,16)}));
+    XLSX.utils.book_append_sheet(wb, wsPend, 'Pending Approvals');
+    const inCols = ['ID','Name','Type','Unit','Host','Time In','Duration'];
+    const inRows = (data.insideVisitors||[]).map(v => [v.id||'',v.name||'',v.type||'',v.flat||v.unit||'',v.host||'',v.inTime||'',v.duration||'']);
+    const wsIn = XLSX.utils.aoa_to_sheet([inCols,...inRows]);
+    wsIn['!cols'] = inCols.map(h => ({wch:Math.max(h.length+2,16)}));
+    XLSX.utils.book_append_sheet(wb, wsIn, 'Inside Now');
+    XLSX.writeFile(wb, 'VARS_SecurityLog_' + today + '.xlsx');
+    showToast('Database exported to Excel');
+  };
+
+  // Action for checkout
+  const handleCheckout = (entry) => {
+    const timeOut = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'Asia/Dubai'});
+    setData(prev => ({
+      ...prev,
+      entryLog: prev.entryLog.map(e => e.id === entry.id ? {...e, status:'CHECKED OUT', timeOut} : e),
+      insideVisitors: prev.insideVisitors.filter(v => v.name !== entry.visitor),
+      visitors: prev.visitors.map(v => v.name === entry.visitor && v.status === 'Inside' ? {...v, status:'Checked Out'} : v)
+    }));
+    showToast(entry.visitor + ' checked out');
+  };
+
   const renderContent = () => {
     if(currentTab === 'dashboard') {
       const clearedCount = data.insideVisitors.length;
@@ -5565,46 +5605,6 @@ const SecurityApp = ({ onLogout }) => {
         if (s === 'ON HOLD' || s === 'FLAGGED') return {bg:'#e65100',color:'#fff',label:'FLAGGED'};
         return {bg:'#f0f0f0',color:'#8a8a8a',label:status};
       };
-      // Full database export to Excel
-      const handleExportFullDatabase = () => {
-        const wb = XLSX.utils.book_new();
-        const today = new Date().toLocaleDateString('en-GB').replace(/\//g,'-');
-        const logCols = ['Ref ID','Visitor','Phone','Type','Unit','Host','Purpose','Time In','Check Out Time','Duration','Gate','ID Doc','Status'];
-        const logRows = data.entryLog.map(e => [e.refId||'',e.visitor||'',e.phone||'',e.type||'',e.flat||'',e.host||'',e.purpose||'',e.timeIn||'',e.timeOut||'',e.duration||'',e.gateUsed||'Main Gate',e.idDoc||'',e.status||'']);
-        const wsLog = XLSX.utils.aoa_to_sheet([logCols,...logRows]);
-        wsLog['!cols'] = logCols.map(h => ({wch:Math.max(h.length+2,16)}));
-        XLSX.utils.book_append_sheet(wb, wsLog, 'Entry Log');
-        const visCols = ['Permit Ref','Name','Phone','Type','Unit','Host','Purpose','Status','Entry Date','Visit Date','Repeater'];
-        const visRows = data.visitors.map(v => [v.permitRef||v.id||'',v.name||'',v.phone||'',v.type||'',v.flat||v.unit||'',v.host||'',v.purpose||'',v.status||'',v.registeredDate||'',v.visitDate||'',v.repeater||'']);
-        const wsVis = XLSX.utils.aoa_to_sheet([visCols,...visRows]);
-        wsVis['!cols'] = visCols.map(h => ({wch:Math.max(h.length+2,16)}));
-        XLSX.utils.book_append_sheet(wb, wsVis, 'All Visitors');
-        const pendCols = ['ID','Visitor','Unit','Host','Type','Purpose','Status','Requested At','Source'];
-        const pendRows = (data.pendingApprovals||[]).map(p => [p.id||'',p.visitorName||p.name||'',p.flat||p.unit||'',p.host||'',p.type||'',p.purpose||'',p.status||'',p.requestedAt||'',p.source||'resident']);
-        const wsPend = XLSX.utils.aoa_to_sheet([pendCols,...pendRows]);
-        wsPend['!cols'] = pendCols.map(h => ({wch:Math.max(h.length+2,16)}));
-        XLSX.utils.book_append_sheet(wb, wsPend, 'Pending Approvals');
-        const inCols = ['ID','Name','Type','Unit','Host','Time In','Duration'];
-        const inRows = (data.insideVisitors||[]).map(v => [v.id||'',v.name||'',v.type||'',v.flat||v.unit||'',v.host||'',v.inTime||'',v.duration||'']);
-        const wsIn = XLSX.utils.aoa_to_sheet([inCols,...inRows]);
-        wsIn['!cols'] = inCols.map(h => ({wch:Math.max(h.length+2,16)}));
-        XLSX.utils.book_append_sheet(wb, wsIn, 'Inside Now');
-        XLSX.writeFile(wb, 'VARS_SecurityLog_' + today + '.xlsx');
-        showToast('Database exported to Excel');
-      };
-
-      // Action for checkout
-      const handleCheckout = (entry) => {
-        const timeOut = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'Asia/Dubai'});
-        setData(prev => ({
-          ...prev,
-          entryLog: prev.entryLog.map(e => e.id === entry.id ? {...e, status:'CHECKED OUT', timeOut} : e),
-          insideVisitors: prev.insideVisitors.filter(v => v.name !== entry.visitor),
-          visitors: prev.visitors.map(v => v.name === entry.visitor && v.status === 'Inside' ? {...v, status:'Checked Out'} : v)
-        }));
-        showToast(entry.visitor + ' checked out');
-      };
-
       return (
         <div>
           {/* Header row */}
