@@ -761,6 +761,13 @@ const initialData = {
     { id: 4, refId: 'VIS-004', visitor: 'Lana Cooper', phone: '+971 55 444 4444', initials: 'LC', type: 'Guest', flat: 'B-102', host: 'Priya Sharma', purpose: 'Social', timeIn: '09:45', timeOut: '10:00', duration: '0h 15m', idDoc: 'EMIRATES ID', status: 'APPROVED' },
     { id: 5, refId: 'VIS-005', visitor: 'Ahmed Al-Mansoori', phone: '+971 55 555 5555', initials: 'AM', type: 'Guest', flat: 'B-102', host: 'Nitin Sharma', purpose: 'Business', timeIn: '07:00', timeOut: '08:45', duration: '1h 45m', idDoc: 'EMIRATES ID', status: 'APPROVED' },
     { id: 6, refId: 'VIS-006', visitor: 'Youssef Contractor', phone: '+971 50 666 6666', initials: 'YC', type: 'Contractor', flat: 'B-102', host: 'Facility Mgr', purpose: 'Maintenance', timeIn: '11:00', timeOut: '12:30', duration: '1h 30m', idDoc: 'ID CARD', status: 'APPROVED' }
+  ],
+  chatMessages: [],
+  documents: [
+    { id: 'DOC-001', name: 'Ahmed Khalil — National ID', type: 'pdf', owner: 'GRD-001', ownerName: 'Ahmed Khalil', category: 'guard', size: '1.2 MB', uploadedAt: '01 Mar 2026', status: 'verified' },
+    { id: 'DOC-002', name: 'Ahmed Khalil — Guard Licence', type: 'pdf', owner: 'GRD-001', ownerName: 'Ahmed Khalil', category: 'guard', size: '0.8 MB', uploadedAt: '01 Mar 2026', status: 'verified' },
+    { id: 'DOC-003', name: 'Mohammed Al-Said — Work Permit', type: 'pdf', owner: 'GRD-002', ownerName: 'Mohammed Al-Said', category: 'guard', size: '0.5 MB', uploadedAt: '02 Mar 2026', status: 'verified' },
+    { id: 'DOC-004', name: 'Youssef Al-Qasim — National ID', type: 'pdf', owner: 'GRD-004', ownerName: 'Youssef Al-Qasim', category: 'guard', size: '1.1 MB', uploadedAt: '05 Mar 2026', status: 'pending' }
   ]
 };
 
@@ -2667,137 +2674,407 @@ const AnnouncementsPage = () => {
 
 // ==================== GUARDS PAGE ====================
 const GuardsPage = () => {
-  const { data } = useApp();
+  const { data, setData, showToast } = useApp();
   const [selectedGuard, setSelectedGuard] = useState(null);
   const [showAddGuard, setShowAddGuard] = useState(false);
   const [addStep, setAddStep] = useState(1);
-  const [showRemove, setShowRemove] = useState(null);
+  const [showDeactivate, setShowDeactivate] = useState(null);
+  const [showCallPopup, setShowCallPopup] = useState(null);
+  const [showChatPanel, setShowChatPanel] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [showDocViewer, setShowDocViewer] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  // Add Guard form state
+  const [addGuardForm, setAddGuardForm] = useState({
+    fullName: '',
+    company: '',
+    contact: '',
+    gate: '',
+    shift: '',
+    accessTimes: '',
+    documents: []
+  });
 
   const onDuty = data.guards.filter(g => g.status === 'On Duty');
+  const totalGuards = data.guards.length;
+  const onDutyCount = onDuty.length;
+  const verifiedCount = data.guards.filter(g => g.verified).length;
+
+  // Shift overview calculations
+  const shiftBreakdown = {
+    'Morning': data.guards.filter(g => g.shift === 'Morning' && g.status === 'On Duty').length,
+    'Afternoon': data.guards.filter(g => g.shift === 'Afternoon' && g.status === 'On Duty').length,
+    'Night': data.guards.filter(g => g.shift === 'Night' && g.status === 'On Duty').length
+  };
+
+  // Documents for selected guard
+  const guardDocuments = selectedGuard ? data.documents.filter(doc => doc.owner === selectedGuard.id || doc.guardId === selectedGuard.id) : [];
+
+  // Messages for selected guard
+  const guardMessages = selectedGuard ? (data.chatMessages || []).filter(msg => msg.guardId === selectedGuard.id).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) : [];
+
+  const handleSendMessage = () => {
+    if (!chatInput.trim() || !selectedGuard) return;
+    const newMessage = {
+      id: `msg-${Date.now()}`,
+      from: 'PMC',
+      to: selectedGuard.id,
+      guardId: selectedGuard.id,
+      text: chatInput,
+      timestamp: new Date().toISOString(),
+      senderName: 'PMC User'
+    };
+    setData({
+      ...data,
+      chatMessages: [...(data.chatMessages || []), newMessage]
+    });
+    setChatInput('');
+  };
+
+  const handleDeactivateGuard = () => {
+    const updated = data.guards.filter(g => g.id !== showDeactivate.id);
+    setData({ ...data, guards: updated });
+    setSelectedGuard(null);
+    setShowDeactivate(null);
+    showToast(`Guard ${showDeactivate.name} has been deactivated`);
+  };
+
+  const handleAddGuardCreate = () => {
+    if (!addGuardForm.fullName || !addGuardForm.company || !addGuardForm.contact || !addGuardForm.gate || !addGuardForm.shift) {
+      showToast('Please complete all required fields');
+      return;
+    }
+    const newGuardId = `GRD-${String(data.guards.length + 1).padStart(3, '0')}`;
+    const newGuard = {
+      id: newGuardId,
+      name: addGuardForm.fullName,
+      shift: addGuardForm.shift,
+      shiftTime: addGuardForm.shift === 'Morning' ? '06:00–14:00' : addGuardForm.shift === 'Afternoon' ? '14:00–22:00' : '22:00–06:00',
+      gate: addGuardForm.gate,
+      company: addGuardForm.company,
+      contact: addGuardForm.contact,
+      status: 'Off Duty',
+      verified: false
+    };
+    const newDocs = addGuardForm.documents.map((doc, idx) => ({
+      id: `DOC-${String(data.documents.length + idx + 1).padStart(3, '0')}`,
+      name: `${addGuardForm.fullName} — ${doc}`,
+      type: 'pdf',
+      owner: newGuardId,
+      ownerName: addGuardForm.fullName,
+      category: 'guard',
+      size: '1.0 MB',
+      uploadedAt: new Date().toISOString().split('T')[0],
+      status: 'pending'
+    }));
+    setData({
+      ...data,
+      guards: [...data.guards, newGuard],
+      documents: [...data.documents, ...newDocs]
+    });
+    setShowAddGuard(false);
+    setAddStep(1);
+    setAddGuardForm({ fullName: '', company: '', contact: '', gate: '', shift: '', accessTimes: '', documents: [] });
+    showToast('Guard profile created!');
+  };
+
+  const paginatedGuards = data.guards.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div>
+      {/* Header */}
       <div className="page-header">
-        <div><h1>Managed Guards</h1><div className="subtitle">5 guards registered · 3 on duty · 1 pending verification</div></div>
-        <button className="btn btn-primary" onClick={()=>{setShowAddGuard(true);setAddStep(1)}}>+ Add Guard</button>
+        <div>
+          <h1>Managed Guards</h1>
+          <div className="subtitle">{totalGuards} guards registered · {onDutyCount} on duty · {totalGuards - verifiedCount} pending verification</div>
+        </div>
+        <button className="btn btn-primary" onClick={() => { setShowAddGuard(true); setAddStep(1); }}>+ Add Guard</button>
       </div>
 
+      {/* Currently On Duty */}
       <div className="card">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-          <h3>Currently On Duty <span style={{background:'#f0f0f0',padding:'2px 8px',borderRadius:4,fontSize:11,marginLeft:8}}>{onDuty.length} active</span></h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3>Currently On Duty <span style={{ background: '#f0f0f0', padding: '2px 8px', borderRadius: 4, fontSize: 11, marginLeft: 8 }}>{onDuty.length} active</span></h3>
         </div>
         <div className="guard-carousel">
           {onDuty.map(g => (
-            <div key={g.id} className="guard-chip">
-              <div className="avatar-sm"><Icon name="user" size={14}/></div>
-              <div><div style={{fontWeight:500,fontSize:13}}>{g.name}</div><div style={{fontSize:11,color:'#888'}}>{g.shift === 'Morning' ? 'Senior Guard' : 'Gate Captain'} · {g.gate}</div></div>
+            <div key={g.id} className="guard-chip" style={{ cursor: 'pointer' }} onClick={() => setSelectedGuard(g)}>
+              <div className="avatar-sm"><Icon name="user" size={14} /></div>
+              <div>
+                <div style={{ fontWeight: 500, fontSize: 13 }}>{g.name}</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{g.shift === 'Morning' ? 'Senior Guard' : 'Gate Captain'} · {g.gate}</div>
+              </div>
+              <button className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={(e) => { e.stopPropagation(); setShowCallPopup(g); }}><Icon name="phone" size={12} /></button>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="kpi-row" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
-        <div className="kpi-card"><div className="label">Total Guards</div><span className="value">5</span></div>
-        <div className="kpi-card"><div className="label">On Duty</div><span className="value">3</span></div>
-        <div className="kpi-card"><div className="label">Verified</div><span className="value">4</span></div>
+      {/* KPI Cards */}
+      <div className="kpi-row" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+        <div className="kpi-card"><div className="label">Total Guards</div><span className="value">{totalGuards}</span></div>
+        <div className="kpi-card"><div className="label">On Duty</div><span className="value">{onDutyCount}</span></div>
+        <div className="kpi-card"><div className="label">Verified</div><span className="value">{verifiedCount}</span></div>
       </div>
 
-      <div className="card">
-        <div className="card-header"><h3>Guard Roster</h3><button className="btn btn-sm"><Icon name="filter" size={12}/> Filter by Shift</button></div>
-        <table className="data-table">
-          <thead><tr><th>Name</th><th>Shift</th><th>Gate / Post</th><th>Company</th><th>Contact</th><th>Status</th><th>Verified</th><th>Actions</th></tr></thead>
-          <tbody>
-            {data.guards.map(g => (
-              <tr key={g.id}>
-                <td className="name-cell"><div style={{display:'flex',alignItems:'center',gap:8}}><div className="avatar-sm" style={{width:28,height:28}}><Icon name="user" size={12}/></div><div>{g.name}<span className="sub">{g.id}</span></div></div></td>
-                <td>{g.shift}<br/><span className="sub">{g.shiftTime}</span></td>
-                <td>{g.gate}</td><td>{g.company}</td><td>{g.contact}</td>
-                <td><StatusBadge status={g.status.replace(' ','-').toLowerCase() === 'on-duty' ? 'On Duty' : 'Off Duty'}/></td>
-                <td>{g.verified ? <span className="status verified">✓ Verified</span> : <StatusBadge status="Pending"/>}</td>
-                <td>
-                  <div style={{display:'flex',gap:4}}>
-                    <button className="btn btn-sm" onClick={()=>setSelectedGuard(g)}>Profile</button>
-                    <button className="btn btn-sm" onClick={()=>setShowRemove(g)}>⋯</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <Pagination total={5} pageSize={10} page={1} onPageChange={()=>{}}/>
+      {/* Two-column layout: Guard Roster + Shift Overview */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+        {/* Guard Roster Table */}
+        <div className="card">
+          <div className="card-header"><h3>Guard Roster</h3><button className="btn btn-sm"><Icon name="filter" size={12} /> Filter by Shift</button></div>
+          <table className="data-table">
+            <thead>
+              <tr><th>Name</th><th>Shift</th><th>Gate / Post</th><th>Company</th><th>Contact</th><th>Status</th><th>Verified</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {paginatedGuards.map(g => (
+                <tr key={g.id}>
+                  <td className="name-cell"><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="avatar-sm" style={{ width: 28, height: 28 }}><Icon name="user" size={12} /></div><div>{g.name}<span className="sub">{g.id}</span></div></div></td>
+                  <td>{g.shift}<br /><span className="sub">{g.shiftTime}</span></td>
+                  <td>{g.gate}</td><td>{g.company}</td><td>{g.contact}</td>
+                  <td><StatusBadge status={g.status} /></td>
+                  <td>{g.verified ? <span className="status verified">✓ Verified</span> : <StatusBadge status="Pending" />}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="btn btn-sm" onClick={() => setSelectedGuard(g)}>Profile</button>
+                      <button className="btn btn-sm" onClick={() => setShowDeactivate(g)}>⋯</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination total={totalGuards} pageSize={pageSize} page={currentPage} onPageChange={setCurrentPage} />
+        </div>
+
+        {/* Shift Overview Panel */}
+        <div className="card">
+          <h4 style={{ marginBottom: 16, fontSize: 14, fontWeight: 600 }}>Shift Overview</h4>
+          {['Morning', 'Afternoon', 'Night'].map(shift => (
+            <div key={shift} style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{shift}</div>
+              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{shiftBreakdown[shift]} guards</div>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {data.guards.filter(g => g.shift === shift && g.status === 'On Duty').map(g => (
+                  <span key={g.id} style={{ background: '#f0f0f0', padding: '4px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }} onClick={() => setSelectedGuard(g)}>{g.name}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
+      {/* Guard Profile Modal */}
       {selectedGuard && (
-        <div className="modal-overlay" onClick={()=>setSelectedGuard(null)}>
-          <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => { setSelectedGuard(null); setShowChatPanel(false); }}>
+          <div className="modal" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div><div className="modal-sub">modal/guard/profile · Guard Tablet Profile</div><h2>Guard Profile</h2></div>
-              <button className="modal-close" onClick={()=>setSelectedGuard(null)}>×</button>
+              <button className="modal-close" onClick={() => { setSelectedGuard(null); setShowChatPanel(false); }}>×</button>
             </div>
             <div className="wizard-steps"><span className="wizard-step">① Compose</span><span className="wizard-sep">›</span><span className="wizard-step">② Audience</span><span className="wizard-sep">›</span><span className="wizard-step">③ Schedule</span><span className="wizard-sep">›</span><span className="wizard-step active">④ Preview</span></div>
-            <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
-              <div style={{width:48,height:48,background:'#f0f0f0',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name="user" size={20}/></div>
-              <div><div style={{fontWeight:600,fontSize:16}}>{selectedGuard.name}</div><div style={{fontSize:12,color:'#888'}}>{selectedGuard.id} · {selectedGuard.company}</div><StatusBadge status={selectedGuard.status}/></div>
-            </div>
-            <div className="grid-2" style={{marginBottom:16}}>
-              <div><div style={{fontSize:11,color:'#888'}}>Shift</div><div style={{fontWeight:600}}>{selectedGuard.shift} {selectedGuard.shiftTime}</div></div>
-              <div><div style={{fontSize:11,color:'#888'}}>Gate / Post</div><div style={{fontWeight:600}}>{selectedGuard.gate}</div></div>
-              <div><div style={{fontSize:11,color:'#888'}}>Contact</div><div style={{fontWeight:600}}>{selectedGuard.contact}</div></div>
-              <div><div style={{fontSize:11,color:'#888'}}>Verification</div><div style={{fontWeight:600}}>{selectedGuard.verified ? 'Verified ✓' : 'Pending'}</div></div>
-            </div>
-            <div style={{background:'#f9f9f9',borderRadius:8,padding:24,textAlign:'center',color:'#999',fontSize:12,marginBottom:16}}>Security Documents Placeholder<br/>ID, certifications, work permit</div>
-            <div className="grid-3">
-              <button className="btn"><Icon name="phone" size={14}/> Call</button>
-              <button className="btn">💬 Message</button>
-              <button className="btn btn-danger">Deactivate</button>
-            </div>
+
+            {!showChatPanel ? (
+              <div>
+                {/* Guard Info */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+                  <div style={{ width: 48, height: 48, background: '#f0f0f0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="user" size={20} /></div>
+                  <div><div style={{ fontWeight: 600, fontSize: 16 }}>{selectedGuard.name}</div><div style={{ fontSize: 12, color: '#888' }}>{selectedGuard.id} · {selectedGuard.company}</div><StatusBadge status={selectedGuard.status} /></div>
+                </div>
+
+                {/* Grid Info */}
+                <div className="grid-2" style={{ marginBottom: 16 }}>
+                  <div><div style={{ fontSize: 11, color: '#888' }}>Shift</div><div style={{ fontWeight: 600 }}>{selectedGuard.shift} {selectedGuard.shiftTime}</div></div>
+                  <div><div style={{ fontSize: 11, color: '#888' }}>Gate / Post</div><div style={{ fontWeight: 600 }}>{selectedGuard.gate}</div></div>
+                  <div><div style={{ fontSize: 11, color: '#888' }}>Contact</div><div style={{ fontWeight: 600 }}>{selectedGuard.contact}</div></div>
+                  <div><div style={{ fontSize: 11, color: '#888' }}>Verification</div><div style={{ fontWeight: 600 }}>{selectedGuard.verified ? 'Verified ✓' : 'Pending'}</div></div>
+                </div>
+
+                {/* Security Documents */}
+                <div style={{ marginBottom: 16 }}>
+                  <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Security Documents</h4>
+                  {guardDocuments.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {guardDocuments.map(doc => (
+                        <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, background: '#f9f9f9', borderRadius: 6, fontSize: 12 }}>
+                          <div>
+                            <div style={{ fontWeight: 500 }}>{doc.name}</div>
+                            <div style={{ color: '#888', fontSize: 10 }}>{doc.type.toUpperCase()} · {doc.size} · {doc.uploadedAt}</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn btn-sm" onClick={() => setShowDocViewer(doc)}>View</button>
+                            <button className="btn btn-sm" onClick={() => showToast('Document downloaded!')}>Download</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ background: '#f9f9f9', borderRadius: 8, padding: 24, textAlign: 'center', color: '#999', fontSize: 12 }}>No documents uploaded<br /><a href="#" style={{ color: '#1a1a1a', cursor: 'pointer' }}>Browse Files</a></div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="grid-3">
+                  <button className="btn" onClick={() => setShowCallPopup(selectedGuard)}><Icon name="phone" size={14} /> Call</button>
+                  <button className="btn" onClick={() => setShowChatPanel(true)}>💬 Message</button>
+                  <button className="btn btn-danger" onClick={() => setShowDeactivate(selectedGuard)}>Deactivate</button>
+                </div>
+              </div>
+            ) : (
+              /* Chat Panel */
+              <div>
+                <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Message {selectedGuard.name}</h4>
+                <div style={{ background: '#f9f9f9', borderRadius: 6, padding: 12, height: 240, overflowY: 'auto', marginBottom: 12 }}>
+                  {guardMessages.length > 0 ? (
+                    guardMessages.map(msg => (
+                      <div key={msg.id} style={{ marginBottom: 12, display: 'flex', justifyContent: msg.from === 'PMC' ? 'flex-end' : 'flex-start' }}>
+                        <div style={{ maxWidth: '75%', background: msg.from === 'PMC' ? '#1a1a1a' : '#e8e8e8', color: msg.from === 'PMC' ? '#fff' : '#1a1a1a', padding: '8px 12px', borderRadius: 6, fontSize: 12 }}>
+                          {msg.text}
+                          <div style={{ fontSize: 10, marginTop: 4, opacity: 0.7 }}>{new Date(msg.timestamp).toLocaleTimeString()}</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ textAlign: 'center', color: '#888', paddingTop: 80 }}>No messages yet</div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input type="text" className="form-input" placeholder="Type message..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage()} style={{ flex: 1 }} />
+                  <button className="btn btn-primary" onClick={handleSendMessage}>Send</button>
+                </div>
+                <button className="btn" style={{ width: '100%', marginTop: 12 }} onClick={() => setShowChatPanel(false)}>← Back to Profile</button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
+      {/* Add Guard Modal */}
       {showAddGuard && (
-        <div className="modal-overlay" onClick={()=>setShowAddGuard(false)}>
-          <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => { setShowAddGuard(false); setAddStep(1); setAddGuardForm({ fullName: '', company: '', contact: '', gate: '', shift: '', accessTimes: '', documents: [] }); }}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div><div className="modal-sub">form/guard/add · Step {addStep} of 3</div><h2>Add Guard</h2></div>
-              <button className="modal-close" onClick={()=>setShowAddGuard(false)}>×</button>
+              <div><div className="modal-sub">form/guard/add · Step {addStep} of 4</div><h2>Add Guard</h2></div>
+              <button className="modal-close" onClick={() => { setShowAddGuard(false); setAddStep(1); setAddGuardForm({ fullName: '', company: '', contact: '', gate: '', shift: '', accessTimes: '', documents: [] }); }}>×</button>
             </div>
             <div className="wizard-steps">
-              {['Compose','Audience','Schedule','Preview'].map((s,i) => (
-                <React.Fragment key={s}>{i>0 && <span className="wizard-sep">›</span>}<span className={`wizard-step ${addStep===i+1?'active':''}`}>{i+1} {s}</span></React.Fragment>
+              {['Compose', 'Audience', 'Schedule', 'Preview'].map((s, i) => (
+                <React.Fragment key={s}>{i > 0 && <span className="wizard-sep">›</span>}<span className={`wizard-step ${addStep === i + 1 ? 'active' : ''}`}>{i + 1} {s}</span></React.Fragment>
               ))}
             </div>
-            {addStep===1 && (<div>
-              <p style={{fontWeight:600,marginBottom:12}}>Step 1: Basic Information</p>
-              <div className="form-group"><label>Full Name</label><input className="form-input" placeholder="Guard full name"/></div>
-              <div className="form-group"><label>Company / Employer</label><input className="form-input" placeholder="Security company name"/></div>
-              <div className="form-group"><label>Contact Number</label><input className="form-input" placeholder="+971 5X XXX XXXX"/></div>
-              <div className="form-group"><label>Gate / Post Assignment</label><input className="form-input" placeholder="e.g. Main Gate"/></div>
-              <button className="btn btn-primary" style={{width:'100%'}} onClick={()=>setAddStep(2)}>Continue →</button>
-            </div>)}
-            {addStep===2 && (<div>
-              <p style={{fontWeight:600,marginBottom:12}}>Step 2: Shift & Security Profile</p>
-              <div className="form-group"><label>Shift Assignment</label>
-                {['Morning 06:00–14:00','Afternoon 14:00–22:00','Night 22:00–06:00'].map(s => <div key={s} className="personnel-item" style={{marginBottom:8}}>{s}</div>)}
+
+            {/* Step 1: Basic Info */}
+            {addStep === 1 && (
+              <div>
+                <p style={{ fontWeight: 600, marginBottom: 12 }}>Step 1: Basic Information</p>
+                <div className="form-group"><label>Full Name</label><input className="form-input" placeholder="Guard full name" value={addGuardForm.fullName} onChange={e => setAddGuardForm({ ...addGuardForm, fullName: e.target.value })} /></div>
+                <div className="form-group"><label>Company / Employer</label><input className="form-input" placeholder="Security company name" value={addGuardForm.company} onChange={e => setAddGuardForm({ ...addGuardForm, company: e.target.value })} /></div>
+                <div className="form-group"><label>Contact Number</label><input className="form-input" placeholder="+971 5X XXX XXXX" value={addGuardForm.contact} onChange={e => setAddGuardForm({ ...addGuardForm, contact: e.target.value })} /></div>
+                <div className="form-group"><label>Gate / Post Assignment</label><input className="form-input" placeholder="e.g. Main Gate" value={addGuardForm.gate} onChange={e => setAddGuardForm({ ...addGuardForm, gate: e.target.value })} /></div>
+                <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setAddStep(2)}>Continue →</button>
               </div>
-              <div className="form-group"><label>Approved Access Times</label><input className="form-input" placeholder="e.g. Mon–Fri, 06:00–22:00"/></div>
-              <div className="grid-2"><button className="btn" onClick={()=>setAddStep(1)}>← Back</button><button className="btn btn-primary" onClick={()=>setAddStep(3)}>Continue →</button></div>
-            </div>)}
-            {addStep===3 && (<div>
-              <p style={{fontWeight:600,marginBottom:12}}>Step 3: Documents & Verification</p>
-              <div className="upload-area" style={{marginBottom:16}}>Upload Documents<br/><span style={{fontSize:11}}>National ID, Guard licence, Work permit</span><br/><button className="btn btn-sm" style={{marginTop:8}}>Browse Files</button></div>
-              <div className="grid-2"><button className="btn" onClick={()=>setAddStep(2)}>← Back</button><button className="btn btn-primary" onClick={()=>setShowAddGuard(false)}>Create Profile</button></div>
-            </div>)}
+            )}
+
+            {/* Step 2: Shift & Security Profile */}
+            {addStep === 2 && (
+              <div>
+                <p style={{ fontWeight: 600, marginBottom: 12 }}>Step 2: Shift & Security Profile</p>
+                <div className="form-group"><label>Shift Assignment</label>
+                  {['Morning 06:00–14:00', 'Afternoon 14:00–22:00', 'Night 22:00–06:00'].map(s => {
+                    const shiftName = s.split(' ')[0];
+                    return (
+                      <div key={s} className="personnel-item" style={{ marginBottom: 8, cursor: 'pointer', background: addGuardForm.shift === shiftName ? '#f0f0f0' : 'transparent', fontWeight: addGuardForm.shift === shiftName ? 600 : 400 }} onClick={() => setAddGuardForm({ ...addGuardForm, shift: shiftName })}>
+                        {s}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="form-group"><label>Approved Access Times</label><input className="form-input" placeholder="e.g. Mon–Fri, 06:00–22:00" value={addGuardForm.accessTimes} onChange={e => setAddGuardForm({ ...addGuardForm, accessTimes: e.target.value })} /></div>
+                <div className="grid-2"><button className="btn" onClick={() => setAddStep(1)}>← Back</button><button className="btn btn-primary" onClick={() => setAddStep(3)}>Continue →</button></div>
+              </div>
+            )}
+
+            {/* Step 3: Documents & Verification */}
+            {addStep === 3 && (
+              <div>
+                <p style={{ fontWeight: 600, marginBottom: 12 }}>Step 3: Documents & Verification</p>
+                <div className="upload-area" style={{ marginBottom: 16, padding: 20, background: '#f9f9f9', border: '2px dashed #e8e8e8', borderRadius: 8, textAlign: 'center', cursor: 'pointer' }}>
+                  Upload Documents<br /><span style={{ fontSize: 11, color: '#888' }}>National ID, Guard licence, Work permit</span><br /><button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setAddGuardForm({ ...addGuardForm, documents: [...addGuardForm.documents, `Doc-${addGuardForm.documents.length + 1}.pdf`] })}>Browse Files</button>
+                </div>
+                {addGuardForm.documents.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    {addGuardForm.documents.map((doc, idx) => (
+                      <div key={idx} style={{ fontSize: 12, padding: 8, background: '#f9f9f9', borderRadius: 4, marginBottom: 6 }}>{doc}</div>
+                    ))}
+                  </div>
+                )}
+                <div className="grid-2"><button className="btn" onClick={() => setAddStep(2)}>← Back</button><button className="btn btn-primary" onClick={() => setAddStep(4)}>Continue →</button></div>
+              </div>
+            )}
+
+            {/* Step 4: Preview */}
+            {addStep === 4 && (
+              <div>
+                <p style={{ fontWeight: 600, marginBottom: 12 }}>Step 4: Preview</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+                  <div style={{ width: 48, height: 48, background: '#f0f0f0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="user" size={20} /></div>
+                  <div><div style={{ fontWeight: 600, fontSize: 16 }}>{addGuardForm.fullName || 'Guard Name'}</div><div style={{ fontSize: 12, color: '#888' }}>{addGuardForm.company || 'Company'}</div></div>
+                </div>
+                <div className="grid-2" style={{ marginBottom: 16 }}>
+                  <div><div style={{ fontSize: 11, color: '#888' }}>Shift</div><div style={{ fontWeight: 600 }}>{addGuardForm.shift || 'Not selected'}</div></div>
+                  <div><div style={{ fontSize: 11, color: '#888' }}>Gate / Post</div><div style={{ fontWeight: 600 }}>{addGuardForm.gate || 'Not specified'}</div></div>
+                  <div><div style={{ fontSize: 11, color: '#888' }}>Contact</div><div style={{ fontWeight: 600 }}>{addGuardForm.contact || 'Not provided'}</div></div>
+                  <div><div style={{ fontSize: 11, color: '#888' }}>Access Times</div><div style={{ fontWeight: 600 }}>{addGuardForm.accessTimes || 'Not specified'}</div></div>
+                </div>
+                <div className="grid-2"><button className="btn" onClick={() => setAddStep(3)}>← Back</button><button className="btn btn-primary" onClick={handleAddGuardCreate}>Create Profile</button></div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {showRemove && (
-        <div className="modal-overlay" onClick={()=>setShowRemove(null)}>
-          <div className="modal" style={{maxWidth:440}} onClick={e=>e.stopPropagation()}>
-            <h2 style={{marginBottom:8}}>Remove Guard Access</h2>
-            <p style={{color:'#666',marginBottom:20}}>Are you sure you want to remove access for {showRemove.name}? They will no longer be able to log in to the guard tablet.</p>
-            <div className="grid-2"><button className="btn btn-primary" onClick={()=>setShowRemove(null)}>Confirm Removal</button><button className="btn" onClick={()=>setShowRemove(null)}>Cancel</button></div>
+      {/* Deactivate Modal */}
+      {showDeactivate && (
+        <div className="modal-overlay" onClick={() => setShowDeactivate(null)}>
+          <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ marginBottom: 8 }}>Deactivate Guard</h2>
+            <p style={{ color: '#666', marginBottom: 20 }}>Are you sure you want to deactivate {showDeactivate.name}? They will be removed from the system.</p>
+            <div className="grid-2"><button className="btn btn-danger" onClick={handleDeactivateGuard}>Confirm Deactivation</button><button className="btn" onClick={() => setShowDeactivate(null)}>Cancel</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* Call Popup */}
+      {showCallPopup && (
+        <div className="modal-overlay" onClick={() => setShowCallPopup(null)}>
+          <div className="modal" style={{ maxWidth: 320 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginBottom: 8 }}>{showCallPopup.name}</h3>
+            <div style={{ fontSize: 24, fontWeight: 600, marginBottom: 20, textAlign: 'center' }}>{showCallPopup.contact}</div>
+            <button className="btn btn-primary" style={{ width: '100%', marginBottom: 8 }} onClick={() => { navigator.clipboard.writeText(showCallPopup.contact); showToast('Phone number copied!'); }}>Copy Number</button>
+            <button className="btn" style={{ width: '100%' }} onClick={() => setShowCallPopup(null)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* Document Viewer Modal */}
+      {showDocViewer && (
+        <div className="modal-overlay" onClick={() => setShowDocViewer(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div><h2>Document Viewer</h2></div>
+              <button className="modal-close" onClick={() => setShowDocViewer(null)}>×</button>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: '#888' }}>Name</div>
+              <div style={{ fontWeight: 600, marginBottom: 12 }}>{showDocViewer.name}</div>
+              <div style={{ fontSize: 12, color: '#888' }}>Details</div>
+              <div style={{ fontSize: 13, marginBottom: 12 }}>{showDocViewer.type.toUpperCase()} · {showDocViewer.size} · {showDocViewer.uploadedAt}</div>
+            </div>
+            <div style={{ background: '#f0f0f0', borderRadius: 8, padding: 40, textAlign: 'center', color: '#888', fontSize: 12, marginBottom: 16, minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Document Preview — {showDocViewer.name}</div>
+            <button className="btn btn-primary" style={{ width: '100%', marginBottom: 8 }} onClick={() => { showToast('Document downloaded!'); }}>Download</button>
+            <button className="btn" style={{ width: '100%' }} onClick={() => setShowDocViewer(null)}>Close</button>
           </div>
         </div>
       )}
@@ -6809,6 +7086,37 @@ const SecurityApp = ({ onLogout }) => {
       );
     }
 
+    if(currentTab === 'messages') {
+      const secGuardId = 'GRD-001'; // current logged-in guard
+      const myMessages = (data.chatMessages || []).filter(m => m.guardId === secGuardId).sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+      return (
+        <div style={{padding:16}}>
+          <h3 style={{marginBottom:16,color:'#1a1a1a'}}>Messages from PMC</h3>
+          <div style={{background:'#fff',borderRadius:8,border:'1px solid #e0e0e0',padding:16,minHeight:300}}>
+            {myMessages.length > 0 ? (
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                {myMessages.map(msg => (
+                  <div key={msg.id} style={{display:'flex',justifyContent: msg.from === 'Security' ? 'flex-end' : 'flex-start'}}>
+                    <div style={{maxWidth:'75%',background: msg.from === 'Security' ? '#1a1a1a' : '#f0f0f0',color: msg.from === 'Security' ? '#fff' : '#1a1a1a',padding:'8px 12px',borderRadius:6,fontSize:12}}>
+                      <div style={{fontWeight:600,fontSize:10,marginBottom:4}}>{msg.senderName || msg.from}</div>
+                      {msg.text}
+                      <div style={{fontSize:10,marginTop:4,opacity:0.7}}>{new Date(msg.timestamp).toLocaleTimeString()}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{textAlign:'center',color:'#888',paddingTop:80}}>No messages yet</div>
+            )}
+          </div>
+          <div style={{display:'flex',gap:8,marginTop:12}}>
+            <input type="text" className="form-input" placeholder="Reply to PMC..." id="sec-chat-input" style={{flex:1,background:'#fff',border:'1px solid #e0e0e0',borderRadius:6,padding:'8px 12px',fontSize:12}} onKeyPress={e => { if(e.key === 'Enter') { const v = e.target.value.trim(); if(!v) return; setData({...data, chatMessages:[...(data.chatMessages||[]), {id:'msg-'+Date.now(), from:'Security', to:'PMC', guardId:secGuardId, text:v, timestamp:new Date().toISOString(), senderName:'Guard (Security)'}]}); e.target.value=''; }}} />
+            <button style={{background:'#1a1a1a',color:'#fff',border:'none',borderRadius:6,padding:'8px 16px',cursor:'pointer',fontSize:12,fontWeight:600}} onClick={() => { const inp = document.getElementById('sec-chat-input'); const v = inp.value.trim(); if(!v) return; setData({...data, chatMessages:[...(data.chatMessages||[]), {id:'msg-'+Date.now(), from:'Security', to:'PMC', guardId:secGuardId, text:v, timestamp:new Date().toISOString(), senderName:'Guard (Security)'}]}); inp.value=''; }}>Send</button>
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -6956,6 +7264,7 @@ const SecurityApp = ({ onLogout }) => {
         <div style={{display:'flex',gap:8}}>
           <button className={`sec-tab ${currentTab==='dashboard'?'active':''}`} onClick={() => setCurrentTab('dashboard')}>MAIN DASHBOARD</button>
           <button className={`sec-tab ${currentTab==='visitors'?'active':''}`} onClick={() => setCurrentTab('visitors')}>ALL VISITORS</button>
+          <button className={`sec-tab ${currentTab==='messages'?'active':''}`} onClick={() => setCurrentTab('messages')}>MESSAGES</button>
         </div>
         <button className="sec-tab" style={{marginLeft:'auto',background:'#f5f5f5',borderColor:'#e0e0e0',color:'#8a8a8a'}}>
           <span style={{display:'flex',alignItems:'center',gap:6}}>
