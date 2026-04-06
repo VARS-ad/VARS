@@ -614,13 +614,14 @@ const { useState, useEffect, useCallback, useRef, createContext, useContext } = 
 // ==================== DATA STORE ====================
 const initialData = {
   currentUser: { name: 'Hassan Al-PM', email: 'hassan@pinnaclepm.ae', phone: '+971 50 999 0001', role: 'Property Manager' },
-  property: { name: 'The Pinnacle Residences', location: 'Al Reem Island, Abu Dhabi', timezone: 'Asia/Dubai (GMT+4)', towers: 4, totalFlats: 1240, occupiedFlats: 1087 },
+  property: { name: 'VARS Property Management', location: 'Abu Dhabi, UAE', timezone: 'Asia/Dubai (GMT+4)', towers: 5, totalFlats: 4740, occupiedFlats: 4110 },
   kpis: { totalResidences: 1240, occupiedFlats: 1087, visitorsInside: 86, activeServiceReq: 15, scheduledVisits: 12, unackAlerts: 3, pendingApprovals: 7 },
   towers: [
-    { name: 'Tower A', totalFlats: 312, occupied: 278 },
-    { name: 'Tower B', totalFlats: 298, occupied: 261 },
-    { name: 'Tower C', totalFlats: 340, occupied: 295 },
-    { name: 'Tower D', totalFlats: 290, occupied: 253 }
+    { name: 'The Pinnacle Residences', location: 'Al Reem Island', totalFlats: 1240, occupied: 1087 },
+    { name: 'Al Raha Gardens', location: 'Al Raha Beach', totalFlats: 680, occupied: 598 },
+    { name: 'Saadiyat Grove Residences', location: 'Saadiyat Island', totalFlats: 920, occupied: 814 },
+    { name: 'Yas Bay Residences', location: 'Yas Island', totalFlats: 340, occupied: 291 },
+    { name: 'Bloom Living', location: 'Casares, Abu Dhabi', totalFlats: 1560, occupied: 1320 }
   ],
   visitors: [
     { id: 1, name: 'James Harrison', resident: 'Mr. Khalid Al-Mansoori', flat: 'A-1204', contact: '+971 50 123 4567', type: 'Guest', gate: 'Main Gate', status: 'Inside', time: '09:14', date: '05 Apr', permitRef: 'VIS-2026-0001', duration: '2 hours', qrCode: 'Pre-approved' },
@@ -1077,13 +1078,13 @@ const Sidebar = ({ page, setPage, isOpen, onClose, onLogout }) => {
 // ==================== TOP BAR ====================
 const ALL_PROPERTIES = [
   { id: 'pinnacle', name: 'The Pinnacle Residences', location: 'Al Reem Island', towers: 4, units: 1240 },
-  { id: 'marina', name: 'Marina Bay Towers', location: 'Dubai Marina', towers: 2, units: 680 },
-  { id: 'creek', name: 'Creek Heights', location: 'Dubai Creek Harbour', towers: 3, units: 920 },
-  { id: 'palm', name: 'Palm View Residences', location: 'Palm Jumeirah', towers: 1, units: 340 },
-  { id: 'hills', name: 'The Hills Estate', location: 'Dubai Hills', towers: 5, units: 1560 }
+  { id: 'raha', name: 'Al Raha Gardens', location: 'Al Raha Beach', towers: 3, units: 680 },
+  { id: 'saadiyat', name: 'Saadiyat Grove Residences', location: 'Saadiyat Island', towers: 2, units: 920 },
+  { id: 'yas', name: 'Yas Bay Residences', location: 'Yas Island', towers: 1, units: 340 },
+  { id: 'bloom', name: 'Bloom Living', location: 'Casares, Abu Dhabi', towers: 5, units: 1560 }
 ];
 
-const TopBar = ({ onCreateClick, onMenuToggle, onLogout }) => {
+const TopBar = ({ onCreateClick, onMenuToggle, onLogout, onSearchSelect }) => {
   const { data } = useApp();
   const [showCreate, setShowCreate] = useState(false);
   const [showPmProfile, setShowPmProfile] = useState(false);
@@ -1116,37 +1117,43 @@ const TopBar = ({ onCreateClick, onMenuToggle, onLogout }) => {
     // Search visitors
     (data.visitors || []).forEach(v => {
       if (v.name?.toLowerCase().includes(q) || v.flat?.toLowerCase().includes(q) || v.resident?.toLowerCase().includes(q) || v.permitRef?.toLowerCase().includes(q)) {
-        results.push({ type: 'Visitor', name: v.name, detail: v.flat + ' · ' + (v.status || ''), icon: 'user' });
+        results.push({ type: 'Visitor', name: v.name, detail: v.flat + ' · ' + (v.status || ''), icon: 'user', page: 'visitors', sourceData: v });
+      }
+    });
+    // Search residents
+    (data.residents || []).forEach(r => {
+      if (r.name?.toLowerCase().includes(q) || r.flat?.toLowerCase().includes(q) || r.id?.toLowerCase().includes(q) || r.contact?.toLowerCase().includes(q)) {
+        results.push({ type: 'Resident', name: r.name, detail: r.flat + ' · ' + (r.status || ''), icon: 'user', page: 'properties', sourceData: r });
       }
     });
     // Search service requests
     (data.serviceRequests || []).forEach(r => {
       if (r.id?.toLowerCase().includes(q) || r.type?.toLowerCase().includes(q) || r.flat?.toLowerCase().includes(q) || r.resident?.toLowerCase().includes(q)) {
-        results.push({ type: 'Service Request', name: r.id + ' — ' + r.type, detail: r.flat + ' · ' + r.resident, icon: 'tool' });
+        results.push({ type: 'Service Request', name: r.id + ' — ' + r.type, detail: r.flat + ' · ' + r.resident, icon: 'service', page: 'service', sourceData: r });
       }
     });
     // Search announcements
     (data.announcements || []).forEach(a => {
       if (a.title?.toLowerCase().includes(q) || a.body?.toLowerCase().includes(q)) {
-        results.push({ type: 'Announcement', name: a.title, detail: a.status + ' · ' + (a.audience || ''), icon: 'megaphone' });
+        results.push({ type: 'Announcement', name: a.title, detail: a.status + ' · ' + (a.audience || ''), icon: 'announcements', page: 'announcements', sourceData: a });
       }
     });
     // Search guards
     (data.guards || []).forEach(g => {
       if (g.name?.toLowerCase().includes(q) || g.shift?.toLowerCase().includes(q)) {
-        results.push({ type: 'Guard', name: g.name, detail: g.shift + ' · ' + (g.status || ''), icon: 'shield' });
+        results.push({ type: 'Guard', name: g.name, detail: g.shift + ' · ' + (g.status || ''), icon: 'guards', page: 'guards', sourceData: g });
       }
     });
     // Search entry log
     (data.entryLog || []).slice(0, 50).forEach(e => {
       if (e.visitor?.toLowerCase().includes(q) || e.refId?.toLowerCase().includes(q) || e.flat?.toLowerCase().includes(q)) {
-        results.push({ type: 'Entry Log', name: e.visitor, detail: e.refId + ' · ' + (e.flat || ''), icon: 'log-in' });
+        results.push({ type: 'Entry Log', name: e.visitor, detail: e.refId + ' · ' + (e.flat || ''), icon: 'visitors', page: 'visitors', sourceData: e });
       }
     });
     // Search pending approvals
     (data.pendingApprovals || []).forEach(p => {
       if (p.name?.toLowerCase().includes(q) || p.flat?.toLowerCase().includes(q)) {
-        results.push({ type: 'Pending Approval', name: p.name, detail: p.flat + ' · ' + (p.type || ''), icon: 'clock' });
+        results.push({ type: 'Pending Approval', name: p.name, detail: p.flat + ' · ' + (p.type || ''), icon: 'visitors', page: 'visitors', sourceData: p });
       }
     });
     return results.slice(0, 12);
@@ -1229,7 +1236,10 @@ const TopBar = ({ onCreateClick, onMenuToggle, onLogout }) => {
                 </div>
                 {searchResults.map((r, i) => (
                   <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 16px',borderBottom: i < searchResults.length - 1 ? '1px solid #f5f5f5' : 'none',cursor:'pointer',transition:'background 0.15s'}}
-                    onMouseDown={e => e.preventDefault()}>
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => { if (onSearchSelect) onSearchSelect(r); setSearchQuery(''); setSearchFocused(false); }}
+                    onMouseEnter={e => e.currentTarget.style.background='#f9f9f9'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                     <div style={{width:32,height:32,borderRadius:'50%',background:'#f0f0f0',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                       <Icon name={r.icon} size={14}/>
                     </div>
@@ -2476,31 +2486,37 @@ const AnnouncementsPage = () => {
               <button className="modal-close" onClick={()=>{setShowComposer(false);setEditingAnn(null)}}>×</button>
             </div>
 
-            {/* Wizard Steps */}
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:24,fontSize:13}}>
-              {['Compose','Audience','Schedule','Preview'].map((s,i) => (
-                <React.Fragment key={s}>
-                  {i > 0 && <span style={{color:'#d0d0d0'}}>›</span>}
-                  <span onClick={() => { if (i+1 <= composerStep || composerStep > i) setComposerStep(i+1); }}
-                    style={{padding:'6px 14px',borderRadius:20,cursor:'pointer',fontWeight: composerStep === i+1 ? 600 : 400,
-                      background: composerStep === i+1 ? '#1a1a1a' : 'transparent',
-                      color: composerStep === i+1 ? '#fff' : composerStep > i+1 ? '#1a1a1a' : '#8a8a8a',
-                      border: composerStep === i+1 ? 'none' : '1px solid transparent',fontSize:12}}>
-                    {composerStep > i+1 ? '✓ ' : (i+1) + ' '}{s}
-                  </span>
-                </React.Fragment>
-              ))}
+            {/* Wizard Steps — pill style matching Figma */}
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:24,fontSize:12}}>
+              {['Compose','Audience','Schedule','Preview'].map((s,i) => {
+                const stepNum = i + 1;
+                const isActive = composerStep === stepNum;
+                const isCompleted = composerStep > stepNum;
+                const circled = ['\u2460','\u2461','\u2462','\u2463'][i];
+                return (
+                  <React.Fragment key={s}>
+                    {i > 0 && <span style={{color:'#d0d0d0',fontSize:11}}>›</span>}
+                    <span onClick={() => { if (isCompleted || isActive) setComposerStep(stepNum); }}
+                      style={{padding:'6px 14px',borderRadius:20,cursor: isActive || isCompleted ? 'pointer' : 'default',fontWeight: isActive ? 600 : 400,
+                        background: isActive ? '#1a1a1a' : 'transparent',
+                        color: isActive ? '#fff' : isCompleted ? '#1a1a1a' : '#8a8a8a',
+                        border: isActive ? 'none' : '1px solid transparent',fontSize:12,letterSpacing:'0.02em',whiteSpace:'nowrap'}}>
+                      {circled} {s}
+                    </span>
+                  </React.Fragment>
+                );
+              })}
             </div>
 
             {/* Step 1: Compose */}
             {composerStep===1 && (<div>
-              <div className="form-group">
-                <label style={{fontSize:13,fontWeight:500}}>Title *</label>
-                <input className="form-input" placeholder="Announcement title" value={annForm.title} onChange={e => setAnnForm(p => ({...p, title: e.target.value}))}/>
+              <div style={{marginBottom:20}}>
+                <label style={{fontSize:11,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',color:'#1a1a1a',display:'block',marginBottom:8}}>Title *</label>
+                <input className="form-input" placeholder="Announcement title" value={annForm.title} onChange={e => setAnnForm(p => ({...p, title: e.target.value}))} style={{padding:'12px 14px',fontSize:13}}/>
               </div>
-              <div className="form-group">
-                <label style={{fontSize:13,fontWeight:500}}>Body</label>
-                {/* Toolbar */}
+              <div style={{marginBottom:20}}>
+                <label style={{fontSize:11,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',color:'#1a1a1a',display:'block',marginBottom:8}}>Body</label>
+                {/* Rich text toolbar */}
                 <div style={{display:'flex',gap:4,marginBottom:8}}>
                   <ToolBtn>B</ToolBtn>
                   <ToolBtn><em>I</em></ToolBtn>
@@ -2508,36 +2524,36 @@ const AnnouncementsPage = () => {
                   <ToolBtn>• List</ToolBtn>
                   <ToolBtn>Link</ToolBtn>
                 </div>
-                <textarea className="form-input" rows={5} placeholder="Write your announcement here..." value={annForm.body} onChange={e => setAnnForm(p => ({...p, body: e.target.value}))} style={{resize:'vertical'}}/>
+                <textarea className="form-input" rows={4} placeholder="Write your announcement here..." value={annForm.body} onChange={e => setAnnForm(p => ({...p, body: e.target.value}))} style={{resize:'vertical',padding:'12px 14px',fontSize:13}}/>
               </div>
-              <div className="form-group">
-                <label style={{fontSize:13,fontWeight:500}}>Priority</label>
+              <div style={{marginBottom:20}}>
+                <label style={{fontSize:11,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',color:'#1a1a1a',display:'block',marginBottom:8}}>Priority</label>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                   <div onClick={() => setAnnForm(p => ({...p, priority:'Normal'}))}
-                    style={{padding:'12px 16px',textAlign:'center',border: annForm.priority==='Normal' ? '1.5px solid #1a1a1a' : '1px solid #d0d0d0',borderRadius:6,cursor:'pointer',background: annForm.priority==='Normal' ? '#1a1a1a' : '#fff',color: annForm.priority==='Normal' ? '#fff' : '#1a1a1a',fontWeight:600,fontSize:13}}>
+                    style={{padding:'12px 16px',textAlign:'center',border: annForm.priority==='Normal' ? '1.5px solid #1a1a1a' : '1px solid #d0d0d0',borderRadius:8,cursor:'pointer',background: annForm.priority==='Normal' ? '#1a1a1a' : '#fff',color: annForm.priority==='Normal' ? '#fff' : '#1a1a1a',fontWeight:600,fontSize:13}}>
                     Normal
                   </div>
                   <div onClick={() => setAnnForm(p => ({...p, priority:'High'}))}
-                    style={{padding:'12px 16px',textAlign:'center',border: annForm.priority==='High' ? '1.5px solid #1a1a1a' : '1px solid #d0d0d0',borderRadius:6,cursor:'pointer',background: annForm.priority==='High' ? '#fff' : '#fff',color:'#1a1a1a',fontWeight: annForm.priority==='High' ? 600 : 400,fontSize:13}}>
+                    style={{padding:'12px 16px',textAlign:'center',border: annForm.priority==='High' ? '1.5px solid #1a1a1a' : '1px solid #d0d0d0',borderRadius:8,cursor:'pointer',background: annForm.priority==='High' ? '#1a1a1a' : '#fff',color: annForm.priority==='High' ? '#fff' : '#1a1a1a',fontWeight:600,fontSize:13}}>
                     △ High
                   </div>
                 </div>
               </div>
-              <div className="form-group">
-                <label style={{fontSize:13,fontWeight:500}}>Attachment</label>
-                <div className="upload-area" style={{display:'flex',alignItems:'center',gap:8,padding:'14px 16px'}}>
+              <div style={{marginBottom:20}}>
+                <label style={{fontSize:11,fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase',color:'#1a1a1a',display:'block',marginBottom:8}}>Attachment</label>
+                <div style={{display:'flex',alignItems:'center',gap:10,padding:'14px 16px',border:'1px solid #e0e0e0',borderRadius:8,background:'#fff'}}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" strokeWidth="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
                   <span style={{color:'#8a8a8a',fontSize:12}}>Upload image or document<br/>JPG, PNG, PDF up to 10MB</span>
                 </div>
               </div>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
                 <div>
-                  <span style={{fontSize:13,fontWeight:500}}>Acknowledgement Required</span>
+                  <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Acknowledgement Required</div>
                   <div style={{fontSize:11,color:'#8a8a8a'}}>Residents must confirm they've read this</div>
                 </div>
                 <Toggle value={annForm.ackRequired} onChange={() => setAnnForm(p => ({...p, ackRequired: !p.ackRequired}))}/>
               </div>
-              <button className="btn btn-primary" style={{width:'100%',padding:'14px 0',fontSize:14,fontWeight:600}} onClick={()=>setComposerStep(2)}>Continue to Audience →</button>
+              <button className="btn btn-primary" style={{width:'100%',padding:'14px 0',fontSize:14,fontWeight:600,borderRadius:8}} onClick={()=>setComposerStep(2)}>Continue to Audience →</button>
             </div>)}
 
             {/* Step 2: Audience */}
@@ -2673,7 +2689,7 @@ const AnnouncementsPage = () => {
 };
 
 // ==================== GUARDS PAGE ====================
-const GuardsPage = () => {
+const GuardsPage = ({ searchSelectedItem, clearSearchSelection }) => {
   const { data, setData, showToast } = useApp();
   const [selectedGuard, setSelectedGuard] = useState(null);
   const [showAddGuard, setShowAddGuard] = useState(false);
@@ -2696,6 +2712,15 @@ const GuardsPage = () => {
     accessTimes: '',
     documents: []
   });
+
+  // Open guard profile from search
+  useEffect(() => {
+    if (searchSelectedItem && searchSelectedItem.type === 'Guard' && searchSelectedItem.sourceData) {
+      const guard = data.guards.find(g => g.id === searchSelectedItem.sourceData.id);
+      if (guard) setSelectedGuard(guard);
+      if (clearSearchSelection) clearSearchSelection();
+    }
+  }, [searchSelectedItem]);
 
   const onDuty = data.guards.filter(g => g.status === 'On Duty');
   const totalGuards = data.guards.length;
@@ -2820,49 +2845,53 @@ const GuardsPage = () => {
       </div>
 
       {/* Two-column layout: Guard Roster + Shift Overview */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 12 }}>
         {/* Guard Roster Table */}
-        <div className="card">
+        <div className="card" style={{ overflow: 'hidden' }}>
           <div className="card-header"><h3>Guard Roster</h3><button className="btn btn-sm"><Icon name="filter" size={12} /> Filter by Shift</button></div>
-          <table className="data-table">
-            <thead>
-              <tr><th>Name</th><th>Shift</th><th>Gate / Post</th><th>Company</th><th>Contact</th><th>Status</th><th>Verified</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {paginatedGuards.map(g => (
-                <tr key={g.id}>
-                  <td className="name-cell"><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div className="avatar-sm" style={{ width: 28, height: 28 }}><Icon name="user" size={12} /></div><div>{g.name}<span className="sub">{g.id}</span></div></div></td>
-                  <td>{g.shift}<br /><span className="sub">{g.shiftTime}</span></td>
-                  <td>{g.gate}</td><td>{g.company}</td><td>{g.contact}</td>
-                  <td><StatusBadge status={g.status} /></td>
-                  <td>{g.verified ? <span className="status verified">✓ Verified</span> : <StatusBadge status="Pending" />}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-sm" onClick={() => setSelectedGuard(g)}>Profile</button>
-                      <button className="btn btn-sm" onClick={() => setShowDeactivate(g)}>⋯</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+              <thead>
+                <tr><th style={{minWidth:120}}>Name</th><th style={{minWidth:90}}>Shift</th><th>Gate / Post</th><th>Company</th><th>Contact</th><th>Status</th><th>Verified</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {paginatedGuards.map(g => (
+                  <tr key={g.id}>
+                    <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="avatar-sm" style={{ width: 24, height: 24, flexShrink: 0 }}><Icon name="user" size={10} /></div><div><div style={{fontWeight:500,fontSize:12}}>{g.name}</div><div style={{fontSize:10,color:'#888'}}>{g.id}</div></div></div></td>
+                    <td><div style={{fontSize:12}}>{g.shift}</div><div style={{fontSize:10,color:'#888'}}>{g.shiftTime}</div></td>
+                    <td style={{fontSize:12}}>{g.gate}</td>
+                    <td style={{fontSize:12}}>{g.company}</td>
+                    <td style={{fontSize:11}}>{g.contact}</td>
+                    <td><StatusBadge status={g.status} /></td>
+                    <td>{g.verified ? <span className="status verified" style={{fontSize:11}}>✓ Verified</span> : <StatusBadge status="Pending" />}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-sm" style={{fontSize:11,padding:'4px 10px'}} onClick={() => setSelectedGuard(g)}>Profile</button>
+                        <button className="btn btn-sm" style={{fontSize:11,padding:'4px 8px'}} onClick={() => setShowDeactivate(g)}>⋯</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <Pagination total={totalGuards} pageSize={pageSize} page={currentPage} onPageChange={setCurrentPage} />
         </div>
 
         {/* Shift Overview Panel */}
-        <div className="card">
-          <h4 style={{ marginBottom: 16, fontSize: 14, fontWeight: 600 }}>Shift Overview</h4>
-          {['Morning', 'Afternoon', 'Night'].map(shift => (
-            <div key={shift} style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>{shift}</div>
-              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{shiftBreakdown[shift]} guards</div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {data.guards.filter(g => g.shift === shift && g.status === 'On Duty').map(g => (
-                  <span key={g.id} style={{ background: '#f0f0f0', padding: '4px 8px', borderRadius: 4, fontSize: 10, cursor: 'pointer' }} onClick={() => setSelectedGuard(g)}>{g.name}</span>
-                ))}
+        <div className="card" style={{ padding: 14 }}>
+          <h4 style={{ marginBottom: 12, fontSize: 13, fontWeight: 600 }}>Shift Overview</h4>
+          {['Morning', 'Afternoon', 'Night'].map(shift => {
+            const shiftTime = shift === 'Morning' ? '06:00–14:00' : shift === 'Afternoon' ? '14:00–22:00' : '22:00–06:00';
+            const shiftGuards = data.guards.filter(g => g.shift === shift);
+            const onDutyNames = shiftGuards.filter(g => g.status === 'On Duty').map(g => g.gate);
+            return (
+              <div key={shift} style={{ marginBottom: 10, padding: '10px 12px', background: '#f9f9f9', borderRadius: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{shift} {shiftTime}</div>
+                <div style={{ fontSize: 10, color: '#888' }}>{onDutyNames.length > 0 ? onDutyNames.join(', ') : 'No guards on duty'}</div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -3083,13 +3112,21 @@ const GuardsPage = () => {
 };
 
 // ==================== PROPERTIES PAGE ====================
-const PropertiesPage = () => {
+const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
   const { data, setData, showToast } = useApp();
   const [selectedResident, setSelectedResident] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [showAddResident, setShowAddResident] = useState(false);
   const [newRes, setNewRes] = useState({ name:'', flat:'', contact:'', coResidents:1, policy:'Standard', tower:'' });
   const [resSearch, setResSearch] = useState('');
+
+  // Open resident detail from search
+  useEffect(() => {
+    if (searchSelectedItem && searchSelectedItem.type === 'Resident' && searchSelectedItem.sourceData) {
+      setSelectedResident(searchSelectedItem.sourceData);
+      if (clearSearchSelection) clearSearchSelection();
+    }
+  }, [searchSelectedItem]);
 
   const handleAddResident = () => {
     if (!newRes.name || !newRes.flat) { showToast('Please fill in Name and Flat'); return; }
@@ -3127,16 +3164,17 @@ const PropertiesPage = () => {
       </div>
 
       <div className="card"><h3 style={{marginBottom:16}}>Properties Overview</h3>
-        <div className="grid-4">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))',gap:12}}>
           {data.towers.map(t => (
             <div key={t.name} style={{border:'1px solid #e5e5e5',borderRadius:10,padding:16}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
                 <div style={{width:32,height:32,background:'#f0f0f0',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>🏢</div>
                 <span style={{cursor:'pointer'}}>⋯</span>
               </div>
-              <h3>{t.name}</h3>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}><span>Total Flats</span><strong>{t.totalFlats}</strong></div>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}><span>Occupied</span><strong>{t.occupied}</strong></div>
+              <h3 style={{fontSize:14,marginBottom:2}}>{t.name}</h3>
+              {t.location && <div style={{fontSize:11,color:'#8a8a8a',marginBottom:8}}>{t.location}</div>}
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}><span>Total Units</span><strong>{t.totalFlats.toLocaleString()}</strong></div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}><span>Occupied</span><strong>{t.occupied.toLocaleString()}</strong></div>
               <div className="progress-bar" style={{marginTop:8}}><div className="fill" style={{width:`${Math.round(t.occupied/t.totalFlats*100)}%`}}/></div>
               <div style={{fontSize:11,color:'#888',marginTop:4}}>{Math.round(t.occupied/t.totalFlats*100)}% occupancy</div>
             </div>
@@ -7674,6 +7712,7 @@ const App = () => {
   const [data, setData] = useState(loadPersistedData);
   const [toast, setToast] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchSelectedItem, setSearchSelectedItem] = useState(null);
   const [syncStatus, setSyncStatus] = useState(supabaseReady ? 'connecting' : 'local');
   const isWritingRef = React.useRef(false);  // true while we are saving to Supabase
   const writeTimerRef = React.useRef(null);
@@ -7842,6 +7881,8 @@ const App = () => {
 
   // Default: Property Manager app
   const renderPage = () => {
+    const sel = searchSelectedItem;
+    const clearSel = () => setSearchSelectedItem(null);
     switch (page) {
       case 'overview': return <OverviewPage setPage={setPage}/>;
       case 'payment': return <PlaceholderPage title="Payment Summary" description="Payment tracking and billing management. Coming soon!"/>;
@@ -7849,8 +7890,8 @@ const App = () => {
       case 'service': return <ServiceRequestsPage/>;
       case 'packages': return <PlaceholderPage title="Packages" description="Package tracking and delivery management. Coming soon!"/>;
       case 'announcements': return <AnnouncementsPage/>;
-      case 'guards': return <GuardsPage/>;
-      case 'properties': return <PropertiesPage/>;
+      case 'guards': return <GuardsPage searchSelectedItem={sel} clearSearchSelection={clearSel}/>;
+      case 'properties': return <PropertiesPage searchSelectedItem={sel} clearSearchSelection={clearSel}/>;
       case 'escalations': return <EscalationsPage/>;
       case 'reports': return <ReportsPage/>;
       case 'settings': return <SettingsPage/>;
@@ -7863,7 +7904,7 @@ const App = () => {
       <div className="app-layout">
         <div className={`sidebar-overlay ${sidebarOpen ? 'show' : ''}`} onClick={() => setSidebarOpen(false)}/>
         <Sidebar page={page} setPage={setPage} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout}/>
-        <TopBar onCreateClick={handleCreateClick} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} onLogout={handleLogout}/>
+        <TopBar onCreateClick={handleCreateClick} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} onLogout={handleLogout} onSearchSelect={(r) => { setPage(r.page); setSearchSelectedItem(r); }}/>
         <div className="main-content">{renderPage()}</div>
         <MobileBottomNav page={page} setPage={setPage}/>
       </div>
