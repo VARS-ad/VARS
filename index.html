@@ -721,6 +721,7 @@ const initialData = {
     { id: 'SR-1087', type: 'Move-Out', flat: 'A-1204', resident: 'Mr. Khalid Al-Mansoori', date: '05 Apr', time: '13:00', status: 'Pending Approval' },
     { id: 'SR-1085', type: 'Plumbing', flat: 'C-0304', resident: 'Mr. Tariq Al-Nuaimi', date: '08 Apr', time: '09:00', status: 'Pending Approval' }
   ],
+  amenityBookings: [],
   servicePersonnel: [
     { id: 1, name: 'Ali Hassan (Handyman)', specialty: 'General Maintenance' },
     { id: 2, name: 'CoolAir Technicians', specialty: 'HVAC / AC' },
@@ -6242,6 +6243,43 @@ const ResidentApp = ({ onLogout }) => {
               <button onClick={() => setCurrentPage('preapprove')} style={{width:'100%',marginTop:4,padding:'13px 0',borderRadius:14,border:'none',background:'#1a1a1a',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>+ Pre-Approved Guest</button>
             </div>
 
+            {/* Upcoming Amenities — booked amenities */}
+            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Upcoming Amenities</span>
+                <span onClick={() => setCurrentPage('book')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See All ›</span>
+              </div>
+              {(() => {
+                const todayISO = new Date().toISOString().split('T')[0];
+                const upcoming = (data.amenityBookings || [])
+                  .filter(b => b.date >= todayISO)
+                  .sort((a, b) => (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time));
+                if (upcoming.length === 0) {
+                  return <div style={{textAlign:'center',color:'#c4b8b0',fontSize:12,padding:8}}>No upcoming amenities booked</div>;
+                }
+                return upcoming.slice(0, 3).map(b => {
+                  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                  const dp = b.date.split('-');
+                  const dateLabel = b.date === todayISO ? 'Today' : (parseInt(dp[2]) + ' ' + months[parseInt(dp[1])-1]);
+                  const t = b.time;
+                  return (
+                    <div key={b.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid rgba(200,190,180,0.15)'}}>
+                      <div style={{width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,0.55)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.5)',flexShrink:0}}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{b.type}</div>
+                        <div style={{fontSize:11,color:'#a89a92'}}>{dateLabel} · {t} · {b.duration}</div>
+                        <div style={{fontSize:10,color:'#7a6f66',marginTop:1}}>{b.location} · {b.guests} {b.guests === 1 ? 'person' : 'people'}</div>
+                      </div>
+                      <span style={{fontSize:10,fontWeight:500,color:'#5a6b4f'}}>{b.status}</span>
+                    </div>
+                  );
+                });
+              })()}
+              <button onClick={() => setCurrentPage('book')} style={{width:'100%',marginTop:8,padding:'13px 0',borderRadius:14,border:'1px solid rgba(26,26,26,0.12)',background:'rgba(255,255,255,0.5)',color:'#1a1a1a',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>+ Book Amenity</button>
+            </div>
+
             {/* Upcoming Service — booked separately */}
             <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
@@ -6271,33 +6309,6 @@ const ResidentApp = ({ onLogout }) => {
                   <div style={{fontSize:11,color:'#c4b8b0'}}>2hr ago</div>
                 </div>
               )}
-            </div>
-
-            {/* Book Amenities — only amenity icons on home screen */}
-            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-                <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Book Amenities</span>
-                <span onClick={() => setCurrentPage('book')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See All ›</span>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
-                {[
-                  { label: 'Swimming Pool', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><path d="M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M8 14V8a2 2 0 114 0v1"/></svg>) },
-                  { label: 'Table Tennis', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><circle cx="10" cy="10" r="7"/><path d="M15 15l6 6M14 10a4 4 0 01-4 4"/></svg>) },
-                  { label: 'Squash', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><circle cx="12" cy="10" r="6"/><path d="M10 16l-2 6M14 16l2 6"/></svg>) },
-                  { label: 'Gym', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><path d="M6.5 6.5h11M6 12h12M17.5 6.5v11M6.5 6.5v11M4 8v8M20 8v8M2 10v4M22 10v4"/></svg>) },
-                  { label: 'Sauna', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><path d="M7 12c0-3 2-5 5-5s5 2 5 5v9H7v-9z"/><path d="M9 3c0 2 1 3 3 3s3-1 3-3"/><path d="M10 21v-4h4v4"/></svg>) },
-                  { label: 'BBQ Area', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><circle cx="12" cy="12" r="8"/><path d="M8 10c1-1 2 0 3 0s2-1 3 0M8 14c1-1 2 0 3 0s2-1 3 0"/><path d="M9 20l-1 2M15 20l1 2"/></svg>) },
-                  { label: 'Kids Area', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><circle cx="12" cy="5" r="3"/><path d="M6.5 8h11L19 10l-3 1v4l2 6h-2l-2-5h-4l-2 5H6l2-6v-4L5 10l1.5-2z"/></svg>) },
-                  { label: 'Yoga Room', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><circle cx="12" cy="4" r="2"/><path d="M12 6v4M8 22l4-8 4 8M4 14l8 2 8-2"/></svg>) },
-                ].map((svc, i) => (
-                  <div key={i} onClick={() => {setServiceBooking({type:svc.label, location:'', date:'', time:'', duration:'1 hour', guests:1}); setShowServiceBookingModal(true);}} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',padding:'4px 0'}}>
-                    <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.55)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 8px rgba(120,100,90,0.05)'}}>
-                      {svc.icon}
-                    </div>
-                    <span style={{fontSize:10,color:'#7a6f66',textAlign:'center',lineHeight:'1.3'}}>{svc.label}</span>
-                  </div>
-                ))}
-              </div>
             </div>
 
             {/* Find and contact for help */}
@@ -7054,7 +7065,7 @@ const ResidentApp = ({ onLogout }) => {
         <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={() => setShowServiceBookingModal(false)}>
           <div style={{background:'#fff',borderRadius:12,padding:24,maxWidth:420,width:'100%',boxShadow:'0 8px 32px rgba(0,0,0,.2)'}} onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-              <h3 style={{margin:0,fontSize:16,fontWeight:600}}>Book {serviceBooking.type}</h3>
+              <h3 style={{margin:0,fontSize:16,fontWeight:600}}>Book {serviceBooking.type || 'Amenity'}</h3>
               <button onClick={() => setShowServiceBookingModal(false)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#a89a92'}}>&times;</button>
             </div>
             <div style={{marginBottom:16}}>
@@ -7065,11 +7076,12 @@ const ResidentApp = ({ onLogout }) => {
               <label style={{fontSize:12,color:'#8a7f76',fontWeight:500,display:'block',marginBottom:6}}>Location</label>
               <select value={serviceBooking.location} onChange={e => setServiceBooking(f => ({...f, location: e.target.value}))} style={{width:'100%',padding:10,border:'1px solid #ebe7e3',borderRadius:6,fontSize:13,outline:'none'}}>
                 <option value="">Select location</option>
-                <option value="Kitchen">Kitchen</option>
-                <option value="Bathroom">Bathroom</option>
-                <option value="Bedroom">Bedroom</option>
-                <option value="Living Room">Living Room</option>
-                <option value="Common Area">Common Area</option>
+                <option value="Ground Floor">Ground Floor</option>
+                <option value="Podium Level">Podium Level</option>
+                <option value="Rooftop">Rooftop</option>
+                <option value="Basement Level 1">Basement Level 1</option>
+                <option value="Garden Area">Garden Area</option>
+                <option value="Club House">Club House</option>
               </select>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
@@ -7094,7 +7106,7 @@ const ResidentApp = ({ onLogout }) => {
                 <input type="number" value={serviceBooking.guests} onChange={e => setServiceBooking(f => ({...f, guests: parseInt(e.target.value)||1}))} min="1" max="10" style={{width:'100%',padding:10,border:'1px solid #ebe7e3',borderRadius:6,fontSize:13,outline:'none'}}/>
               </div>
             </div>
-            <button onClick={() => {if (!serviceBooking.location || !serviceBooking.date || !serviceBooking.time) {showToast('Please fill in all required fields'); return;} const booking = {id: 'BK-'+Date.now(), title: serviceBooking.type + ' booking', detail: `${serviceBooking.date} at ${serviceBooking.time}`, status:'Approved'}; setData(prev => ({...prev, serviceRequests: [...prev.serviceRequests, booking]})); showToast('Service booking confirmed! ' + serviceBooking.type + ' scheduled for ' + serviceBooking.date); setShowServiceBookingModal(false); setServiceBooking({type:'', location:'', date:'', time:'', duration:'1 hour', guests:1});}} style={{width:'100%',padding:14,background:'#928989',color:'#fff',border:'none',borderRadius:6,fontSize:14,fontWeight:600,cursor:'pointer',marginBottom:10}}>Book Service</button>
+            <button onClick={() => {if (!serviceBooking.location || !serviceBooking.date || !serviceBooking.time) {showToast('Please fill in all required fields'); return;} const booking = {id: 'BK-'+Date.now(), type: serviceBooking.type, location: serviceBooking.location, date: serviceBooking.date, time: serviceBooking.time, duration: serviceBooking.duration, guests: serviceBooking.guests, status:'Confirmed'}; setData(prev => ({...prev, amenityBookings: [...(prev.amenityBookings||[]), booking]})); showToast(serviceBooking.type + ' booked for ' + serviceBooking.date + ' at ' + serviceBooking.time); setShowServiceBookingModal(false); setServiceBooking({type:'', location:'', date:'', time:'', duration:'1 hour', guests:1});}} style={{width:'100%',padding:14,background:'#928989',color:'#fff',border:'none',borderRadius:6,fontSize:14,fontWeight:600,cursor:'pointer',marginBottom:10}}>Book Amenity</button>
             <button onClick={() => setShowServiceBookingModal(false)} style={{width:'100%',padding:12,background:'none',color:'#a89a92',border:'1px solid #ebe7e3',borderRadius:6,fontSize:13,cursor:'pointer'}}>Cancel</button>
           </div>
         </div>
@@ -9244,6 +9256,7 @@ const App = () => {
   const [searchSelectedItem, setSearchSelectedItem] = useState(null);
   const [syncStatus, setSyncStatus] = useState(supabaseReady ? 'connecting' : 'local');
   const isWritingRef = React.useRef(false);  // true while we are saving to Supabase
+  const writePendingRef = React.useRef(false); // true from data change until cloud write completes
   const writeTimerRef = React.useRef(null);
   const lastCloudHashRef = React.useRef(''); // hash of last cloud data to detect real changes
   const initialLoadDoneRef = React.useRef(false); // DON'T write to Supabase until first cloud load completes
@@ -9251,13 +9264,23 @@ const App = () => {
   // Simple hash to compare data quickly
   const quickHash = (obj) => { try { return JSON.stringify(obj).length + '_' + (obj.visitors||[]).length + '_' + (obj.entryLog||[]).length; } catch(e) { return ''; } };
 
+  // Merge arrays by ID — union of local + cloud, local wins on conflict
+  const mergeById = (localArr, cloudArr, idKey = 'id') => {
+    if (!localArr || !localArr.length) return cloudArr || [];
+    if (!cloudArr || !cloudArr.length) return localArr || [];
+    const map = new Map();
+    cloudArr.forEach(item => { const k = item[idKey] || JSON.stringify(item); map.set(k, item); });
+    localArr.forEach(item => { const k = item[idKey] || JSON.stringify(item); map.set(k, item); }); // local overwrites cloud
+    return Array.from(map.values());
+  };
+
   // Load initial data from Supabase on mount + start polling
   useEffect(() => {
     if (!supabaseReady || !supabaseClient) return;
 
     const loadFromCloud = async (isInitial) => {
-      // Don't poll while we're in the middle of writing
-      if (!isInitial && isWritingRef.current) return;
+      // Don't poll while we have a pending or in-progress write
+      if (!isInitial && (isWritingRef.current || writePendingRef.current)) return;
       try {
         const { data: row, error } = await supabaseClient
           .from('app_state')
@@ -9295,9 +9318,27 @@ const App = () => {
           }
           console.log(isInitial ? 'Loaded cloud data (visitors: ' + (cloudData.visitors||[]).length + ')' : 'Poll: new data from device ' + writerDevice + ' (visitors: ' + (cloudData.visitors||[]).length + ')');
           lastCloudHashRef.current = hash;
-          const merged = { ...initialData, ...cloudData };
-          setData(merged);
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch(e) {}
+
+          if (isInitial) {
+            // On initial load: cloud is source of truth, but merge with any locally-added visitors
+            const localData = loadPersistedData();
+            const mergedVisitors = mergeById(localData.visitors || [], cloudData.visitors || [], 'id');
+            const mergedEntryLog = mergeById(localData.entryLog || [], cloudData.entryLog || [], 'id');
+            const mergedAmenities = mergeById(localData.amenityBookings || [], cloudData.amenityBookings || [], 'id');
+            const merged = { ...initialData, ...cloudData, visitors: mergedVisitors, entryLog: mergedEntryLog, amenityBookings: mergedAmenities };
+            setData(merged);
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch(e) {}
+          } else {
+            // On poll: merge cloud visitors/entryLog/amenityBookings with current local state (local wins on conflict)
+            setData(prev => {
+              const mergedVisitors = mergeById(prev.visitors || [], cloudData.visitors || [], 'id');
+              const mergedEntryLog = mergeById(prev.entryLog || [], cloudData.entryLog || [], 'id');
+              const mergedAmenities = mergeById(prev.amenityBookings || [], cloudData.amenityBookings || [], 'id');
+              const merged = { ...prev, ...cloudData, visitors: mergedVisitors, entryLog: mergedEntryLog, amenityBookings: mergedAmenities };
+              try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch(e) {}
+              return merged;
+            });
+          }
         } else {
           console.log(isInitial ? 'Cloud row exists but data is empty — using local data' : 'Poll: empty data, skipping');
         }
@@ -9333,6 +9374,7 @@ const App = () => {
     // Write to Supabase — but ONLY after initial cloud load is done
     // This prevents overwriting real data with initialData on fresh page loads
     if (supabaseReady && supabaseClient && initialLoadDoneRef.current) {
+      writePendingRef.current = true; // block polls during debounce window
       if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
       writeTimerRef.current = setTimeout(async () => {
         isWritingRef.current = true;
@@ -9353,6 +9395,7 @@ const App = () => {
           setSyncStatus('offline');
         }
         isWritingRef.current = false;
+        writePendingRef.current = false; // allow polls again
       }, 600);
     } else if (!initialLoadDoneRef.current) {
       console.log('Supabase write BLOCKED — initial load not yet done');
