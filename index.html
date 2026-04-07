@@ -5417,6 +5417,25 @@ const ResidentApp = ({ onLogout }) => {
     }
   }, [currentPage, selectedVisitor]);
 
+  // Shared date/time parsing helpers
+  const parseTime24 = (t) => {
+    if (!t) return '99:99';
+    if (/^\d{1,2}:\d{2}$/.test(t)) return t.padStart(5,'0');
+    const m12 = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (m12) { let h = parseInt(m12[1],10); const ampm = m12[3].toUpperCase(); if (ampm === 'PM' && h !== 12) h += 12; if (ampm === 'AM' && h === 12) h = 0; return String(h).padStart(2,'0') + ':' + m12[2]; }
+    return t;
+  };
+  const parseDateISO = (d) => {
+    if (!d) return '9999-99-99';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    const slashParts = d.split('/');
+    if (slashParts.length === 3) return slashParts[2]+'-'+slashParts[1].padStart(2,'0')+'-'+slashParts[0].padStart(2,'0');
+    const mm = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+    const monMatch = d.match(/^(\d{1,2})\s+([A-Za-z]{3})(?:\s+(\d{4}))?$/);
+    if (monMatch) return (monMatch[3] || '2026')+'-'+(mm[monMatch[2]]||'01')+'-'+monMatch[1].padStart(2,'0');
+    return '9999-99-99';
+  };
+
   const renderPage = () => {
     switch(currentPage) {
       case 'viewVisitor':
@@ -5950,6 +5969,10 @@ const ResidentApp = ({ onLogout }) => {
           if (!grouped[key]) grouped[key] = [];
           grouped[key].push(v);
         });
+        // Sort visitors within each date group by time (earliest first)
+        Object.keys(grouped).forEach(key => {
+          grouped[key].sort((a, b) => parseTime24(a.time).localeCompare(parseTime24(b.time)));
+        });
 
         // Sort: Today first, then future dates ascending, then past dates descending
         const sortedDateKeys = Object.keys(grouped).sort((a, b) => {
@@ -6103,19 +6126,9 @@ const ResidentApp = ({ onLogout }) => {
         const pendingVisitors_home = data.visitors.filter(v => v.status === 'Pending' || v.status === 'Waiting');
         const waitingApprovals = data.pendingApprovals || [];
         const scheduledVisitors = data.visitors.filter(v => v.status === 'Scheduled' || v.status === 'Pre-Approved').sort((a, b) => {
-          const months = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
-          const parseD = (d) => {
-            if (!d) return '9999-99-99';
-            if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
-            const slashParts = d.split('/');
-            if (slashParts.length === 3) return slashParts[2]+'-'+slashParts[1].padStart(2,'0')+'-'+slashParts[0].padStart(2,'0');
-            const monMatch = d.match(/^(\d{1,2})\s+([A-Za-z]{3})(?:\s+(\d{4}))?$/);
-            if (monMatch) return (monMatch[3] || '2026')+'-'+(months[monMatch[2]]||'01')+'-'+monMatch[1].padStart(2,'0');
-            return '9999-99-99';
-          };
-          const da = parseD(a.date), db = parseD(b.date);
+          const da = parseDateISO(a.date), db = parseDateISO(b.date);
           if (da !== db) return da.localeCompare(db);
-          return (a.time || '').localeCompare(b.time || '');
+          return parseTime24(a.time).localeCompare(parseTime24(b.time));
         });
         // Services are booked separately — not from pre-approved visitors
         const upcomingServices = [];
