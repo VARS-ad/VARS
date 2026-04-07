@@ -120,6 +120,7 @@ body{font-family:'Helvetica Now Text','Inter',-apple-system,BlinkMacSystemFont,'
 .status.paid{background:var(--bg-warm-dark);color:#fff}
 .status.unpaid{background:#fff;color:var(--accent-warm-dark);border:1px solid var(--border-medium)}
 .status.scheduled{background:var(--bg-warm-dark);color:#fff}
+.status.pre-approved{background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9}
 .status.completed{background:var(--accent-warm-light);color:var(--accent-warm-dark);border:1px solid var(--border-medium)}
 .status.checked-out{background:var(--accent-warm-light);color:var(--accent-warm-dark);border:1px solid var(--border-medium)}
 .status.on-duty{background:var(--bg-warm-dark);color:#fff}
@@ -387,67 +388,67 @@ body{font-family:'Helvetica Now Text','Inter',-apple-system,BlinkMacSystemFont,'
   .topbar .property-select span:nth-child(2){max-width:80px}
 }
 
-/* ==================== RESIDENT APP CSS ==================== */
-.res-app{display:flex;flex-direction:column;min-height:100vh;background:var(--bg-page);padding-bottom:60px}
-.res-header{background:var(--bg-surface);padding:16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-light);position:sticky;top:0;z-index:50}
+/* ==================== RESIDENT APP CSS — Door-inspired design ==================== */
+.res-app{display:flex;flex-direction:column;min-height:100vh;background:linear-gradient(180deg,#ece4df 0%,#e2d8d2 30%,#ddd2cb 60%,#d8ccc4 100%);padding-bottom:60px}
+.res-header{background:linear-gradient(180deg,rgba(236,228,223,0.95) 0%,rgba(226,216,210,0.92) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(200,188,178,0.3);position:sticky;top:0;z-index:50}
 .res-header-left{display:flex;flex-direction:column}
-.res-header-title{font-size:16px;font-weight:500;letter-spacing:-0.02em;color:var(--text-dark)}
-.res-header-unit{font-size:11px;color:var(--text-secondary);margin-top:2px}
+.res-header-title{font-size:16px;font-weight:600;letter-spacing:-0.03em;color:#1a1a1a}
+.res-header-unit{font-size:11px;color:rgba(26,26,26,0.45);margin-top:2px}
 .res-header-right{display:flex;gap:12px}
-.res-bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg-surface);border-top:1px solid var(--border-light);display:flex;justify-content:space-around;padding:8px 0;z-index:100}
-.res-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 2px;font-size:9px;color:var(--text-muted);cursor:pointer;text-decoration:none;transition:color .2s}
-.res-nav-item span{font-size:9px}
-.res-nav-item.active{color:var(--accent-warm-dark);font-weight:600;border-top:2px solid var(--bg-warm-dark);padding-top:4px}
+.res-bottom-nav{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(180deg,rgba(236,228,223,0.97) 0%,rgba(226,216,210,0.99) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(200,188,178,0.25);display:flex;justify-content:space-around;padding:8px 0 env(safe-area-inset-bottom,4px);z-index:100}
+.res-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 2px;font-size:9px;color:rgba(26,26,26,0.35);cursor:pointer;text-decoration:none;transition:all .25s ease}
+.res-nav-item span{font-size:9px;letter-spacing:0.01em}
+.res-nav-item.active{color:#1a1a1a;font-weight:600}
 .res-nav-item.active span{font-weight:600}
-.res-content{flex:1;overflow-y:auto;padding:16px}
-.res-visitor-card{background:var(--bg-card);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;border:1px solid var(--border-light);border-left:3px solid var(--bg-warm);box-shadow:var(--shadow-sm)}
-.res-visitor-card .name{font-weight:500;font-size:13px;margin-bottom:4px}
-.res-visitor-card .type{font-size:10px;color:var(--text-secondary);margin-bottom:6px}
-.res-visitor-card .time{font-size:11px;color:var(--text-secondary);margin-bottom:8px}
+.res-content{flex:1;overflow-y:auto;padding:16px 20px}
+.res-visitor-card{background:rgba(255,255,255,0.65);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.5);box-shadow:0 2px 12px rgba(120,100,90,0.06)}
+.res-visitor-card .name{font-weight:600;font-size:13px;margin-bottom:4px;color:#1a1a1a}
+.res-visitor-card .type{font-size:10px;color:rgba(26,26,26,0.45);margin-bottom:6px}
+.res-visitor-card .time{font-size:11px;color:rgba(26,26,26,0.45);margin-bottom:8px}
 .res-visitor-card .status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.res-visitor-card .action-buttons{display:flex;gap:6px;margin-top:8px}
-.res-visitor-card .action-buttons button{flex:1;padding:8px;font-size:11px;border:1px solid var(--border-medium);border-radius:var(--radius-sm);cursor:pointer;background:#fff;color:var(--text-secondary)}
-.res-visitor-card .action-buttons button.approve{background:#5a6b4f;color:#fff;border-color:#5a6b4f}
-.res-visitor-card .action-buttons button.reject{background:#8b4a42;color:#fff;border-color:#8b4a42}
-.res-announcement-card{background:var(--bg-card);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;border:1px solid var(--border-light);box-shadow:var(--shadow-sm)}
-.res-announcement-card h3{font-size:13px;font-weight:500;margin-bottom:4px}
-.res-announcement-card p{font-size:12px;color:var(--text-secondary);margin-bottom:6px}
-.res-announcement-card .meta{font-size:10px;color:var(--text-muted)}
+.res-visitor-card .action-buttons{display:flex;gap:8px;margin-top:8px}
+.res-visitor-card .action-buttons button{flex:1;padding:10px;font-size:11px;border:none;border-radius:12px;cursor:pointer;background:rgba(255,255,255,0.7);color:rgba(26,26,26,0.6);font-weight:500;transition:all .2s}
+.res-visitor-card .action-buttons button.approve{background:#1a1a1a;color:#fff}
+.res-visitor-card .action-buttons button.reject{background:rgba(139,74,66,0.1);color:#8b4a42}
+.res-announcement-card{background:rgba(255,255,255,0.65);backdrop-filter:blur(12px);border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.5);box-shadow:0 2px 12px rgba(120,100,90,0.06)}
+.res-announcement-card h3{font-size:13px;font-weight:600;margin-bottom:4px;color:#1a1a1a}
+.res-announcement-card p{font-size:12px;color:rgba(26,26,26,0.5);margin-bottom:6px}
+.res-announcement-card .meta{font-size:10px;color:rgba(26,26,26,0.3)}
 .res-quick-actions{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
-.res-quick-actions button{flex:1;min-width:80px;padding:12px;border:1px solid var(--border-light);border-radius:var(--radius-sm);background:var(--bg-card);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;color:var(--text-secondary);transition:all .2s}
-.res-quick-actions button:hover{background:var(--accent-warm-light);border-color:var(--accent-warm)}
+.res-quick-actions button{flex:1;min-width:80px;padding:12px;border:1px solid rgba(200,188,178,0.3);border-radius:14px;background:rgba(255,255,255,0.5);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;color:rgba(26,26,26,0.55);transition:all .2s;backdrop-filter:blur(8px)}
+.res-quick-actions button:hover{background:rgba(255,255,255,0.8);border-color:rgba(180,168,158,0.5)}
 .res-help-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
-.res-help-card{background:var(--bg-card);border-radius:var(--radius-md);padding:12px;border:1px solid var(--border-light);text-align:center;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .2s}
-.res-help-card:hover{border-color:var(--accent-warm);box-shadow:var(--shadow-md)}
-.res-help-card p{font-size:11px;font-weight:500;color:var(--text-dark)}
-.res-section-title{font-size:13px;font-weight:500;margin:16px 0 12px 0;color:var(--text-dark);letter-spacing:-0.01em}
-.res-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(26,26,26,0.35);backdrop-filter:blur(4px);display:flex;align-items:flex-end;z-index:1000}
-.res-modal{background:#fff;border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:20px;max-height:90vh;overflow-y:auto;width:100%}
+.res-help-card{background:rgba(255,255,255,0.55);backdrop-filter:blur(12px);border-radius:16px;padding:14px;border:1px solid rgba(255,255,255,0.5);text-align:center;cursor:pointer;box-shadow:0 2px 12px rgba(120,100,90,0.06);transition:all .25s ease}
+.res-help-card:hover{background:rgba(255,255,255,0.75);box-shadow:0 4px 20px rgba(120,100,90,0.1);transform:translateY(-1px)}
+.res-help-card p{font-size:11px;font-weight:500;color:#1a1a1a}
+.res-section-title{font-size:13px;font-weight:600;margin:16px 0 12px 0;color:#1a1a1a;letter-spacing:-0.02em}
+.res-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(26,26,26,0.25);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:flex-end;z-index:1000}
+.res-modal{background:linear-gradient(180deg,#f5f0ec 0%,#ece4df 100%);border-radius:20px 20px 0 0;padding:24px;max-height:90vh;overflow-y:auto;width:100%}
 .res-modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.res-modal-title{font-size:16px;font-weight:500;color:var(--text-dark);letter-spacing:-0.02em}
-.res-modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted)}
+.res-modal-title{font-size:17px;font-weight:600;color:#1a1a1a;letter-spacing:-0.03em}
+.res-modal-close{background:rgba(26,26,26,0.06);border:none;font-size:20px;cursor:pointer;color:rgba(26,26,26,0.4);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .res-form-group{margin-bottom:16px}
-.res-form-group label{display:block;font-size:11px;font-weight:500;margin-bottom:8px;color:var(--text-secondary);letter-spacing:0.04em;text-transform:uppercase}
-.res-form-group input,.res-form-group textarea,.res-form-group select{width:100%;padding:10px 12px;border:1px solid var(--border-light);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--bg-surface);transition:border-color .2s}
+.res-form-group label{display:block;font-size:11px;font-weight:600;margin-bottom:8px;color:rgba(26,26,26,0.45);letter-spacing:0.04em;text-transform:uppercase}
+.res-form-group input,.res-form-group textarea,.res-form-group select{width:100%;padding:12px 14px;border:1px solid rgba(200,188,178,0.35);border-radius:12px;font-size:13px;font-family:inherit;outline:none;background:rgba(255,255,255,0.6);transition:all .2s}
 .res-form-group textarea{min-height:80px;resize:vertical}
-.res-form-group input:focus,.res-form-group textarea:focus{border-color:var(--accent-warm);background:#fff}
-.res-tab-toggle{display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border-light);border-radius:var(--radius-sm);overflow:hidden}
-.res-tab-toggle button{flex:1;padding:10px;border:none;background:#fff;cursor:pointer;font-size:12px;font-weight:500;color:var(--text-muted);border-right:1px solid var(--border-light);transition:all .2s}
+.res-form-group input:focus,.res-form-group textarea:focus{border-color:rgba(26,26,26,0.2);background:rgba(255,255,255,0.85);box-shadow:0 0 0 3px rgba(26,26,26,0.04)}
+.res-tab-toggle{display:flex;gap:4px;margin-bottom:16px;background:rgba(26,26,26,0.05);border-radius:12px;padding:3px;overflow:hidden}
+.res-tab-toggle button{flex:1;padding:10px;border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:500;color:rgba(26,26,26,0.4);border-radius:10px;transition:all .25s}
 .res-tab-toggle button:last-child{border-right:none}
-.res-tab-toggle button.active{background:var(--bg-warm-dark);color:#fff}
-.res-household-card{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:12px;margin-bottom:10px;box-shadow:var(--shadow-sm)}
-.res-household-card .name{font-weight:500;font-size:12px;margin-bottom:2px}
-.res-household-card .details{font-size:11px;color:var(--text-secondary)}
-.res-household-card .status-badge{display:inline-block;font-size:9px;padding:2px 8px;border-radius:3px;background:var(--accent-warm-light);color:var(--accent-warm-dark);margin-top:6px}
+.res-tab-toggle button.active{background:#1a1a1a;color:#fff;box-shadow:0 2px 8px rgba(26,26,26,0.15)}
+.res-household-card{background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.5);border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:0 2px 12px rgba(120,100,90,0.06)}
+.res-household-card .name{font-weight:600;font-size:12px;margin-bottom:2px;color:#1a1a1a}
+.res-household-card .details{font-size:11px;color:rgba(26,26,26,0.45)}
+.res-household-card .status-badge{display:inline-block;font-size:9px;padding:3px 10px;border-radius:20px;background:rgba(26,26,26,0.06);color:rgba(26,26,26,0.55);margin-top:6px;font-weight:500}
 .res-approval-modal{text-align:center;padding:24px}
-.res-approval-modal .avatar{width:80px;height:80px;background:var(--accent-warm-light);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--accent-warm-dark)}
-.res-approval-modal .timer{font-size:32px;font-weight:500;color:var(--accent-warm);margin-bottom:12px}
+.res-approval-modal .avatar{width:80px;height:80px;background:rgba(26,26,26,0.05);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(26,26,26,0.4)}
+.res-approval-modal .timer{font-size:32px;font-weight:600;color:rgba(26,26,26,0.6);margin-bottom:12px;letter-spacing:-0.03em}
 .res-approval-modal .visitor-info{margin-bottom:20px}
 .res-approval-modal .visitor-info p{font-size:13px;margin-bottom:4px}
 .res-approval-modal .action-buttons{display:flex;gap:10px;margin-top:20px}
-.res-approval-modal .action-buttons button{flex:1;padding:12px;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:500;cursor:pointer;letter-spacing:-0.01em}
-.res-approval-modal .approve-btn{background:var(--bg-warm-dark);color:#fff}
-.res-approval-modal .deny-btn{background:var(--accent-warm-light);color:var(--accent-warm-dark)}
+.res-approval-modal .action-buttons button{flex:1;padding:14px;border:none;border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-0.01em;transition:all .2s}
+.res-approval-modal .approve-btn{background:#1a1a1a;color:#fff}
+.res-approval-modal .deny-btn{background:rgba(26,26,26,0.06);color:rgba(26,26,26,0.6)}
 .res-create-resident-form{display:flex;flex-direction:column}
 
 @media(max-width:768px){
@@ -1602,7 +1603,7 @@ const OverviewPage = ({ setPage }) => {
   const pmTime = formatTime12(pmNow);
   const pmDate = formatDate(pmNow);
   const insideCount = data.visitors.filter(v => v.status === 'Inside').length;
-  const scheduledCount = data.visitors.filter(v => v.status === 'Scheduled').length;
+  const scheduledCount = data.visitors.filter(v => v.status === 'Scheduled' || v.status === 'Pre-Approved').length;
   const pendingCount = data.visitors.filter(v => v.status === 'Pending').length;
 
   // Mini sparkline SVG paths for KPI cards
@@ -1907,7 +1908,7 @@ const VisitorsPage = () => {
   });
 
   const types = ['All','Guest','Vendor','Contractor'];
-  const statuses = ['All','Inside','Pending','Scheduled','Checked Out'];
+  const statuses = ['All','Inside','Pending','Pre-Approved','Scheduled','Checked Out'];
 
   const filtered = data.visitors.filter(v => {
     if (typeFilter !== 'All' && v.type !== typeFilter) return false;
@@ -4792,7 +4793,7 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
       contact: qrData.mobile,
       type: qrData.type,
       gate: 'Main Gate',
-      status: 'Scheduled',
+      status: 'Pre-Approved',
       time: qrData.time,
       date: qrData.date,
       permitRef: qrData.permit,
@@ -4800,6 +4801,7 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
       qrCode: 'Pre-approved',
       repeater: qrData.repeater || 'Single Visit',
       validUntil: qrData.validUntil,
+      approvedBy: 'Resident',
       qrPayload: qrData
     };
     const logEntry = {
@@ -4816,7 +4818,7 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
       timeOut: '',
       duration: '—',
       idDoc: '',
-      status: 'SCHEDULED'
+      status: 'PRE-APPROVED'
     };
     const scheduleEntry = { time: qrData.time, description: qrData.visitor + ' — ' + qrData.type, flat: 'B-102', type: qrData.type };
     const pmScheduleEntry = { time: qrData.time, name: qrData.visitor + ' (' + qrData.type + ')', flat: 'B-102', type: qrData.type };
@@ -5093,21 +5095,6 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
         </div>
       </div>
 
-      {/* Entry Type */}
-      <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:20,marginBottom:12}}>
-        <div style={{fontSize:11,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:10,fontWeight:600}}>Entry Type *</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-          {['Walk-in','Drive In'].map(t => (
-            <div key={t} onClick={() => setEntryType(t)}
-              style={{padding:12,border: entryType===t ? '2px solid #1a1a1a' : '1px solid #e0e0e0',
-              borderRadius:6,textAlign:'center',cursor:'pointer',background: entryType===t ? '#faf8f5' : '#fff',
-              fontSize:13,fontWeight: entryType===t ? 600 : 400,transition:'all .15s'}}>
-              {t}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Visitor Identity */}
       <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:20,marginBottom:12}}>
         <div style={{fontSize:11,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:14,fontWeight:600}}>Visitor Identity</div>
@@ -5211,6 +5198,7 @@ const ResidentApp = ({ onLogout }) => {
   const [editingVisitor, setEditingVisitor] = useState(null); // holds editable copy of visitor
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [selectedNotifDetail, setSelectedNotifDetail] = useState(null);
   const [showResPropertyDropdown, setShowResPropertyDropdown] = useState(false);
   const [dismissedNotifIds, setDismissedNotifIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem('varspm_dismissed_notifs') || '[]'); } catch(e) { return []; }
@@ -5422,8 +5410,8 @@ const ResidentApp = ({ onLogout }) => {
         if (!selectedVisitor) { setCurrentPage('home'); return null; }
         const vp = selectedVisitor.qrPayload;
         const isEditing = !!editingVisitor;
-        const canEdit = selectedVisitor.status === 'Scheduled' || selectedVisitor.status === 'Pending';
-        const canDelete = selectedVisitor.status === 'Scheduled' || selectedVisitor.status === 'Pending';
+        const canEdit = selectedVisitor.status === 'Scheduled' || selectedVisitor.status === 'Pre-Approved' || selectedVisitor.status === 'Pending';
+        const canDelete = selectedVisitor.status === 'Scheduled' || selectedVisitor.status === 'Pre-Approved' || selectedVisitor.status === 'Pending';
 
         const saveEdit = () => {
           if (!editingVisitor) return;
@@ -5488,21 +5476,8 @@ const ResidentApp = ({ onLogout }) => {
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <button onClick={() => { setCurrentPage('home'); setSelectedVisitor(null); setEditingVisitor(null); }} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#6b5d52'}}>←</button>
-                <h3 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.01em',margin:0}}>Visitor Pass</h3>
+                <h3 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.01em',margin:0}}>Visitor Details</h3>
               </div>
-              {canEdit && !isEditing && (
-                <button onClick={() => setEditingVisitor({
-                  name: selectedVisitor.name,
-                  phone: selectedVisitor.contact || (vp ? vp.mobile : ''),
-                  type: selectedVisitor.type,
-                  date: selectedVisitor.date,
-                  time: selectedVisitor.time,
-                  vehicle: vp ? vp.vehicle : '',
-                  guests: vp ? String(vp.guests) : '1'
-                })} style={{background:'none',border:'1px solid #d5cfc8',borderRadius:4,padding:'6px 14px',fontSize:12,cursor:'pointer',color:'#1a1a1a',fontWeight:500}}>
-                  Edit
-                </button>
-              )}
             </div>
 
             <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:24,textAlign:'center',marginBottom:16}}>
@@ -5617,21 +5592,31 @@ const ResidentApp = ({ onLogout }) => {
                 showToast('Image saved — attach it in WhatsApp or Telegram');
               };
               return (<React.Fragment>
-                <button onClick={viewShare} style={{width:'100%',padding:14,background:'#fff',color:'#1a1a1a',border:'1px solid #d5cfc8',borderRadius:6,fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:16,letterSpacing:'0.03em'}}>
+                <button onClick={viewShare} style={{width:'100%',padding:14,background:'#fff',color:'#1a1a1a',border:'1px solid #d5cfc8',borderRadius:6,fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:12,letterSpacing:'0.03em'}}>
                   Share QR Pass
                 </button>
               </React.Fragment>);
             })()}
+
+            {canEdit && !isEditing && (
+              <button onClick={() => setEditingVisitor({
+                name: selectedVisitor.name,
+                phone: selectedVisitor.contact || (vp ? vp.mobile : ''),
+                type: selectedVisitor.type,
+                date: selectedVisitor.date,
+                time: selectedVisitor.time,
+                vehicle: vp ? vp.vehicle : '',
+                guests: vp ? String(vp.guests) : '1'
+              })} style={{width:'100%',padding:14,background:'#fff',color:'#1a1a1a',border:'1px solid #d5cfc8',borderRadius:6,fontSize:14,fontWeight:500,cursor:'pointer',marginBottom:12,letterSpacing:'0.03em'}}>
+                Edit Details
+              </button>
+            )}
 
             {canDelete && !isEditing && (
               <button onClick={() => setShowDeleteConfirm(true)} style={{width:'100%',padding:14,background:'#fff',color:'#8b4a42',border:'1px solid #deccca',borderRadius:6,fontSize:13,fontWeight:500,cursor:'pointer',marginBottom:12,letterSpacing:'0.03em'}}>
                 Delete Pre-Approval
               </button>
             )}
-
-            <button onClick={() => { setCurrentPage('home'); setSelectedVisitor(null); setEditingVisitor(null); }} style={{width:'100%',padding:14,background:'#928989',color:'#fff',border:'none',borderRadius:6,fontSize:14,fontWeight:600,cursor:'pointer',letterSpacing:'0.03em'}}>
-              Back to Home
-            </button>
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
@@ -5754,7 +5739,7 @@ const ResidentApp = ({ onLogout }) => {
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
                 {bookServices.map((svc, i) => (
                   <div key={i} onClick={() => {setServiceBooking({type:svc.label, location:'', date:'', time:'', duration:'1 hour', guests:1}); setShowServiceBookingModal(true);}} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',padding:'4px 0'}}>
-                    <div style={{width:48,height:48,borderRadius:'50%',background:'#f2efec',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid #ebe7e3'}}>
+                    <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.55)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 8px rgba(120,100,90,0.05)'}}>
                       {svc.icon}
                     </div>
                     <span style={{fontSize:10,color:'#7a6f66',textAlign:'center',lineHeight:'1.3'}}>{svc.label}</span>
@@ -5771,7 +5756,7 @@ const ResidentApp = ({ onLogout }) => {
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
                 {bookAmenities.map((svc, i) => (
                   <div key={i} onClick={() => {setServiceBooking({type:svc.label, location:'', date:'', time:'', duration:'1 hour', guests:1}); setShowServiceBookingModal(true);}} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',padding:'4px 0'}}>
-                    <div style={{width:48,height:48,borderRadius:'50%',background:'#f2efec',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid #ebe7e3'}}>
+                    <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.55)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 8px rgba(120,100,90,0.05)'}}>
                       {svc.icon}
                     </div>
                     <span style={{fontSize:10,color:'#7a6f66',textAlign:'center',lineHeight:'1.3'}}>{svc.label}</span>
@@ -5787,15 +5772,15 @@ const ResidentApp = ({ onLogout }) => {
                 <span style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See all</span>
               </div>
               {upcomingRequests.map(r => (
-                <div key={r.id} style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:10,padding:16,marginBottom:10,display:'flex',alignItems:'center',gap:12}}>
-                  <div style={{width:40,height:40,borderRadius:8,background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <div key={r.id} style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',border:'1px solid rgba(255,255,255,0.5)',borderRadius:16,padding:16,marginBottom:10,display:'flex',alignItems:'center',gap:12,boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
+                  <div style={{width:40,height:40,borderRadius:12,background:'rgba(26,26,26,0.05)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
                   </div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{r.title}</div>
                     <div style={{fontSize:11,color:'#a89a92'}}>{r.detail}</div>
                   </div>
-                  <span style={{fontSize:11,color:'#7a6f66',background:'#f2efec',padding:'4px 10px',borderRadius:20,fontWeight:500,border:'1px solid #ebe7e3'}}>{r.status}</span>
+                  <span style={{fontSize:11,color:'rgba(26,26,26,0.55)',background:'rgba(26,26,26,0.05)',padding:'4px 10px',borderRadius:20,fontWeight:500}}>{r.status}</span>
                 </div>
               ))}
             </div>
@@ -5807,8 +5792,8 @@ const ResidentApp = ({ onLogout }) => {
                 <span style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>View all</span>
               </div>
               {serviceHistory.map(h => (
-                <div key={h.id} style={{display:'flex',alignItems:'center',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid #ebe7e3'}}>
-                  <div style={{width:40,height:40,borderRadius:8,background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <div key={h.id} style={{display:'flex',alignItems:'center',gap:12,marginBottom:14,paddingBottom:14,borderBottom:'1px solid rgba(26,26,26,0.06)'}}>
+                  <div style={{width:40,height:40,borderRadius:12,background:'rgba(26,26,26,0.05)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
                   </div>
                   <div style={{flex:1}}>
@@ -5982,7 +5967,7 @@ const ResidentApp = ({ onLogout }) => {
                           <div style={{fontSize:12,color:'#8a7f76',marginBottom:3}}>{v.type || 'Guest'} — {v.purpose || 'Visit'}</div>
                           <div style={{fontSize:11,color:'#a89a92',marginBottom:3}}>{v.date} at {v.time}</div>
                           <div style={{fontSize:11,color:'#a89a92'}}>
-                            {v.status === 'Scheduled' ? 'Pre-Approved by: ' + (v.resident || 'Resident') :
+                            {v.status === 'Pre-Approved' || v.status === 'Scheduled' ? 'Pre-Approved by: ' + (v.resident || 'Resident') :
                              v.status === 'Inside' ? 'Approved by: Security Guard' :
                              v.status === 'Rejected' ? 'Rejected by: Security Guard' :
                              v.status === 'Checked Out' ? 'Checked out' :
@@ -6005,7 +5990,7 @@ const ResidentApp = ({ onLogout }) => {
       case 'home':
         const pendingVisitors_home = data.visitors.filter(v => v.status === 'Pending' || v.status === 'Waiting');
         const waitingApprovals = data.pendingApprovals || [];
-        const scheduledVisitors = data.visitors.filter(v => v.status === 'Scheduled');
+        const scheduledVisitors = data.visitors.filter(v => v.status === 'Scheduled' || v.status === 'Pre-Approved');
         // Services are booked separately — not from pre-approved visitors
         const upcomingServices = [];
         const recentAnnouncements = data.announcements ? data.announcements.filter(a => a.status === 'Live' || a.status === 'Sent').slice(0,2) : [];
@@ -6021,7 +6006,7 @@ const ResidentApp = ({ onLogout }) => {
         return (
           <div className="res-content" style={{padding:'12px 16px',paddingBottom:20}}>
             {/* New Visitor — pending approvals */}
-            <div style={{background:'#fff',borderRadius:12,padding:16,marginBottom:12,border:'1px solid #ebe7e3'}}>
+            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>New Visitor</span>
                 {waitingApprovals.length > 0 && <span style={{fontSize:11,color:'#a89a92'}}>{waitingApprovals.length} pending</span>}
@@ -6081,12 +6066,16 @@ const ResidentApp = ({ onLogout }) => {
             </div>
 
             {/* Upcoming Visitor — all pre-approved guests */}
-            <div style={{background:'#fff',borderRadius:12,padding:16,marginBottom:12,border:'1px solid #ebe7e3'}}>
+            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Upcoming Visitor</span>
                 <span onClick={() => setCurrentPage('viewall')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See All ›</span>
               </div>
-              {scheduledVisitors.length > 0 ? scheduledVisitors.slice(0,3).map(v => (
+              {scheduledVisitors.length > 0 ? scheduledVisitors.slice(0,3).map(v => {
+                const statusLabel = v.status === 'Inside' ? 'Passed Security' : v.status === 'Rejected' ? 'Rejected' : v.status === 'Checked Out' || v.status === 'Exited' ? 'Checked Out' : v.status === 'On Hold' ? 'On Hold' : 'Pre-Approved';
+                const statusColor = v.status === 'Inside' ? '#2d6a4f' : v.status === 'Rejected' ? '#8b4a42' : v.status === 'On Hold' ? '#7a6040' : '#5a5470';
+                const statusBg = v.status === 'Inside' ? '#e0e5db' : v.status === 'Rejected' ? '#eddbd9' : v.status === 'On Hold' ? '#ebe3d9' : '#e8e3de';
+                return (
                 <div key={'up-'+v.id} style={{display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom: 10,paddingBottom:10,borderBottom:'1px solid #f2efec'}} onClick={() => { setSelectedVisitor(v); setCurrentPage('viewVisitor'); }}>
                   <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
@@ -6095,35 +6084,34 @@ const ResidentApp = ({ onLogout }) => {
                     <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
                     <div style={{fontSize:11,color:'#a89a92'}}>{v.type} — {v.purpose || 'Personal visit'}</div>
                     <div style={{fontSize:11,color:'#a89a92'}}>Time : {v.time}</div>
-                    <div style={{fontSize:10,color:'#7a6f66',marginTop:2,display:'flex',gap:8,flexWrap:'wrap'}}>
+                    <div style={{fontSize:10,color:'#7a6f66',marginTop:2,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                       <span>Gate: {v.gate || 'Main Gate'}</span>
                       <span style={{color:'#c4b8b0'}}>·</span>
-                      <span>Approved by: {v.approvedBy || 'Resident'}</span>
+                      <span style={{background:statusBg,color:statusColor,padding:'1px 8px',borderRadius:10,fontSize:10,fontWeight:600}}>{statusLabel}</span>
                     </div>
                     {v.repeater && v.repeater !== 'Single Visit' && <div style={{fontSize:10,color:'#5a5470',marginTop:2}}>{v.repeater}</div>}
                   </div>
-                  <div style={{cursor:'pointer',padding:6}}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
-                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4b8b0" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
                 </div>
-              )) : (
+                );
+              }) : (
                 <div style={{textAlign:'center',color:'#c4b8b0',fontSize:12,padding:8}}>No upcoming visitors</div>
               )}
-              <button onClick={() => setCurrentPage('preapprove')} style={{width:'100%',marginTop:4,padding:'12px 0',borderRadius:8,border:'none',background:'#928989',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'0.02em'}}>+ Pre-Approved Guest</button>
+              <button onClick={() => setCurrentPage('preapprove')} style={{width:'100%',marginTop:4,padding:'13px 0',borderRadius:14,border:'none',background:'#1a1a1a',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>+ Pre-Approved Guest</button>
             </div>
 
             {/* Upcoming Service — booked separately */}
-            <div style={{background:'#fff',borderRadius:12,padding:16,marginBottom:12,border:'1px solid #ebe7e3'}}>
+            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Upcoming Service</span>
                 <span onClick={() => setCurrentPage('services')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See All ›</span>
               </div>
               <div style={{textAlign:'center',color:'#c4b8b0',fontSize:12,padding:8}}>No upcoming services booked</div>
-              <button onClick={() => setCurrentPage('services')} style={{width:'100%',marginTop:4,padding:'12px 0',borderRadius:8,border:'none',background:'#a89a92',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'0.02em'}}>+ Add Service request</button>
+              <button onClick={() => setCurrentPage('services')} style={{width:'100%',marginTop:4,padding:'13px 0',borderRadius:14,border:'1px solid rgba(26,26,26,0.12)',background:'rgba(255,255,255,0.5)',color:'#1a1a1a',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>+ Add Service request</button>
             </div>
 
             {/* Recent Announcements */}
-            <div style={{background:'#fff',borderRadius:12,padding:16,marginBottom:12,border:'1px solid #ebe7e3'}}>
+            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Recent Announcements</span>
                 <span onClick={() => setCurrentPage('resAnnouncements')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See All ›</span>
@@ -6144,7 +6132,7 @@ const ResidentApp = ({ onLogout }) => {
             </div>
 
             {/* Book Amenities — only amenity icons on home screen */}
-            <div style={{background:'#fff',borderRadius:12,padding:16,marginBottom:12,border:'1px solid #ebe7e3'}}>
+            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Book Amenities</span>
                 <span onClick={() => setCurrentPage('book')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See All ›</span>
@@ -6161,7 +6149,7 @@ const ResidentApp = ({ onLogout }) => {
                   { label: 'Yoga Room', icon: (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><circle cx="12" cy="4" r="2"/><path d="M12 6v4M8 22l4-8 4 8M4 14l8 2 8-2"/></svg>) },
                 ].map((svc, i) => (
                   <div key={i} onClick={() => {setServiceBooking({type:svc.label, location:'', date:'', time:'', duration:'1 hour', guests:1}); setShowServiceBookingModal(true);}} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',padding:'4px 0'}}>
-                    <div style={{width:48,height:48,borderRadius:'50%',background:'#f2efec',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid #ebe7e3'}}>
+                    <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.55)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 8px rgba(120,100,90,0.05)'}}>
                       {svc.icon}
                     </div>
                     <span style={{fontSize:10,color:'#7a6f66',textAlign:'center',lineHeight:'1.3'}}>{svc.label}</span>
@@ -6553,19 +6541,9 @@ const ResidentApp = ({ onLogout }) => {
               <button onClick={() => setCurrentPage('home')} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#6b5d52'}}>‹</button>
               <span style={{fontSize:18,fontWeight:600,color:'#1a1a1a'}}>Announcements</span>
             </div>
-            {/* Filter chips */}
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-              <span style={{background:'#e8e3de',borderRadius:20,padding:'5px 14px',fontSize:12,color:'#1a1a1a',display:'flex',alignItems:'center',gap:6}}>
-                Unread <span style={{cursor:'pointer',color:'#a89a92',fontWeight:700,fontSize:13}}>×</span>
-              </span>
-              <div style={{display:'flex',alignItems:'center',gap:4,fontSize:12,color:'#7a6f66',cursor:'pointer'}}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
-                Filter
-              </div>
-            </div>
             {/* Announcement cards */}
             {annsToShow.map(a => (
-              <div key={a.id} style={{background:'#f2efec',borderRadius:10,padding:16,marginBottom:12}}>
+              <div key={a.id} style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',borderRadius:16,padding:16,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
                   <div style={{fontSize:15,fontWeight:600,color:'#1a1a1a'}}>{a.title}</div>
                   <span style={{fontSize:11,color:'#a89a92',cursor:'pointer',whiteSpace:'nowrap',marginLeft:12}}>See All ›</span>
@@ -6592,8 +6570,8 @@ const ResidentApp = ({ onLogout }) => {
         return (
           <div className="res-content" style={{padding:0,paddingBottom:80}}>
             {/* Profile header card */}
-            <div style={{background:'#fff',padding:'28px 16px 24px',textAlign:'center',borderBottom:'1px solid #ebe7e3'}}>
-              <div style={{width:72,height:72,borderRadius:'50%',border:'2px solid #d0d0d0',background:'#f2efec',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
+            <div style={{background:'rgba(255,255,255,0.4)',padding:'28px 16px 24px',textAlign:'center',borderBottom:'1px solid rgba(26,26,26,0.06)'}}>
+              <div style={{width:72,height:72,borderRadius:'50%',border:'2px solid rgba(26,26,26,0.08)',background:'rgba(255,255,255,0.5)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
               </div>
               <div style={{fontSize:18,fontWeight:600,color:'#1a1a1a',marginBottom:2}}>Rashid</div>
@@ -6604,8 +6582,8 @@ const ResidentApp = ({ onLogout }) => {
             <div style={{padding:'12px 16px'}}>
               {profileMenuItems.map((item, i) => (
                 <div key={i} onClick={() => { if (item.page) setCurrentPage(item.page); }}
-                  style={{display:'flex',alignItems:'center',gap:14,padding:'14px 0',borderBottom: i < profileMenuItems.length - 1 ? '1px solid #f0f0f0' : 'none',cursor:'pointer'}}>
-                  <div style={{width:36,height:36,borderRadius:'50%',background:'#f2efec',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  style={{display:'flex',alignItems:'center',gap:14,padding:'14px 0',borderBottom: i < profileMenuItems.length - 1 ? '1px solid rgba(26,26,26,0.06)' : 'none',cursor:'pointer'}}>
+                  <div style={{width:36,height:36,borderRadius:'50%',background:'rgba(26,26,26,0.04)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                     {item.icon}
                   </div>
                   <div style={{flex:1,fontSize:14,fontWeight:500,color:'#1a1a1a'}}>{item.label}</div>
@@ -6633,20 +6611,19 @@ const ResidentApp = ({ onLogout }) => {
       {/* Header — only on home page */}
       {currentPage === 'home' && (
         <div className="res-header">
-          <div className="res-header-left" style={{display:'flex',alignItems:'center',gap:10}}>
-            <div onClick={() => setCurrentPage('profile')} style={{width:36,height:36,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+          <div className="res-header-left" style={{display:'flex',alignItems:'center',gap:12}}>
+            <div onClick={() => setCurrentPage('profile')} style={{width:44,height:44,borderRadius:'50%',background:'rgba(26,26,26,0.06)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(26,26,26,0.35)" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
             </div>
-            <div>
-              <div style={{fontSize:11,color:'#a89a92'}}>Hello,</div>
-              <div className="res-header-title" style={{fontSize:17,fontWeight:600}}>Nitin</div>
-              <div className="res-header-unit" onClick={() => setShowResPropertyDropdown(!showResPropertyDropdown)} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+            <div style={{position:'relative'}}>
+              <div style={{fontSize:15,fontWeight:600,color:'#1a1a1a',letterSpacing:'-0.02em'}}>Hello, Nitin</div>
+              <div onClick={() => setShowResPropertyDropdown(!showResPropertyDropdown)} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:4,fontSize:11,color:'rgba(26,26,26,0.4)',marginTop:2}}>
                 B-102, Sky Tower
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(26,26,26,0.35)" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
               </div>
               {showResPropertyDropdown && (
-                <div style={{position:'absolute',top:'100%',left:0,marginTop:4,background:'#fff',border:'1px solid #ebe7e3',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,0.1)',zIndex:200,minWidth:220,padding:4}}>
-                  <div onClick={() => setShowResPropertyDropdown(false)} style={{padding:'10px 14px',borderRadius:6,cursor:'pointer',background:'#f2efec',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div style={{position:'absolute',top:'100%',left:0,marginTop:6,background:'rgba(255,255,255,0.9)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',border:'1px solid rgba(255,255,255,0.6)',borderRadius:14,boxShadow:'0 8px 32px rgba(26,26,26,0.12)',zIndex:200,minWidth:220,padding:4}}>
+                  <div onClick={() => setShowResPropertyDropdown(false)} style={{padding:'10px 14px',borderRadius:10,cursor:'pointer',background:'rgba(26,26,26,0.05)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                     <div>
                       <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a'}}>The Pinnacle Residences</div>
                       <div style={{fontSize:10,color:'#a89a92'}}>Al Reem Island</div>
@@ -6664,20 +6641,78 @@ const ResidentApp = ({ onLogout }) => {
                         <div style={{fontSize:12,fontWeight:500,color:'#1a1a1a'}}>{p.name}</div>
                         <div style={{fontSize:10,color:'#a89a92'}}>{p.loc}</div>
                       </div>
-                      <span style={{fontSize:9,background:'#e8e3de',color:'#7a6f66',padding:'2px 8px',borderRadius:10,fontWeight:500}}>Coming Soon</span>
+                      <span style={{fontSize:9,background:'rgba(26,26,26,0.06)',color:'rgba(26,26,26,0.4)',padding:'2px 8px',borderRadius:10,fontWeight:500}}>Coming Soon</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           </div>
-          <div className="res-header-right" style={{display:'flex',alignItems:'center',gap:8}}>
-            <div onClick={() => setCurrentPage('resAnnouncements')} style={{width:34,height:34,borderRadius:'50%',border:'1px solid #d5cfc8',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative',background:'#fff'}}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <div className="res-header-right" style={{display:'flex',alignItems:'center',gap:8,position:'relative'}}>
+            <div onClick={() => { setShowNotifications(!showNotifications); setSelectedNotifDetail(null); setShowResPropertyDropdown(false); }} style={{width:34,height:34,borderRadius:'50%',border:'1px solid rgba(200,188,178,0.3)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative',background:'rgba(255,255,255,0.5)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(26,26,26,0.4)" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
               {unreadCount > 0 && (
-                <div style={{position:'absolute',top:-2,right:-2,width:16,height:16,background:'#8b4a42',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'#fff',fontWeight:700,border:'2px solid #fff'}}>{unreadCount > 9 ? '9+' : unreadCount}</div>
+                <div style={{position:'absolute',top:-2,right:-2,minWidth:16,height:16,background:'#1a1a1a',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'#fff',fontWeight:700,border:'2px solid rgba(236,228,223,0.95)',padding:'0 3px'}}>{unreadCount > 9 ? '9+' : unreadCount}</div>
               )}
             </div>
+            {/* Notification dropdown popup */}
+            {showNotifications && (
+              <div style={{position:'absolute',top:42,right:0,width:300,maxHeight:400,background:'rgba(255,255,255,0.92)',backdropFilter:'blur(24px)',WebkitBackdropFilter:'blur(24px)',borderRadius:18,boxShadow:'0 12px 40px rgba(26,26,26,0.12)',border:'1px solid rgba(255,255,255,0.6)',zIndex:999,overflow:'hidden'}}>
+                <div style={{padding:'14px 16px 10px',borderBottom:'1px solid rgba(26,26,26,0.06)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:15,fontWeight:600,color:'#1a1a1a',letterSpacing:'-0.02em'}}>Notifications</span>
+                  {notifications.filter(n => !dismissedNotifIds.includes(n.id)).length > 0 && (
+                    <span onClick={clearAllNotifs} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>Clear All</span>
+                  )}
+                </div>
+                <div style={{maxHeight:340,overflowY:'auto'}}>
+                  {selectedNotifDetail ? (
+                    <div style={{padding:16}}>
+                      <div onClick={() => setSelectedNotifDetail(null)} style={{fontSize:12,color:'#a89a92',cursor:'pointer',marginBottom:12,display:'flex',alignItems:'center',gap:4}}>
+                        <span style={{fontSize:16}}>‹</span> Back
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+                        <div style={{width:36,height:36,borderRadius:'50%',background:selectedNotifDetail.iconBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:selectedNotifDetail.iconColor,fontWeight:700}}>{selectedNotifDetail.icon}</div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{selectedNotifDetail.title}</div>
+                          <div style={{fontSize:11,color:'#a89a92'}}>{selectedNotifDetail.time}</div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:13,color:'#7a6f66',lineHeight:'1.6',background:'#f8f6f4',borderRadius:8,padding:12}}>{selectedNotifDetail.body}</div>
+                      {selectedNotifDetail.visitor && (
+                        <div style={{marginTop:12,background:'#f2efec',borderRadius:8,padding:12}}>
+                          <div style={{fontSize:11,fontWeight:600,color:'#1a1a1a',marginBottom:6}}>Visitor Details</div>
+                          <div style={{fontSize:12,color:'#7a6f66'}}>Type: {selectedNotifDetail.visitor.type}</div>
+                          <div style={{fontSize:12,color:'#7a6f66'}}>Gate: {selectedNotifDetail.visitor.gate || 'Main Gate'}</div>
+                          <div style={{fontSize:12,color:'#7a6f66'}}>Date: {selectedNotifDetail.visitor.date}</div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    notifications.filter(n => !dismissedNotifIds.includes(n.id)).length === 0 ? (
+                      <div style={{padding:40,textAlign:'center',color:'#a89a92',fontSize:13}}>No new notifications</div>
+                    ) : (
+                      notifications.filter(n => !dismissedNotifIds.includes(n.id)).map(n => (
+                        <div key={n.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'12px 16px',borderBottom:'1px solid #f2efec',cursor:'pointer',transition:'background 0.15s'}}
+                          onClick={() => setSelectedNotifDetail(n)}
+                          onMouseEnter={e => e.currentTarget.style.background='#f8f6f4'}
+                          onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                          <div style={{width:32,height:32,borderRadius:'50%',background:n.iconBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:n.iconColor,fontWeight:700,flexShrink:0,marginTop:2}}>{n.icon}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a',marginBottom:2}}>{n.title}</div>
+                            <div style={{fontSize:11,color:'#a89a92',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n.body}</div>
+                            <div style={{fontSize:10,color:'#c4b8b0',marginTop:3}}>{n.time}</div>
+                          </div>
+                          <div onClick={(e) => { e.stopPropagation(); dismissNotif(n.id); }} style={{width:24,height:24,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:2,color:'#c4b8b0',fontSize:16,fontWeight:400}} title="Dismiss">×</div>
+                        </div>
+                      ))
+                    )
+                  )}
+                </div>
+                <div onClick={() => { setShowNotifications(false); setCurrentPage('resAnnouncements'); }} style={{padding:'10px 16px',borderTop:'1px solid #f2efec',textAlign:'center',fontSize:12,color:'#928989',cursor:'pointer',fontWeight:500}}>
+                  View All Announcements ›
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -6698,10 +6733,6 @@ const ResidentApp = ({ onLogout }) => {
           <span>Payments</span>
         </div>
         <div className={`res-nav-item ${currentPage==='household'?'active':''}`} onClick={() => setCurrentPage('household')}>
-        <div className={`res-nav-item ${currentPage==='chat'?'active':''}`} onClick={() => setCurrentPage('chat')}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={currentPage==='chat'?'#1a1a1a':'#888'} strokeWidth="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-          <span>Chat</span>
-        </div>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={currentPage==='household'?'#1a1a1a':'#888'} strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
           <span>My Household</span>
         </div>
@@ -7774,7 +7805,7 @@ const SecurityApp = ({ onLogout }) => {
     if(currentTab === 'dashboard') {
       const clearedCount = data.insideVisitors.length;
       const pendingCount = data.pendingApprovals.length;
-      const scheduledCount = data.visitors.filter(v => v.status === 'Scheduled').length;
+      const scheduledCount = data.visitors.filter(v => v.status === 'Scheduled' || v.status === 'Pre-Approved').length;
       const flaggedCount = data.entryLog.filter(e => e.status === 'ON HOLD' || e.status === 'REJECTED').length;
       const totalInside = clearedCount + pendingCount;
       const guestCount = data.insideVisitors.filter(v => v.type === 'Guest' || v.type === 'Resident Guest').length;
