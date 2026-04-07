@@ -6214,7 +6214,7 @@ const ResidentApp = ({ onLogout }) => {
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Upcoming Visitor</span>
                 <span onClick={() => setCurrentPage('viewall')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See All ›</span>
               </div>
-              {scheduledVisitors.length > 0 ? scheduledVisitors.slice(0,5).map(v => {
+              {scheduledVisitors.length > 0 ? scheduledVisitors.slice(0,3).map(v => {
                 const statusLabel = v.status === 'Inside' ? 'Passed Security' : v.status === 'Rejected' ? 'Rejected' : v.status === 'Checked Out' || v.status === 'Exited' ? 'Checked Out' : v.status === 'On Hold' ? 'On Hold' : 'Pre-Approved';
                 const statusColor = v.status === 'Inside' ? '#2d6a4f' : v.status === 'Rejected' ? '#8b4a42' : v.status === 'On Hold' ? '#7a6040' : '#7a6f66';
                 const statusBg = v.status === 'Inside' ? '#e0e5db' : v.status === 'Rejected' ? '#eddbd9' : v.status === 'On Hold' ? '#ebe3d9' : 'rgba(26,26,26,0.06)';
