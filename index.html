@@ -120,7 +120,7 @@ body{font-family:'Helvetica Now Text','Inter',-apple-system,BlinkMacSystemFont,'
 .status.paid{background:var(--bg-warm-dark);color:#fff}
 .status.unpaid{background:#fff;color:var(--accent-warm-dark);border:1px solid var(--border-medium)}
 .status.scheduled{background:var(--bg-warm-dark);color:#fff}
-.status.pre-approved{background:#dcf0e0;color:#2d7a3e;border:1px solid #b8dfc1}
+.status.pre-approved{background:linear-gradient(135deg,#e0ddd8 0%,#ccc8c1 50%,#b8b3ab 100%);color:#4a4540;border:none}
 .status.completed{background:var(--accent-warm-light);color:var(--accent-warm-dark);border:1px solid var(--border-medium)}
 .status.checked-out{background:var(--accent-warm-light);color:var(--accent-warm-dark);border:1px solid var(--border-medium)}
 .status.on-duty{background:var(--bg-warm-dark);color:#fff}
@@ -4812,12 +4812,13 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
   const confirmPreApproval = () => {
     if (!qrData) return;
     const visitorEntry = {
-      id: data.visitors.length + 1,
+      id: 'PA-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
       name: qrData.visitor,
       resident: 'Nitin Sharma',
       flat: 'B-102',
       contact: qrData.mobile,
       type: qrData.type,
+      purpose: 'Personal visit',
       gate: 'Main Gate',
       status: 'Pre-Approved',
       time: qrData.time,
@@ -5495,11 +5496,30 @@ const ResidentApp = ({ onLogout }) => {
         // Status badge for this visitor
         const viewStatusBadge = () => {
           const s = selectedVisitor.status;
-          if (s === 'Inside') return { bg: '#e8f5e9', color: '#2e7d32', label: '✓ PASSED SECURITY' };
-          if (s === 'Rejected') return { bg: '#ffebee', color: '#c62828', label: '✕ REJECTED' };
-          if (s === 'On Hold') return { bg: '#fff3e0', color: '#e65100', label: '⏸ ON HOLD' };
-          if (s === 'Checked Out') return { bg: '#f5f5f5', color: '#616161', label: '→ CHECKED OUT' };
-          return { bg: '#dcf0e0', color: '#2d7a3e', label: '✓ PRE-APPROVED' };
+          const vd = selectedVisitor.date;
+          const nowStr = new Date().toISOString().split('T')[0];
+          let parsedDate = vd;
+          if (vd && !(/^\d{4}-\d{2}-\d{2}$/.test(vd))) { const p = vd.split('/'); if (p.length === 3) parsedDate = p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'); }
+          const isPast = parsedDate && parsedDate < nowStr;
+          const isFuture = parsedDate && parsedDate > nowStr;
+
+          // Future: always Pre-Approved
+          if (isFuture) return { bg: '#ccc8c1', color: '#4a4540', label: '✓ PRE-APPROVED' };
+
+          // Past: remap logically
+          if (isPast) {
+            if (s === 'Pre-Approved' || s === 'Scheduled' || s === 'Pending') return { bg: '#e8e3de', color: '#8a7f76', label: 'NO SHOW' };
+            if (s === 'Inside' || s === 'Passed Security') return { bg: '#d5d0ca', color: '#6b6560', label: '→ CHECKED OUT' };
+            if (s === 'Rejected' || s === 'Denied Entry' || s === 'On Hold') return { bg: '#d4b8b4', color: '#7a3b33', label: '✕ REJECTED' };
+            return { bg: '#d5d0ca', color: '#6b6560', label: '→ CHECKED OUT' };
+          }
+
+          // Today: actual status
+          if (s === 'Inside' || s === 'Passed Security') return { bg: '#c5cebf', color: '#3a4a30', label: '✓ INSIDE' };
+          if (s === 'Rejected' || s === 'Denied Entry') return { bg: '#d4b8b4', color: '#7a3b33', label: '✕ REJECTED' };
+          if (s === 'On Hold') return { bg: '#d6ccb8', color: '#6b5a3a', label: '⏸ ON HOLD' };
+          if (s === 'Checked Out' || s === 'Exited') return { bg: '#d5d0ca', color: '#6b6560', label: '→ CHECKED OUT' };
+          return { bg: '#ccc8c1', color: '#4a4540', label: '✓ PRE-APPROVED' };
         };
         const badge = viewStatusBadge();
 
@@ -5513,7 +5533,7 @@ const ResidentApp = ({ onLogout }) => {
             </div>
 
             <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:24,textAlign:'center',marginBottom:16}}>
-              <div style={{background:badge.bg,color:badge.color,padding:'8px 16px',borderRadius:4,display:'inline-block',fontSize:13,fontWeight:600,letterSpacing:'0.04em',marginBottom:16}}>{badge.label}</div>
+              <div style={{background:badge.bg,color:badge.color,padding:'8px 20px',borderRadius:20,display:'inline-block',fontSize:12,fontWeight:600,letterSpacing:'0.04em',marginBottom:16}}>{badge.label}</div>
               {selectedVisitor.securityPassedTime && <div style={{fontSize:11,color:'#5a6b4f',marginBottom:8}}>Passed at {selectedVisitor.securityPassedTime}{selectedVisitor.securityActionDate ? ' on ' + selectedVisitor.securityActionDate : ''}</div>}
               {selectedVisitor.securityRejectTime && <div style={{fontSize:11,color:'#8b4a42',marginBottom:8}}>Rejected at {selectedVisitor.securityRejectTime}</div>}
               {selectedVisitor.securityHoldTime && <div style={{fontSize:11,color:'#7a6040',marginBottom:8}}>On hold since {selectedVisitor.securityHoldTime}</div>}
@@ -5844,20 +5864,51 @@ const ResidentApp = ({ onLogout }) => {
         const visFilterTypes = ['All', 'Resident Guest', 'Contractor / Worker', 'Delivery / Courier', 'Domestic Staff', 'Service Vendor', 'Other / Misc.'];
         const visDateFilterOptions = ['All', 'Today', 'Next Week', 'Next Month', 'Past Week', 'Past Month'];
 
-        // Status badge
-        const vStatusBadge = (status) => {
+        // Status badge — Door.com inspired palette
+        // Logic: future = always Pre-Approved, past = Checked Out / Rejected / No Show only
+        const vStatusBadge = (status, visitorDate) => {
+          const vDate = visitorDate ? ((/^\d{4}-\d{2}-\d{2}$/.test(visitorDate)) ? visitorDate : (() => { const p = visitorDate.split('/'); return p.length === 3 ? p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0') : visitorDate; })()) : null;
+          const isPast = vDate && vDate < todayStr;
+          const isFuture = vDate && vDate > todayStr;
+
+          // Future visitors: always Pre-Approved
+          if (isFuture) {
+            return <span style={{background:'#ccc8c1',color:'#4a4540',padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600}}>Pre-Approved</span>;
+          }
+
+          // Past visitors: remap statuses logically
+          if (isPast) {
+            if (status === 'Pre-Approved' || status === 'Scheduled' || status === 'Pending') {
+              return <span style={{background:'#e8e3de',color:'#8a7f76',padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600}}>No Show</span>;
+            }
+            if (status === 'Inside' || status === 'Passed Security') {
+              return <span style={{background:'#d5d0ca',color:'#6b6560',padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600}}>Checked Out</span>;
+            }
+            if (status === 'Rejected' || status === 'Denied Entry') {
+              return <span style={{background:'#d4b8b4',color:'#7a3b33',padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600}}>Rejected</span>;
+            }
+            if (status === 'On Hold') {
+              return <span style={{background:'#d4b8b4',color:'#7a3b33',padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600}}>Rejected</span>;
+            }
+            // Checked Out / Exited
+            return <span style={{background:'#d5d0ca',color:'#6b6560',padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600}}>Checked Out</span>;
+          }
+
+          // Today: show actual status
           const map = {
-            'Inside': { bg: '#e8f5e9', color: '#2e7d32', label: 'In' },
-            'Pre-Approved': { bg: '#dcf0e0', color: '#2d7a3e', label: 'Pre-Approved' },
-            'Scheduled': { bg: '#dcf0e0', color: '#2d7a3e', label: 'Pre-Approved' },
-            'Checked Out': { bg: '#f5f5f5', color: '#616161', label: 'Out' },
-            'Rejected': { bg: '#ffebee', color: '#c62828', label: 'Rejected' },
-            'On Hold': { bg: '#fff3e0', color: '#e65100', label: 'Hold' },
-            'Pending': { bg: '#e3f2fd', color: '#1565c0', label: 'Pending' },
-            'Passed Security': { bg: '#e8f5e9', color: '#2e7d32', label: 'Passed' }
+            'Inside': { bg: '#c5cebf', color: '#3a4a30', label: 'Inside' },
+            'Passed Security': { bg: '#c5cebf', color: '#3a4a30', label: 'Inside' },
+            'Pre-Approved': { bg: '#ccc8c1', color: '#4a4540', label: 'Pre-Approved' },
+            'Scheduled': { bg: '#ccc8c1', color: '#4a4540', label: 'Pre-Approved' },
+            'Checked Out': { bg: '#d5d0ca', color: '#6b6560', label: 'Checked Out' },
+            'Exited': { bg: '#d5d0ca', color: '#6b6560', label: 'Checked Out' },
+            'Rejected': { bg: '#d4b8b4', color: '#7a3b33', label: 'Rejected' },
+            'Denied Entry': { bg: '#d4b8b4', color: '#7a3b33', label: 'Rejected' },
+            'On Hold': { bg: '#d6ccb8', color: '#6b5a3a', label: 'On Hold' },
+            'Pending': { bg: '#c8cdd4', color: '#3a4a5a', label: 'Pending' }
           };
-          const s = map[status] || { bg: '#f5f5f5', color: '#888', label: status };
-          return <span style={{background:s.bg,color:s.color,padding:'3px 10px',borderRadius:4,fontSize:10,fontWeight:600}}>{s.label}</span>;
+          const s = map[status] || { bg: '#d5d0ca', color: '#6b6560', label: status };
+          return <span style={{background:s.bg,color:s.color,padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:600}}>{s.label}</span>;
         };
 
         // Parse DD/MM/YYYY to YYYY-MM-DD
@@ -5919,8 +5970,14 @@ const ResidentApp = ({ onLogout }) => {
           if (key === yd) return 'Yesterday';
           const tmr = addDays(today, 1);
           if (key === tmr) return 'Tomorrow';
+          // Format as "DD Mon" (e.g. "05 Apr", "10 Mar")
+          const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
           const parts = key.split('-');
-          if (parts.length === 3) return parts[2] + '-' + parts[1] + '-' + parts[0];
+          if (parts.length === 3) {
+            const d = parseInt(parts[2], 10);
+            const m = parseInt(parts[1], 10) - 1;
+            return (d < 10 ? '0' + d : d) + ' ' + months[m];
+          }
           return key;
         };
 
@@ -5996,16 +6053,33 @@ const ResidentApp = ({ onLogout }) => {
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
                             <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
-                            {vStatusBadge(v.status)}
+                            {vStatusBadge(v.status, v.date)}
                           </div>
                           <div style={{fontSize:12,color:'#8a7f76',marginBottom:3}}>{v.type || 'Guest'} — {v.purpose || 'Visit'}</div>
-                          <div style={{fontSize:11,color:'#a89a92',marginBottom:3}}>{v.date} at {v.time}</div>
+                          <div style={{fontSize:11,color:'#a89a92',marginBottom:3}}>{(() => {
+                            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                            const vd = v.date || '';
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(vd)) { const p = vd.split('-'); return parseInt(p[2],10) + ' ' + months[parseInt(p[1],10)-1] + ' ' + p[0]; }
+                            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(vd)) { const p = vd.split('/'); return parseInt(p[0],10) + ' ' + months[parseInt(p[1],10)-1] + ' ' + p[2]; }
+                            return vd;
+                          })()} at {v.time}</div>
                           <div style={{fontSize:11,color:'#a89a92'}}>
-                            {v.status === 'Pre-Approved' || v.status === 'Scheduled' ? 'Pre-Approved by: ' + (v.resident || 'Resident') :
-                             v.status === 'Inside' ? 'Approved by: Security Guard' :
-                             v.status === 'Rejected' ? 'Rejected by: Security Guard' :
-                             v.status === 'Checked Out' ? 'Checked out' :
-                             'Pre-Approved by: ' + (v.resident || 'Resident')}
+                            {(() => {
+                              const vd = parseVisDate(v.date);
+                              const isPastV = vd && vd < todayStr;
+                              const isFutureV = vd && vd > todayStr;
+                              if (isFutureV) return 'Pre-Approved by: ' + (v.resident || 'Resident');
+                              if (isPastV && (v.status === 'Pre-Approved' || v.status === 'Scheduled' || v.status === 'Pending')) return 'Did not arrive';
+                              if (isPastV && (v.status === 'Inside' || v.status === 'Passed Security')) return 'Visited — Checked out';
+                              if (isPastV && (v.status === 'Rejected' || v.status === 'Denied Entry')) return 'Rejected by: Security Guard';
+                              if (isPastV && v.status === 'On Hold') return 'Rejected by: Security Guard';
+                              if (isPastV) return 'Checked out';
+                              if (v.status === 'Pre-Approved' || v.status === 'Scheduled') return 'Pre-Approved by: ' + (v.resident || 'Resident');
+                              if (v.status === 'Inside' || v.status === 'Passed Security') return 'Currently inside';
+                              if (v.status === 'Rejected' || v.status === 'Denied Entry') return 'Rejected by: Security Guard';
+                              if (v.status === 'Checked Out' || v.status === 'Exited') return 'Checked out';
+                              return 'Pre-Approved by: ' + (v.resident || 'Resident');
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -6107,8 +6181,8 @@ const ResidentApp = ({ onLogout }) => {
               </div>
               {scheduledVisitors.length > 0 ? scheduledVisitors.slice(0,3).map(v => {
                 const statusLabel = v.status === 'Inside' ? 'Passed Security' : v.status === 'Rejected' ? 'Rejected' : v.status === 'Checked Out' || v.status === 'Exited' ? 'Checked Out' : v.status === 'On Hold' ? 'On Hold' : 'Pre-Approved';
-                const statusColor = v.status === 'Inside' ? '#2d6a4f' : v.status === 'Rejected' ? '#8b4a42' : v.status === 'On Hold' ? '#7a6040' : '#2d7a3e';
-                const statusBg = v.status === 'Inside' ? '#e0e5db' : v.status === 'Rejected' ? '#eddbd9' : v.status === 'On Hold' ? '#ebe3d9' : '#dcf0e0';
+                const statusColor = v.status === 'Inside' ? '#2d6a4f' : v.status === 'Rejected' ? '#8b4a42' : v.status === 'On Hold' ? '#7a6040' : '#7a6f66';
+                const statusBg = v.status === 'Inside' ? '#e0e5db' : v.status === 'Rejected' ? '#eddbd9' : v.status === 'On Hold' ? '#ebe3d9' : 'rgba(26,26,26,0.06)';
                 return (
                 <div key={'up-'+v.id} style={{display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom: 10,paddingBottom:10,borderBottom:'1px solid #f2efec'}} onClick={() => { setSelectedVisitor(v); setCurrentPage('viewVisitor'); }}>
                   <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -6117,11 +6191,11 @@ const ResidentApp = ({ onLogout }) => {
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
                     <div style={{fontSize:11,color:'#a89a92'}}>{v.type} — {v.purpose || 'Personal visit'}</div>
-                    <div style={{fontSize:11,color:'#a89a92'}}>Time : {v.time}</div>
+                    <div style={{fontSize:11,color:'#a89a92'}}>{(() => { const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const d=v.date||''; if(/^\d{4}-\d{2}-\d{2}$/.test(d)){const p=d.split('-');return parseInt(p[2],10)+' '+months[parseInt(p[1],10)-1];} if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(d)){const p=d.split('/');return parseInt(p[0],10)+' '+months[parseInt(p[1],10)-1];} return d; })()} · {v.time}</div>
                     <div style={{fontSize:10,color:'#7a6f66',marginTop:2,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                       <span>Gate: {v.gate || 'Main Gate'}</span>
                       <span style={{color:'#c4b8b0'}}>·</span>
-                      <span style={{background:statusBg,color:statusColor,padding:'1px 8px',borderRadius:10,fontSize:10,fontWeight:600}}>{statusLabel}</span>
+                      <span style={{color:'#7a6f66',fontSize:10,fontWeight:500}}>Status: {statusLabel}</span>
                     </div>
                     {v.repeater && v.repeater !== 'Single Visit' && <div style={{fontSize:10,color:'#5a5470',marginTop:2}}>{v.repeater}</div>}
                   </div>
@@ -6719,58 +6793,56 @@ const ResidentApp = ({ onLogout }) => {
             </div>
             {/* Notification dropdown popup */}
             {showNotifications && (
-              <div style={{position:'absolute',top:42,right:0,width: notifications.filter(n => !dismissedNotifIds.includes(n.id)).length === 0 && !selectedNotifDetail ? 210 : 300,maxHeight:400,background:'rgba(255,255,255,0.92)',backdropFilter:'blur(24px)',WebkitBackdropFilter:'blur(24px)',borderRadius:18,boxShadow:'0 12px 40px rgba(26,26,26,0.12)',border:'1px solid rgba(255,255,255,0.6)',zIndex:999,overflow:'hidden',transition:'width 0.2s ease'}}>
-                <div style={{padding:'14px 16px 10px',borderBottom:'1px solid rgba(26,26,26,0.06)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <span style={{fontSize:15,fontWeight:600,color:'#1a1a1a',letterSpacing:'-0.02em'}}>Notifications</span>
+              <div style={{position:'absolute',top:42,right:-8,width:280,background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,boxShadow:'0 2px 12px rgba(120,100,90,0.06)',border:'1px solid rgba(255,255,255,0.5)',zIndex:999,overflow:'hidden'}}>
+                <div style={{padding:'14px 16px 10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Notifications</span>
                   {notifications.filter(n => !dismissedNotifIds.includes(n.id)).length > 0 && (
                     <span onClick={clearAllNotifs} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>Clear All</span>
                   )}
                 </div>
-                <div style={{maxHeight:340,overflowY:'auto'}}>
+                <div style={{maxHeight:300,overflowY:'auto'}}>
                   {selectedNotifDetail ? (
-                    <div style={{padding:16}}>
-                      <div onClick={() => setSelectedNotifDetail(null)} style={{fontSize:12,color:'#a89a92',cursor:'pointer',marginBottom:12,display:'flex',alignItems:'center',gap:4}}>
-                        <span style={{fontSize:16}}>‹</span> Back
+                    <div style={{padding:'4px 16px 12px'}}>
+                      <div onClick={() => setSelectedNotifDetail(null)} style={{fontSize:11,color:'#a89a92',cursor:'pointer',marginBottom:10,display:'flex',alignItems:'center',gap:4}}>
+                        <span style={{fontSize:14}}>‹</span> Back
                       </div>
-                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-                        <div style={{width:36,height:36,borderRadius:'50%',background:selectedNotifDetail.iconBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:selectedNotifDetail.iconColor,fontWeight:700}}>{selectedNotifDetail.icon}</div>
+                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                        <div style={{width:32,height:32,borderRadius:'50%',background:selectedNotifDetail.iconBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:selectedNotifDetail.iconColor,fontWeight:700}}>{selectedNotifDetail.icon}</div>
                         <div style={{flex:1}}>
-                          <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{selectedNotifDetail.title}</div>
-                          <div style={{fontSize:11,color:'#a89a92'}}>{selectedNotifDetail.time}</div>
+                          <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{selectedNotifDetail.title}</div>
+                          <div style={{fontSize:10,color:'#a89a92'}}>{selectedNotifDetail.time}</div>
                         </div>
                       </div>
-                      <div style={{fontSize:13,color:'#7a6f66',lineHeight:'1.6',background:'#f8f6f4',borderRadius:8,padding:12}}>{selectedNotifDetail.body}</div>
+                      <div style={{fontSize:12,color:'#7a6f66',lineHeight:'1.5',background:'rgba(26,26,26,0.03)',borderRadius:10,padding:10}}>{selectedNotifDetail.body}</div>
                       {selectedNotifDetail.visitor && (
-                        <div style={{marginTop:12,background:'#f2efec',borderRadius:8,padding:12}}>
-                          <div style={{fontSize:11,fontWeight:600,color:'#1a1a1a',marginBottom:6}}>Visitor Details</div>
-                          <div style={{fontSize:12,color:'#7a6f66'}}>Type: {selectedNotifDetail.visitor.type}</div>
-                          <div style={{fontSize:12,color:'#7a6f66'}}>Gate: {selectedNotifDetail.visitor.gate || 'Main Gate'}</div>
-                          <div style={{fontSize:12,color:'#7a6f66'}}>Date: {selectedNotifDetail.visitor.date}</div>
+                        <div style={{marginTop:8,background:'rgba(26,26,26,0.03)',borderRadius:10,padding:10}}>
+                          <div style={{fontSize:10,fontWeight:600,color:'#1a1a1a',marginBottom:4}}>Visitor Details</div>
+                          <div style={{fontSize:11,color:'#7a6f66'}}>Type: {selectedNotifDetail.visitor.type}</div>
+                          <div style={{fontSize:11,color:'#7a6f66'}}>Gate: {selectedNotifDetail.visitor.gate || 'Main Gate'}</div>
+                          <div style={{fontSize:11,color:'#7a6f66'}}>Date: {selectedNotifDetail.visitor.date}</div>
                         </div>
                       )}
                     </div>
                   ) : (
                     notifications.filter(n => !dismissedNotifIds.includes(n.id)).length === 0 ? (
-                      <div style={{padding:24,textAlign:'center',color:'#a89a92',fontSize:13}}>No new notifications</div>
+                      <div style={{padding:'16px 16px 12px',textAlign:'center',color:'#c4b8b0',fontSize:12}}>No new notifications</div>
                     ) : (
                       notifications.filter(n => !dismissedNotifIds.includes(n.id)).map(n => (
-                        <div key={n.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'12px 16px',borderBottom:'1px solid #f2efec',cursor:'pointer',transition:'background 0.15s'}}
-                          onClick={() => setSelectedNotifDetail(n)}
-                          onMouseEnter={e => e.currentTarget.style.background='#f8f6f4'}
-                          onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                          <div style={{width:32,height:32,borderRadius:'50%',background:n.iconBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:n.iconColor,fontWeight:700,flexShrink:0,marginTop:2}}>{n.icon}</div>
+                        <div key={n.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 16px',borderTop:'1px solid rgba(26,26,26,0.04)',cursor:'pointer'}}
+                          onClick={() => setSelectedNotifDetail(n)}>
+                          <div style={{width:30,height:30,borderRadius:'50%',background:n.iconBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:n.iconColor,fontWeight:700,flexShrink:0,marginTop:1}}>{n.icon}</div>
                           <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a',marginBottom:2}}>{n.title}</div>
+                            <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',marginBottom:1}}>{n.title}</div>
                             <div style={{fontSize:11,color:'#a89a92',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n.body}</div>
-                            <div style={{fontSize:10,color:'#c4b8b0',marginTop:3}}>{n.time}</div>
+                            <div style={{fontSize:10,color:'#c4b8b0',marginTop:2}}>{n.time}</div>
                           </div>
-                          <div onClick={(e) => { e.stopPropagation(); dismissNotif(n.id); }} style={{width:24,height:24,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:2,color:'#c4b8b0',fontSize:16,fontWeight:400}} title="Dismiss">×</div>
+                          <div onClick={(e) => { e.stopPropagation(); dismissNotif(n.id); }} style={{width:20,height:20,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:1,color:'#c4b8b0',fontSize:14}} title="Dismiss">×</div>
                         </div>
                       ))
                     )
                   )}
                 </div>
-                <div onClick={() => { setShowNotifications(false); setCurrentPage('resAnnouncements'); }} style={{padding:'10px 16px',borderTop:'1px solid rgba(26,26,26,0.06)',textAlign:'center',fontSize:12,color:'#928989',cursor:'pointer',fontWeight:500}}>
+                <div onClick={() => { setShowNotifications(false); setCurrentPage('resAnnouncements'); }} style={{padding:'10px 16px',borderTop:'1px solid rgba(26,26,26,0.04)',textAlign:'center',fontSize:11,color:'#a89a92',cursor:'pointer',fontWeight:500}}>
                   View All ›
                 </div>
               </div>
@@ -7800,10 +7872,30 @@ const SecurityApp = ({ onLogout }) => {
           </div>
 
           <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:8,padding:20,textAlign:'center',marginBottom:16}}>
-            <div style={{background: viewingVisitor.status === 'Inside' || viewingVisitor.status === 'Passed Security' ? '#1b5e20' : viewingVisitor.status === 'Rejected' || viewingVisitor.status === 'Denied Entry' ? '#b71c1c' : viewingVisitor.status === 'Pre-Approved' || viewingVisitor.status === 'Scheduled' ? '#dcf0e0' : '#8a8a8a',
-              color: viewingVisitor.status === 'Pre-Approved' || viewingVisitor.status === 'Scheduled' ? '#2d7a3e' : '#fff',padding:'6px 16px',borderRadius:4,display:'inline-block',fontSize:12,fontWeight:600,letterSpacing:'0.04em',marginBottom:16}}>
-              {viewingVisitor.status === 'Passed Security' || viewingVisitor.status === 'Inside' ? '✓ Passed Security' : viewingVisitor.status === 'Pre-Approved' || viewingVisitor.status === 'Scheduled' ? '✓ Pre-Approved' : viewingVisitor.status === 'Denied Entry' || viewingVisitor.status === 'Rejected' ? '✕ Denied' : viewingVisitor.status === 'On Hold' ? '⏸ On Hold' : viewingVisitor.status}
-            </div>
+            {(() => {
+              const vs = viewingVisitor.status;
+              const vd = viewingVisitor.date || (vp && vp.date) || '';
+              const nowStr = new Date().toISOString().split('T')[0];
+              let pd = vd;
+              if (vd && !(/^\d{4}-\d{2}-\d{2}$/.test(vd))) { const pp = vd.split('/'); if (pp.length === 3) pd = pp[2]+'-'+pp[1].padStart(2,'0')+'-'+pp[0].padStart(2,'0'); }
+              const isPast = pd && pd < nowStr;
+              const isFuture = pd && pd > nowStr;
+              let badgeBg, badgeColor, badgeLabel;
+              if (isFuture) { badgeBg = '#ccc8c1'; badgeColor = '#4a4540'; badgeLabel = '✓ Pre-Approved'; }
+              else if (isPast) {
+                if (vs === 'Pre-Approved' || vs === 'Scheduled' || vs === 'Pending') { badgeBg = '#e8e3de'; badgeColor = '#8a7f76'; badgeLabel = 'No Show'; }
+                else if (vs === 'Inside' || vs === 'Passed Security') { badgeBg = '#d5d0ca'; badgeColor = '#6b6560'; badgeLabel = '→ Checked Out'; }
+                else if (vs === 'Rejected' || vs === 'Denied Entry' || vs === 'On Hold') { badgeBg = '#d4b8b4'; badgeColor = '#7a3b33'; badgeLabel = '✕ Rejected'; }
+                else { badgeBg = '#d5d0ca'; badgeColor = '#6b6560'; badgeLabel = '→ Checked Out'; }
+              } else {
+                if (vs === 'Inside' || vs === 'Passed Security') { badgeBg = '#c5cebf'; badgeColor = '#3a4a30'; badgeLabel = '✓ Inside'; }
+                else if (vs === 'Rejected' || vs === 'Denied Entry') { badgeBg = '#d4b8b4'; badgeColor = '#7a3b33'; badgeLabel = '✕ Rejected'; }
+                else if (vs === 'On Hold') { badgeBg = '#d6ccb8'; badgeColor = '#6b5a3a'; badgeLabel = '⏸ On Hold'; }
+                else if (vs === 'Checked Out' || vs === 'Exited') { badgeBg = '#d5d0ca'; badgeColor = '#6b6560'; badgeLabel = '→ Checked Out'; }
+                else { badgeBg = '#ccc8c1'; badgeColor = '#4a4540'; badgeLabel = '✓ Pre-Approved'; }
+              }
+              return <div style={{background:badgeBg,color:badgeColor,padding:'8px 20px',borderRadius:20,display:'inline-block',fontSize:12,fontWeight:600,letterSpacing:'0.04em',marginBottom:16}}>{badgeLabel}</div>;
+            })()}
             {vp ? (
               <div ref={secQrRef} style={{display:'flex',justifyContent:'center',marginBottom:12}}></div>
             ) : (
