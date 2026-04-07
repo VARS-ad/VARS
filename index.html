@@ -6326,7 +6326,39 @@ const ResidentApp = ({ onLogout }) => {
                 <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>Upcoming Service</span>
                 <span onClick={() => setCurrentPage('services')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See All ›</span>
               </div>
-              <div style={{textAlign:'center',color:'#c4b8b0',fontSize:12,padding:8}}>No upcoming services booked</div>
+              {(() => {
+                const svcTodayISO = new Date().toISOString().split('T')[0];
+                const upcomingSvc = (data.serviceRequests || [])
+                  .filter(s => {
+                    const d = parseDateISO(s.date);
+                    return d >= svcTodayISO && (s.status === 'Scheduled' || s.status === 'Pending' || s.status === 'Pending Approval');
+                  })
+                  .sort((a, b) => (parseDateISO(a.date) + ' ' + (a.time||'')).localeCompare(parseDateISO(b.date) + ' ' + (b.time||'')))
+                  .slice(0, 3);
+                if (upcomingSvc.length === 0) {
+                  return <div style={{textAlign:'center',color:'#c4b8b0',fontSize:12,padding:8}}>No upcoming services booked</div>;
+                }
+                const svcMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                const statusColors = {Pending:'#b08a4a',Scheduled:'#5a6b4f','Pending Approval':'#b08a4a'};
+                return upcomingSvc.map(s => {
+                  const iso = parseDateISO(s.date);
+                  const dp = iso.split('-');
+                  const dl = iso === svcTodayISO ? 'Today' : (parseInt(dp[2]) + ' ' + svcMonths[parseInt(dp[1])-1]);
+                  return (
+                    <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,marginBottom:10,paddingBottom:10,borderBottom:'1px solid #f2efec'}}>
+                      <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{s.type}</div>
+                        <div style={{fontSize:11,color:'#a89a92'}}>{dl} · {s.time || '—'}</div>
+                        {s.location && <div style={{fontSize:10,color:'#7a6f66',marginTop:1}}>{s.location}</div>}
+                      </div>
+                      <span style={{fontSize:10,fontWeight:500,color: statusColors[s.status] || '#5a6b4f'}}>{s.status}</span>
+                    </div>
+                  );
+                });
+              })()}
               <button onClick={() => {setBookingMode('service'); setServiceBooking({type:'', location:'', date:'', time:'', duration:'1 hour', guests:'Normal'}); setShowServiceBookingModal(true);}} style={{width:'100%',marginTop:4,padding:'13px 0',borderRadius:14,border:'1px solid rgba(26,26,26,0.12)',background:'rgba(255,255,255,0.5)',color:'#1a1a1a',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>+ Add Service request</button>
             </div>
 
@@ -7164,7 +7196,7 @@ const ResidentApp = ({ onLogout }) => {
               if (!serviceBooking.type || !serviceBooking.location || !serviceBooking.date || !serviceBooking.time) {showToast('Please fill in all required fields'); return;}
               const booking = {id: 'BK-'+Date.now(), type: serviceBooking.type, location: serviceBooking.location, date: serviceBooking.date, time: serviceBooking.time, duration: serviceBooking.duration, guests: serviceBooking.guests, status:'Confirmed'};
               if (bookingMode === 'service') {
-                setData(prev => ({...prev, serviceRequests: [...prev.serviceRequests, {id: 'SR-'+Date.now(), type: serviceBooking.type, flat: 'B-102', resident: 'Nitin Sharma', date: serviceBooking.date, time: serviceBooking.time, status: 'Scheduled', location: serviceBooking.location}]}));
+                setData(prev => ({...prev, serviceRequests: [...prev.serviceRequests, {id: 'SR-'+Date.now(), type: serviceBooking.type, flat: 'B-102', resident: 'Nitin Sharma', date: serviceBooking.date, time: serviceBooking.time, status: 'Pending', location: serviceBooking.location, urgency: serviceBooking.guests}]}));
               } else {
                 setData(prev => ({...prev, amenityBookings: [...(prev.amenityBookings||[]), booking]}));
               }
