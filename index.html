@@ -5892,7 +5892,7 @@ const ResidentApp = ({ onLogout }) => {
                 return '9999-99-99';
               };
               const allSvc = (data.serviceRequests || []).slice();
-              const activeStatuses = ['Scheduled','Pending Approval','Pending','In Progress'];
+              const activeStatuses = ['Scheduled','Pending Approval','In Progress'];
               const pastStatuses = ['Completed','Done','Closed','Paid','Cancelled'];
               const upcoming = allSvc
                 .filter(s => activeStatuses.includes(s.status) && parseSvcDate(s.date) >= svcTodayISO)
@@ -5901,7 +5901,7 @@ const ResidentApp = ({ onLogout }) => {
                 .filter(s => pastStatuses.includes(s.status) || parseSvcDate(s.date) < svcTodayISO)
                 .sort((a,b) => (parseSvcDate(b.date)+' '+(b.time||'')).localeCompare(parseSvcDate(a.date)+' '+(a.time||'')));
               const svcStatusColor = (st) => {
-                if (st === 'Pending Approval' || st === 'Pending') return '#b08a4a';
+                if (st === 'Pending Approval') return '#b08a4a';
                 if (st === 'Scheduled') return '#5a6b4f';
                 if (st === 'In Progress') return '#4a6fa5';
                 if (st === 'Completed' || st === 'Done') return '#2d6a4f';
@@ -6378,7 +6378,7 @@ const ResidentApp = ({ onLogout }) => {
                 const upcomingSvc = (data.serviceRequests || [])
                   .filter(s => {
                     const d = parseDateISO(s.date);
-                    return d >= svcTodayISO && (s.status === 'Scheduled' || s.status === 'Pending' || s.status === 'Pending Approval');
+                    return d >= svcTodayISO && (s.status === 'Scheduled' || s.status === 'Pending Approval' || s.status === 'In Progress');
                   })
                   .sort((a, b) => (parseDateISO(a.date) + ' ' + (a.time||'')).localeCompare(parseDateISO(b.date) + ' ' + (b.time||'')))
                   .slice(0, 3);
@@ -6386,7 +6386,7 @@ const ResidentApp = ({ onLogout }) => {
                   return <div style={{textAlign:'center',color:'#c4b8b0',fontSize:12,padding:8}}>No upcoming services booked</div>;
                 }
                 const svcMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                const statusColors = {Pending:'#b08a4a',Scheduled:'#5a6b4f','Pending Approval':'#b08a4a'};
+                const statusColors = {Scheduled:'#5a6b4f','Pending Approval':'#b08a4a','In Progress':'#4a6fa5'};
                 return upcomingSvc.map(s => {
                   const iso = parseDateISO(s.date);
                   const dp = iso.split('-');
