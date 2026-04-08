@@ -722,6 +722,8 @@ const initialData = {
     { id: 'SR-1085', type: 'Plumbing', flat: 'C-0304', resident: 'Mr. Tariq Al-Nuaimi', date: '08 Apr', time: '09:00', status: 'Pending Approval' }
   ],
   amenityBookings: [],
+  dismissedNotifIds: [],
+  dismissedSecNotifIds: [],
   servicePersonnel: [
     { id: 1, name: 'Ali Hassan (Handyman)', specialty: 'General Maintenance' },
     { id: 2, name: 'CoolAir Technicians', specialty: 'HVAC / AC' },
@@ -5217,9 +5219,7 @@ const ResidentApp = ({ onLogout }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedNotifDetail, setSelectedNotifDetail] = useState(null);
   const [showResPropertyDropdown, setShowResPropertyDropdown] = useState(false);
-  const [dismissedNotifIds, setDismissedNotifIds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('varspm_dismissed_notifs') || '[]'); } catch(e) { return []; }
-  });
+  const dismissedNotifIds = data.dismissedNotifIds || [];
   const [resHhTab, setResHhTab] = useState('family');
   const [resHhShowCreate, setResHhShowCreate] = useState(false);
   const [resHhForm, setResHhForm] = useState({ name: '', phone: '', relation: 'Sister', role: 'Maid', schedule: 'Mon to Fri', hours: '9:00 AM to 17:00 PM', allowAccess: false, idDocType: 'Emirates ID', docNumber: '', vehicleNumber: '' });
@@ -5317,14 +5317,12 @@ const ResidentApp = ({ onLogout }) => {
 
   const dismissNotif = (id) => {
     const updated = [...dismissedNotifIds, id];
-    setDismissedNotifIds(updated);
-    try { localStorage.setItem('varspm_dismissed_notifs', JSON.stringify(updated)); } catch(e) {}
+    setData(prev => ({ ...prev, dismissedNotifIds: updated }));
   };
 
   const clearAllNotifs = () => {
     const allIds = notifications.map(n => n.id);
-    setDismissedNotifIds(allIds);
-    try { localStorage.setItem('varspm_dismissed_notifs', JSON.stringify(allIds)); } catch(e) {}
+    setData(prev => ({ ...prev, dismissedNotifIds: allIds }));
   };
 
   const [showCallSecurity, setShowCallSecurity] = useState(false);
@@ -6253,12 +6251,8 @@ const ResidentApp = ({ onLogout }) => {
               {waitingApprovals.length > 0 ? waitingApprovals.slice(0,2).map(v => (
                 <div key={v.id} style={{marginBottom: 14}}>
                   <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
-                    <div style={{width:44,height:44,borderRadius:'50%',background: v.source === 'security' ? '#e3f2fd' : '#fff3e0',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      {v.source === 'security' ? (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1565c0" strokeWidth="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                      ) : (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e65100" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
-                      )}
+                    <div style={{width:44,height:44,borderRadius:'50%',background:'#f2efec',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
                     </div>
                     <div style={{flex:1}}>
                       <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
@@ -6266,11 +6260,11 @@ const ResidentApp = ({ onLogout }) => {
                       <div style={{fontSize:11,color:'#a89a92'}}>
                         {v.source === 'security' ? 'From: Security Gate' : 'Waiting: ' + (v.timeWaiting || '—') + ' min'} — {v.flat || 'Gate: Main'}
                       </div>
-                      {v.source === 'security' && v.repeater && (
-                        <div style={{fontSize:10,color:'#5a5470',marginTop:2}}>{v.repeater}{v.vehicle ? ' — Vehicle: ' + v.vehicle : ''}</div>
+                      {v.repeater && v.repeater !== 'Single Visit' && (
+                        <div style={{fontSize:10,color:'#a89a92',marginTop:2}}>{v.repeater}</div>
                       )}
                     </div>
-                    <span style={{fontSize:10,color: v.source === 'security' ? '#1565c0' : '#e65100',background: v.source === 'security' ? '#e3f2fd' : '#fff3e0',padding:'3px 10px',borderRadius:4,fontWeight:600}}>
+                    <span style={{fontSize:10,color:'#7a6f66',background:'rgba(26,26,26,0.06)',padding:'3px 10px',borderRadius:4,fontWeight:600}}>
                       {v.source === 'security' ? 'Security Request' : 'Waiting'}
                     </span>
                   </div>
@@ -7752,9 +7746,7 @@ const SecurityApp = ({ onLogout }) => {
   const [secContactModal, setSecContactModal] = useState(null); // 'security' | 'pm' | null
   const [showSecNotifications, setShowSecNotifications] = useState(false);
   const [showSecProfile, setShowSecProfile] = useState(false);
-  const [dismissedSecNotifIds, setDismissedSecNotifIds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('varspm_sec_dismissed_notifs') || '[]'); } catch(e) { return []; }
-  });
+  const dismissedSecNotifIds = data.dismissedSecNotifIds || [];
   const [secFormStep, setSecFormStep] = useState('form'); // form | review
   const [newVisitorData, setNewVisitorData] = useState({
     visitorType: 'Resident Guest',
@@ -7822,14 +7814,12 @@ const SecurityApp = ({ onLogout }) => {
 
   const dismissSecNotif = (id) => {
     const updated = [...dismissedSecNotifIds, id];
-    setDismissedSecNotifIds(updated);
-    try { localStorage.setItem('varspm_sec_dismissed_notifs', JSON.stringify(updated)); } catch(e) {}
+    setData(prev => ({ ...prev, dismissedSecNotifIds: updated }));
   };
 
   const clearAllSecNotifs = () => {
     const allIds = secNotifications.map(n => n.id);
-    setDismissedSecNotifIds(allIds);
-    try { localStorage.setItem('varspm_sec_dismissed_notifs', JSON.stringify(allIds)); } catch(e) {}
+    setData(prev => ({ ...prev, dismissedSecNotifIds: allIds }));
   };
 
   const resetNewVisitorForm = () => {
@@ -8273,17 +8263,17 @@ const SecurityApp = ({ onLogout }) => {
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-                  <div style={{background:'#e0e5db',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
-                    <div style={{fontSize:18,fontWeight:700,color:'#5a6b4f'}}>{clearedCount}</div>
-                    <div style={{fontSize:9,color:'#5a6b4f',letterSpacing:'0.04em'}}>Cleared</div>
+                  <div style={{background:'#f5f3f0',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a'}}>{clearedCount}</div>
+                    <div style={{fontSize:9,color:'#a89a92',letterSpacing:'0.04em'}}>Cleared</div>
                   </div>
-                  <div style={{background:'#ebe3d9',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
-                    <div style={{fontSize:18,fontWeight:700,color:'#7a6040'}}>{pendingCount}</div>
-                    <div style={{fontSize:9,color:'#7a6040',letterSpacing:'0.04em'}}>Pending</div>
+                  <div style={{background:'#f5f3f0',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a'}}>{pendingCount}</div>
+                    <div style={{fontSize:9,color:'#a89a92',letterSpacing:'0.04em'}}>Pending</div>
                   </div>
-                  <div style={{background:'#eddbd9',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
-                    <div style={{fontSize:18,fontWeight:700,color:'#8b4a42'}}>{flaggedCount}</div>
-                    <div style={{fontSize:9,color:'#8b4a42',letterSpacing:'0.04em'}}>Flagged</div>
+                  <div style={{background:'#f5f3f0',borderRadius:4,padding:'8px 6px',textAlign:'center'}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a'}}>{flaggedCount}</div>
+                    <div style={{fontSize:9,color:'#a89a92',letterSpacing:'0.04em'}}>Flagged</div>
                   </div>
                 </div>
                 <div style={{borderTop:'1px solid #ebe7e3',paddingTop:12}}>
@@ -8914,19 +8904,17 @@ const SecurityApp = ({ onLogout }) => {
           <div style={{fontSize:36,fontWeight:300,color:'#1a1a1a',letterSpacing:'0.04em',lineHeight:1}}>{clockTime.replace(/:\d{2}\s/, ' ').split(' ')[0]}</div>
           <div style={{fontSize:14,color:'#a89a92',marginTop:2}}>{clockTime.includes('AM') ? 'AM' : 'PM'}</div>
         </div>
-        {/* Guard on Duty */}
+        {/* Guard on Duty + Shift Status */}
         <div style={{textAlign:'right'}}>
           <div style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em'}}>GUARD ON DUTY</div>
           <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>Suresh Kumar</div>
           <div style={{fontSize:10,color:'#a89a92'}}>ID: GRD-045</div>
           <div style={{fontSize:10,color:'#a89a92'}}>Shift: 06:00 — 14:00</div>
+          <div style={{fontSize:10,color:'#a89a92',marginTop:6}}>{shiftStr} elapsed</div>
         </div>
-        {/* Shift Status + Icons */}
+        {/* Icons */}
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
-          <div style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em'}}>SHIFT STATUS</div>
-          <div style={{background:'#fff',border:'1px solid #928989',borderRadius:4,padding:'4px 12px',fontSize:11,fontWeight:600,color:'#1a1a1a'}}>ACTIVE</div>
-          <div style={{fontSize:10,color:'#a89a92'}}>{shiftStr} elapsed</div>
-          <div style={{display:'flex',gap:8,marginTop:4}}>
+          <div style={{display:'flex',gap:8}}>
             {/* Account Icon — resident app style */}
             <div style={{position:'relative',zIndex:999}}>
               <div onClick={() => { setShowSecProfile(!showSecProfile); setShowSecNotifications(false); }} style={{width:36,height:36,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
@@ -9100,19 +9088,6 @@ const SecurityApp = ({ onLogout }) => {
                       </div>
                     </div>
 
-                    {/* Entry Type */}
-                    <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Entry Type *</label>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                        {['Walk-in','Drive In'].map(t => (
-                          <div key={t} onClick={() => setNewVisitorData({...newVisitorData, entryType: t})}
-                            style={{padding:10,border: newVisitorData.entryType === t ? '1.5px solid #1a1a1a' : '1px solid #d0d0d0',borderRadius:4,textAlign:'center',cursor:'pointer',background: newVisitorData.entryType === t ? '#f0f0f0' : 'transparent',fontSize:12,color: newVisitorData.entryType === t ? '#1a1a1a' : '#8a8a8a'}}>
-                            {t}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
                     {/* Full Name */}
                     <div style={{marginBottom:16}}>
                       <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Full Name *</label>
@@ -9154,13 +9129,6 @@ const SecurityApp = ({ onLogout }) => {
                       </div>
                     )}
 
-                    {/* Purpose */}
-                    <div style={{marginBottom:0}}>
-                      <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Purpose of Visit</label>
-                      <input value={newVisitorData.purpose} onChange={e => setNewVisitorData({...newVisitorData, purpose: e.target.value})}
-                        placeholder="e.g. Personal visit, Delivery, Maintenance..."
-                        style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d5cfc8',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
-                    </div>
                   </div>
 
                   {/* Section 02 — Visit Details */}
@@ -9277,9 +9245,7 @@ const SecurityApp = ({ onLogout }) => {
                   <div style={{padding:20}}>
                     {[
                       ['Mobile', newVisitorData.mobile],
-                      ['Entry Type', newVisitorData.entryType],
                       ['ID Document', newVisitorData.idDocType ? (newVisitorData.idDocType + (newVisitorData.idDocNumber ? ': ' + newVisitorData.idDocNumber : '')) : 'Not provided'],
-                      ['Purpose', newVisitorData.purpose || newVisitorData.visitorType + ' visit'],
                       ['Unit', newVisitorData.flat + ' — ' + newVisitorData.tower],
                       ['Host / Resident', newVisitorData.host || 'Resident'],
                       ['Visit Frequency', newVisitorData.repeater],
@@ -9508,7 +9474,10 @@ const App = () => {
             const mergedVisitors = mergeById(localData.visitors || [], cloudData.visitors || [], 'id');
             const mergedEntryLog = mergeById(localData.entryLog || [], cloudData.entryLog || [], 'id');
             const mergedAmenities = mergeById(localData.amenityBookings || [], cloudData.amenityBookings || [], 'id');
-            const merged = { ...initialData, ...cloudData, visitors: mergedVisitors, entryLog: mergedEntryLog, amenityBookings: mergedAmenities };
+            const mergedPending = mergeById(localData.pendingApprovals || [], cloudData.pendingApprovals || [], 'id');
+            const mergedDismissedNotifs = [...new Set([...(localData.dismissedNotifIds || []), ...(cloudData.dismissedNotifIds || [])])];
+            const mergedDismissedSecNotifs = [...new Set([...(localData.dismissedSecNotifIds || []), ...(cloudData.dismissedSecNotifIds || [])])];
+            const merged = { ...initialData, ...cloudData, visitors: mergedVisitors, entryLog: mergedEntryLog, amenityBookings: mergedAmenities, pendingApprovals: mergedPending, dismissedNotifIds: mergedDismissedNotifs, dismissedSecNotifIds: mergedDismissedSecNotifs };
             setData(merged);
             try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch(e) {}
           } else {
@@ -9517,7 +9486,10 @@ const App = () => {
               const mergedVisitors = mergeById(prev.visitors || [], cloudData.visitors || [], 'id');
               const mergedEntryLog = mergeById(prev.entryLog || [], cloudData.entryLog || [], 'id');
               const mergedAmenities = mergeById(prev.amenityBookings || [], cloudData.amenityBookings || [], 'id');
-              const merged = { ...prev, ...cloudData, visitors: mergedVisitors, entryLog: mergedEntryLog, amenityBookings: mergedAmenities };
+              const mergedPending = mergeById(prev.pendingApprovals || [], cloudData.pendingApprovals || [], 'id');
+              const mergedDismissedNotifs = [...new Set([...(prev.dismissedNotifIds || []), ...(cloudData.dismissedNotifIds || [])])];
+              const mergedDismissedSecNotifs = [...new Set([...(prev.dismissedSecNotifIds || []), ...(cloudData.dismissedSecNotifIds || [])])];
+              const merged = { ...prev, ...cloudData, visitors: mergedVisitors, entryLog: mergedEntryLog, amenityBookings: mergedAmenities, pendingApprovals: mergedPending, dismissedNotifIds: mergedDismissedNotifs, dismissedSecNotifIds: mergedDismissedSecNotifs };
               try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch(e) {}
               return merged;
             });
