@@ -479,7 +479,7 @@ body{font-family:'Helvetica Now Text','Inter',-apple-system,BlinkMacSystemFont,'
 .sec-tab:hover{background:var(--accent-warm-light);color:var(--text-dark)}
 .sec-tab.active{color:#fff;background:var(--bg-warm-dark);border-color:var(--bg-warm-dark)}
 .sec-main-content{padding:16px;flex:1;overflow-y:auto}
-.sec-quick-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.sec-quick-actions{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
 .sec-quick-action-btn{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:20px 16px;text-align:center;cursor:pointer;color:var(--text-dark);transition:all .2s}
 .sec-quick-action-btn:hover{background:var(--bg-surface);border-color:var(--accent-warm)}
 .sec-quick-action-btn .icon{font-size:24px;margin-bottom:8px}
@@ -572,7 +572,7 @@ body{font-family:'Helvetica Now Text','Inter',-apple-system,BlinkMacSystemFont,'
   .sec-tabs{padding:8px 8px;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .sec-tab{padding:7px 14px;font-size:10px;white-space:nowrap;flex-shrink:0}
   .sec-main-content{padding:10px}
-  .sec-quick-actions{grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+  .sec-quick-actions{grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px}
   .sec-quick-action-btn{padding:10px 6px}
   .sec-quick-action-btn .icon{font-size:18px;margin-bottom:4px}
   .sec-quick-action-btn .label{font-size:10px}
@@ -639,6 +639,48 @@ body{font-family:'Helvetica Now Text','Inter',-apple-system,BlinkMacSystemFont,'
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef, createContext, useContext } = React;
 
+// ==================== UNITS DATABASE ====================
+// Floors 1-10, each with units ending 00-10 (e.g. 100-110, 200-210, ..., 1000-1010) — 110 units total
+const UNITS_DATABASE = Array.from({length:10},(_,i)=>{
+  const floor = (i+1)*100;
+  return Array.from({length:11},(_,j)=>String(floor+j));
+}).flat();
+
+// ==================== RESIDENTS DATABASE (100 residents) ====================
+// Persisted to Supabase via initialData.residents. Unit → Resident lookup drives auto-populate of
+// the Host/Resident field in the visitor entry forms.
+const RESIDENTS_DATABASE = (() => {
+  const firstNames = ['Ahmed','Fatima','Omar','Aisha','Khalid','Mariam','Yousef','Layla','Hassan','Noor',
+                      'Ibrahim','Zahra','Mohammed','Hanan','Ali','Sara','Saif','Dalia','Rashid','Leena',
+                      'Faisal','Huda','Tariq','Yasmin','Nasser'];
+  const lastNames  = ['Al-Mansoori','Al-Nahyan','Al-Maktoum','Al-Qasimi','Al-Ahmadi','Al-Falasi','Al-Zaabi','Al-Suwaidi','Al-Mazrouei','Al-Blooshi',
+                      'Al-Ketbi','Al-Kaabi','Al-Tunaiji','Al-Dhaheri','Al-Shamsi','Al-Nuaimi','Al-Hammadi','Al-Marri','Al-Amiri','Al-Romaithi',
+                      'Al-Rashedi','Al-Hosani','Al-Jaberi','Al-Bastaki','Al-Awadhi'];
+  const towers = ['Tower A','Tower B','Tower C','Tower D'];
+  const list = [];
+  for (let i = 0; i < 100; i++) {
+    const fn = firstNames[i % firstNames.length];
+    const ln = lastNames[Math.floor(i / firstNames.length) % lastNames.length];
+    const unit = UNITS_DATABASE[i]; // residents occupy the first 100 units (100..1009)
+    const tower = towers[i % towers.length];
+    const phone = '+971 5' + (i % 9) + ' ' + String(100 + i).padStart(3,'0') + ' ' + String((1000 + i*137) % 10000).toString().padStart(4,'0');
+    list.push({
+      id: 'RES-' + String(i+1).padStart(3,'0'),
+      firstName: fn,
+      lastName: ln,
+      fullName: fn + ' ' + ln,
+      unit,
+      tower,
+      phone,
+      email: fn.toLowerCase() + '.' + ln.toLowerCase().replace(/[^a-z]/g,'') + '@residents.vars.ae',
+    });
+  }
+  return list;
+})();
+
+// Fast unit → resident lookup
+const RESIDENT_BY_UNIT = RESIDENTS_DATABASE.reduce((acc, r) => { acc[r.unit] = r; return acc; }, {});
+
 // ==================== DATE FORMATTING HELPERS ====================
 const formatDate = (date) => {
   if (!date) return '';
@@ -683,6 +725,9 @@ const formatTime12 = (date) => {
 const initialData = {
   currentUser: { name: 'Hassan Al-PM', email: 'hassan@pinnaclepm.ae', phone: '+971 50 999 0001', role: 'Property Manager' },
   property: { name: 'VARS Property Management', location: 'Abu Dhabi, UAE', timezone: 'Asia/Dubai (GMT+4)', towers: 5, totalFlats: 4740, occupiedFlats: 4110 },
+  // Full units catalog + 100 residents — persisted to Supabase via app_state
+  unitsCatalog: UNITS_DATABASE,
+  residents: RESIDENTS_DATABASE,
   kpis: { totalResidences: 1240, occupiedFlats: 1087, visitorsInside: 86, activeServiceReq: 15, scheduledVisits: 12, unackAlerts: 3, pendingApprovals: 7 },
   towers: [
     { name: 'The Pinnacle Residences', location: 'Al Reem Island', totalFlats: 1240, occupied: 1087 },
@@ -1895,6 +1940,7 @@ const VisitorsPage = () => {
   const [pmcFormStep, setPmcFormStep] = useState('form');
   const [formErrors, setFormErrors] = useState({});
   const [isCreatingVisitor, setIsCreatingVisitor] = useState(false);
+  const [pmcUnitFocused, setPmcUnitFocused] = useState(false);
   const [newVisitor, setNewVisitor] = useState({
     visitorType: 'Resident Guest',
     entryType: 'Walk-in',
@@ -2167,8 +2213,7 @@ const VisitorsPage = () => {
                   <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:20}}>
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
                       <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#e8e3de',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#a89a92'}}>01</span> VISITOR IDENTITY</div>
-                      <span style={{fontSize:10,color:'#1a1a1a',letterSpacing:'0.06em'}}>REQUIRED</span>
-                    </div>
+                                          </div>
 
                     {/* Visitor Type */}
                     <div style={{marginBottom:16}}>
@@ -2252,23 +2297,60 @@ const VisitorsPage = () => {
                   <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:20}}>
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
                       <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#e8e3de',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#a89a92'}}>02</span> VISIT DETAILS</div>
-                      <span style={{fontSize:10,color:'#1a1a1a',letterSpacing:'0.06em'}}>REQUIRED</span>
-                    </div>
+                                          </div>
 
                     {/* Flat / Unit + Tower */}
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-                      <div>
-                        <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Flat / Unit No. *</label>
-                        <input value={newVisitor.flat} onChange={e => setNewVisitor({...newVisitor, flat: e.target.value})}
-                          placeholder="Select unit..."
+                      <div style={{position:'relative'}}>
+                        <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Unit No. *</label>
+                        <input value={newVisitor.flat}
+                          onChange={e => {
+                            const val = e.target.value;
+                            const resident = RESIDENT_BY_UNIT[val.trim()];
+                            setNewVisitor({
+                              ...newVisitor,
+                              flat: val,
+                              host: resident ? resident.fullName : newVisitor.host,
+                              tower: resident ? resident.tower : newVisitor.tower
+                            });
+                            setPmcUnitFocused(true);
+                          }}
+                          onFocus={() => setPmcUnitFocused(true)}
+                          onBlur={() => setTimeout(() => setPmcUnitFocused(false), 150)}
+                          placeholder="Type unit number..."
                           style={{width:'100%',padding:'10px 12px',background:'#fff',border:formErrors.flat ? '2px solid #d32f2f' : '1px solid #d5cfc8',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
                         {formErrors.flat && <div style={{fontSize:11,color:'#d32f2f',marginTop:4}}>{formErrors.flat}</div>}
-                        <div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>
-                          {['A-101','A-202','B-102','B-803','C-501','D-1102'].map(u => (
-                            <span key={u} onClick={() => setNewVisitor({...newVisitor, flat: u})}
-                              style={{padding:'3px 8px',background: newVisitor.flat === u ? '#1a1a1a' : '#f0f0f0',color: newVisitor.flat === u ? '#fff' : '#8a8a8a',borderRadius:3,fontSize:10,cursor:'pointer',border:'1px solid #d5cfc8'}}>{u}</span>
-                          ))}
-                        </div>
+                        {pmcUnitFocused && newVisitor.flat && (() => {
+                          const matches = UNITS_DATABASE.filter(u => u.startsWith(newVisitor.flat.trim())).slice(0,5);
+                          if (matches.length === 0) return null;
+                          if (matches.length === 1 && matches[0] === newVisitor.flat.trim()) return null;
+                          return (
+                            <div style={{position:'absolute',top:'100%',left:0,right:0,marginTop:4,background:'#fff',border:'1px solid #d5cfc8',borderRadius:4,boxShadow:'0 4px 12px rgba(0,0,0,0.08)',zIndex:10,maxHeight:220,overflowY:'auto'}}>
+                              {matches.map(u => {
+                                const res = RESIDENT_BY_UNIT[u];
+                                return (
+                                  <div key={u}
+                                    onMouseDown={e => {
+                                      e.preventDefault();
+                                      setNewVisitor({
+                                        ...newVisitor,
+                                        flat: u,
+                                        host: res ? res.fullName : newVisitor.host,
+                                        tower: res ? res.tower : newVisitor.tower
+                                      });
+                                      setPmcUnitFocused(false);
+                                    }}
+                                    style={{padding:'10px 12px',fontSize:12,color:'#1a1a1a',cursor:'pointer',borderBottom:'1px solid #f0ece8'}}
+                                    onMouseEnter={e => e.currentTarget.style.background='#f5f3f0'}
+                                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                                    <span style={{fontWeight:600}}>Unit {u}</span>
+                                    <span style={{color:'#a89a92'}}> / {res ? res.fullName : 'Vacant'}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div>
                         <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Tower / Block</label>
@@ -2281,7 +2363,7 @@ const VisitorsPage = () => {
 
                     {/* Host / Resident */}
                     <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Host / Resident Name *</label>
+                      <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Resident Name *</label>
                       <input value={newVisitor.host} onChange={e => setNewVisitor({...newVisitor, host: e.target.value})}
                         placeholder="Auto-populated on unit selection..."
                         style={{width:'100%',padding:'10px 12px',background:'#fff',border:formErrors.host ? '2px solid #d32f2f' : '1px solid #d5cfc8',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
@@ -5115,7 +5197,6 @@ const PreApproveForm = ({ onBack, showToast, data, setData }) => {
       {/* Visitor Identity */}
       <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:20,marginBottom:12}}>
         <div style={{fontSize:11,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:14,fontWeight:600}}>Visitor Identity</div>
-        <div style={{fontSize:10,color:'#a89a92',marginBottom:14,fontStyle:'italic'}}>Fields marked with * are required</div>
 
         <div style={{marginBottom:14}}>
           <label style={{fontSize:12,color:'#6b5d52',fontWeight:500,marginBottom:4,display:'block'}}>Full Name *</label>
@@ -7752,6 +7833,7 @@ const SecurityApp = ({ onLogout }) => {
   const [showSecProfile, setShowSecProfile] = useState(false);
   const dismissedSecNotifIds = data.dismissedSecNotifIds || [];
   const [secFormStep, setSecFormStep] = useState('form'); // form | review
+  const [secUnitFocused, setSecUnitFocused] = useState(false);
   const [newVisitorData, setNewVisitorData] = useState({
     visitorType: 'Resident Guest',
     entryType: 'Walk-in',
@@ -7949,6 +8031,49 @@ const SecurityApp = ({ onLogout }) => {
     showToast('Visitor request sent to resident for approval');
     resetNewVisitorForm();
     setShowNewVisitorForm(false);
+  };
+
+  // Security-side override: approve a pending visitor and move them to "Visitors Inside"
+  const handleSecApprove = (p) => {
+    const timeNow = new Date();
+    const timeStr = timeNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Dubai' });
+    setData(prev => ({
+      ...prev,
+      // Mark pending approval as resolved (approved by security)
+      pendingApprovals: prev.pendingApprovals.map(x => x.id === p.id ? { ...x, resolved: 'approved-by-security' } : x),
+      // Flip matching visitor row to Inside so they appear in "Visitors Inside Now"
+      visitors: prev.visitors.map(v =>
+        (v.permitRef && v.permitRef === p.permitRef) || (v.name === p.name && v.flat === p.flat && v.status === 'Awaiting Approval')
+          ? { ...v, status: 'Inside', time: v.time || timeStr, approvedBy: 'Security' }
+          : v
+      ),
+      // Update matching entry log row so it shows in Visitor Log as APPROVED by security
+      entryLog: prev.entryLog.map(e =>
+        (e.refId && e.refId === p.permitRef) || (e.visitor === p.name && e.flat === p.flat && e.status === 'AWAITING APPROVAL')
+          ? { ...e, status: 'APPROVED BY SECURITY', timeIn: e.timeIn || timeStr }
+          : e
+      )
+    }));
+    showToast(p.name + ' approved by security — moved to Visitors Inside');
+  };
+
+  // Security-side override: reject a pending visitor
+  const handleSecReject = (p) => {
+    setData(prev => ({
+      ...prev,
+      pendingApprovals: prev.pendingApprovals.map(x => x.id === p.id ? { ...x, resolved: 'rejected-by-security' } : x),
+      visitors: prev.visitors.map(v =>
+        (v.permitRef && v.permitRef === p.permitRef) || (v.name === p.name && v.flat === p.flat && v.status === 'Awaiting Approval')
+          ? { ...v, status: 'Rejected', rejectedBy: 'Security' }
+          : v
+      ),
+      entryLog: prev.entryLog.map(e =>
+        (e.refId && e.refId === p.permitRef) || (e.visitor === p.name && e.flat === p.flat && e.status === 'AWAITING APPROVAL')
+          ? { ...e, status: 'REJECTED BY SECURITY' }
+          : e
+      )
+    }));
+    showToast(p.name + ' rejected by security');
   };
 
   // Live clock from device — updates every second
@@ -8228,16 +8353,17 @@ const SecurityApp = ({ onLogout }) => {
 
       return (
         <div>
-          {/* § 01 — QUICK ACTIONS — PRIMARY CONTROLS */}
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}}>
-              <span style={{color:'#1a1a1a'}}>■</span> QUICK ACTIONS — PRIMARY CONTROLS
+          {/* § 01 — PRIMARY CONTROLS */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>PRIMARY CONTROLS</div>
+              <div style={{fontSize:10,color:'#a89a92',marginTop:2}}>Quick actions for visitor entry</div>
             </div>
           </div>
           <div className="sec-quick-actions">
             <div className="sec-quick-action-btn" onClick={() => { resetNewVisitorForm(); setShowNewVisitorForm(true); }} style={{cursor:'pointer',position:'relative'}}>
               <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><line x1="18" y1="8" x2="18" y2="14"/><line x1="15" y1="11" x2="21" y2="11"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round"><circle cx="10" cy="8" r="3.5"/><path d="M4 20v-1a4 4 0 014-4h4a4 4 0 014 4v1"/><line x1="19.5" y1="3" x2="19.5" y2="9"/><line x1="16.5" y1="6" x2="22.5" y2="6"/></svg>
               </div>
               <div className="label">New Visitor Entry</div>
               <div className="shortcut">Register new visitor manually</div>
@@ -8311,29 +8437,34 @@ const SecurityApp = ({ onLogout }) => {
                 </div>
                 {activePending.length === 0 ? (
                   <div style={{textAlign:'center',padding:'20px 0',color:'#a89a92',fontSize:12}}>No pending approvals</div>
-                ) : activePending.slice(0,3).map(p => (
-                  <div key={p.id} className="sec-pending-card">
-                    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-                      <div style={{width:32,height:32,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#1a1a1a'}}>
-                        {(p.name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2)}
+                ) : (
+                  <div style={{maxHeight:460,overflowY:'auto',paddingRight:4}}>
+                    {activePending.map(p => (
+                      <div key={p.id} className="sec-pending-card">
+                        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                          <div style={{width:32,height:32,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:'#1a1a1a'}}>
+                            {(p.name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2)}
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div className="name">{p.name}</div>
+                            <div className="details">{p.type} • Unit {p.flat} • {p.time || p.timeWaiting || 'Just now'}</div>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:6,padding:'6px 8px',background:'#fff6e8',border:'1px solid #f0e0c0',borderRadius:4,marginBottom:8}}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#b58437" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                          <span style={{fontSize:10,color:'#7a6040',fontWeight:600,letterSpacing:'0.02em'}}>Awaiting resident approval</span>
+                        </div>
+                        <div className="action-buttons">
+                          <button className="approve-btn" onClick={() => handleSecApprove(p)} style={{fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg> APPROVE BY SECURITY
+                          </button>
+                          <button className="reject-btn" onClick={() => handleSecReject(p)} style={{fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> REJECT BY SECURITY
+                          </button>
+                        </div>
                       </div>
-                      <div style={{flex:1}}>
-                        <div className="name">{p.name}</div>
-                        <div className="details">{p.type} • {p.flat} • {p.time || p.timeWaiting || 'Just now'}</div>
-                      </div>
-                    </div>
-                    <div className="action-buttons">
-                      <button className="approve-btn" style={{fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg> APPROVE
-                      </button>
-                      <button className="reject-btn" style={{fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> REJECT
-                      </button>
-                    </div>
+                    ))}
                   </div>
-                ))}
-                {activePending.length > 3 && (
-                  <button className="sec-view-all-btn">VIEW ALL ({activePending.length}) APPROVALS</button>
                 )}
               </div>
 
@@ -9074,8 +9205,7 @@ const SecurityApp = ({ onLogout }) => {
                   <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:20}}>
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
                       <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#e8e3de',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#a89a92'}}>01</span> VISITOR IDENTITY</div>
-                      <span style={{fontSize:10,color:'#1a1a1a',letterSpacing:'0.06em'}}>REQUIRED</span>
-                    </div>
+                                          </div>
 
                     {/* Visitor Type */}
                     <div style={{marginBottom:16}}>
@@ -9137,23 +9267,59 @@ const SecurityApp = ({ onLogout }) => {
                   <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:20}}>
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
                       <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#e8e3de',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#a89a92'}}>02</span> VISIT DETAILS</div>
-                      <span style={{fontSize:10,color:'#1a1a1a',letterSpacing:'0.06em'}}>REQUIRED</span>
-                    </div>
-                    <div style={{fontSize:10,color:'#a89a92',marginBottom:16,fontStyle:'italic'}}>Fields marked with * are required</div>
+                                          </div>
 
                     {/* Flat / Unit */}
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-                      <div>
-                        <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Flat / Unit No. *</label>
-                        <input value={newVisitorData.flat} onChange={e => setNewVisitorData({...newVisitorData, flat: e.target.value})}
-                          placeholder="Select unit..."
+                      <div style={{position:'relative'}}>
+                        <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Unit No. *</label>
+                        <input value={newVisitorData.flat}
+                          onChange={e => {
+                            const val = e.target.value;
+                            const resident = RESIDENT_BY_UNIT[val.trim()];
+                            setNewVisitorData({
+                              ...newVisitorData,
+                              flat: val,
+                              host: resident ? resident.fullName : newVisitorData.host,
+                              tower: resident ? resident.tower : newVisitorData.tower
+                            });
+                            setSecUnitFocused(true);
+                          }}
+                          onFocus={() => setSecUnitFocused(true)}
+                          onBlur={() => setTimeout(() => setSecUnitFocused(false), 150)}
+                          placeholder="Type unit number..."
                           style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d5cfc8',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
-                        <div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>
-                          {['A-101','A-202','B-102','B-803','C-501','D-1102'].map(u => (
-                            <span key={u} onClick={() => setNewVisitorData({...newVisitorData, flat: u})}
-                              style={{padding:'3px 8px',background: newVisitorData.flat === u ? '#1a1a1a' : '#f0f0f0',color: newVisitorData.flat === u ? '#fff' : '#8a8a8a',borderRadius:3,fontSize:10,cursor:'pointer',border:'1px solid #d5cfc8'}}>{u}</span>
-                          ))}
-                        </div>
+                        {secUnitFocused && newVisitorData.flat && (() => {
+                          const matches = UNITS_DATABASE.filter(u => u.startsWith(newVisitorData.flat.trim())).slice(0,5);
+                          if (matches.length === 0) return null;
+                          if (matches.length === 1 && matches[0] === newVisitorData.flat.trim()) return null;
+                          return (
+                            <div style={{position:'absolute',top:'100%',left:0,right:0,marginTop:4,background:'#fff',border:'1px solid #d5cfc8',borderRadius:4,boxShadow:'0 4px 12px rgba(0,0,0,0.08)',zIndex:10,maxHeight:220,overflowY:'auto'}}>
+                              {matches.map(u => {
+                                const res = RESIDENT_BY_UNIT[u];
+                                return (
+                                  <div key={u}
+                                    onMouseDown={e => {
+                                      e.preventDefault();
+                                      setNewVisitorData({
+                                        ...newVisitorData,
+                                        flat: u,
+                                        host: res ? res.fullName : newVisitorData.host,
+                                        tower: res ? res.tower : newVisitorData.tower
+                                      });
+                                      setSecUnitFocused(false);
+                                    }}
+                                    style={{padding:'10px 12px',fontSize:12,color:'#1a1a1a',cursor:'pointer',borderBottom:'1px solid #f0ece8'}}
+                                    onMouseEnter={e => e.currentTarget.style.background='#f5f3f0'}
+                                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                                    <span style={{fontWeight:600}}>Unit {u}</span>
+                                    <span style={{color:'#a89a92'}}> / {res ? res.fullName : 'Vacant'}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div>
                         <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Tower / Block</label>
@@ -9166,7 +9332,7 @@ const SecurityApp = ({ onLogout }) => {
 
                     {/* Host / Resident */}
                     <div style={{marginBottom:16}}>
-                      <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Host / Resident Name *</label>
+                      <label style={{fontSize:10,color:'#a89a92',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Resident Name *</label>
                       <input value={newVisitorData.host} onChange={e => setNewVisitorData({...newVisitorData, host: e.target.value})}
                         placeholder="Auto-populated on unit selection..."
                         style={{width:'100%',padding:'10px 12px',background:'#fff',border:'1px solid #d5cfc8',borderRadius:4,color:'#1a1a1a',fontSize:13,boxSizing:'border-box',outline:'none'}}/>
