@@ -11359,7 +11359,14 @@ const SecurityApp = ({ onLogout }) => {
           {/* Instructions */}
           {idScanStatus === 'ready' && (
             <div style={{marginTop:16,textAlign:'center',color:'rgba(255,255,255,0.5)',fontSize:11,maxWidth:300}}>
-              Hold the Emirates ID flat and well-lit. Tap capture when the card is clearly visible.
+              Hold the front side of Emirates ID flat, close-up, and well-lit. Make sure the English name and ID number are clearly readable before capturing.
+            </div>
+          )}
+          {idScanStatus === 'ready' && (
+            <div style={{marginTop:10,display:'flex',flexWrap:'wrap',justifyContent:'center',gap:6,maxWidth:340}}>
+              {['Fill the frame with the card','Avoid glare on holograms','Keep text sharp, not blurry','Use good lighting'].map((tip,i) => (
+                <div key={i} style={{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:20,padding:'4px 12px',fontSize:10,color:'rgba(255,255,255,0.4)'}}>{tip}</div>
+              ))}
             </div>
           )}
         </div>
