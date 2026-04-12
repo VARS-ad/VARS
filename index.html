@@ -684,6 +684,99 @@ const RESIDENTS_DATABASE = (() => {
 // Fast unit → resident lookup
 const RESIDENT_BY_UNIT = RESIDENTS_DATABASE.reduce((acc, r) => { acc[r.unit] = r; return acc; }, {});
 
+// ==================== PROPERTY UNITS DATABASE ====================
+// Authoritative source of truth for Sky Tower — The Pinnacle Residences.
+// 100 physical units across 4 towers × 5 floors × 5 units.
+// Each unit carries occupancy status, owner/tenant, type, size, value, and lease window.
+// Used by the PM Dashboard KPIs and the All Residents / Properties pages.
+const PROPERTY_UNITS_DATABASE = (() => {
+  const towers = ['A','B','C','D'];
+  const typesBySeed = ['1BR','2BR','2BR','3BR','3BR','Penthouse','2BR','1BR','3BR','2BR'];
+  const sizeByType = { '1BR': 78, '2BR': 118, '3BR': 168, 'Penthouse': 285 };
+  const priceByType = { '1BR': 1_250_000, '2BR': 2_100_000, '3BR': 3_250_000, 'Penthouse': 6_800_000 };
+  const rentByType  = { '1BR': 7_500,     '2BR': 11_500,    '3BR': 16_800,    'Penthouse': 34_000 };
+
+  const firstNames = ['Ahmed','Fatima','Omar','Aisha','Khalid','Mariam','Yousef','Layla','Hassan','Noor',
+                      'Ibrahim','Zahra','Mohammed','Hanan','Ali','Sara','Saif','Dalia','Rashid','Leena',
+                      'Faisal','Huda','Tariq','Yasmin','Nasser','Amira','Abdullah','Maryam','Jamal','Reem'];
+  const lastNames  = ['Al-Mansoori','Al-Nahyan','Al-Maktoum','Al-Qasimi','Al-Falasi','Al-Zaabi','Al-Suwaidi','Al-Mazrouei',
+                      'Al-Ketbi','Al-Kaabi','Al-Tunaiji','Al-Dhaheri','Al-Shamsi','Al-Nuaimi','Al-Hammadi','Al-Amiri',
+                      'Al-Hosani','Al-Jaberi','Al-Bastaki','Al-Awadhi','Al-Breiki','Al-Farsi','Al-Remeithi','Al-Ali'];
+
+  // Status mix for 100 units — realistic occupancy ~85%
+  //   Occupied: 85  ·  Vacant: 6  ·  For Rent: 5  ·  For Sale: 4
+  const statusPlan = [];
+  for (let i = 0; i < 85; i++) statusPlan.push('Occupied');
+  for (let i = 0; i < 6;  i++) statusPlan.push('Vacant');
+  for (let i = 0; i < 5;  i++) statusPlan.push('For Rent');
+  for (let i = 0; i < 4;  i++) statusPlan.push('For Sale');
+  // Deterministic shuffle (Fisher–Yates with seeded RNG)
+  let seed = 19840411;
+  const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  for (let i = statusPlan.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [statusPlan[i], statusPlan[j]] = [statusPlan[j], statusPlan[i]];
+  }
+
+  const list = [];
+  let idx = 0;
+  for (let t = 0; t < towers.length; t++) {          // 4 towers
+    for (let f = 1; f <= 5; f++) {                    // 5 floors per tower
+      for (let u = 1; u <= 5; u++) {                  // 5 units per floor
+        const tower = towers[t];
+        const flat = tower + '-' + String(f).padStart(2,'0') + String(u).padStart(2,'0');
+        const type = typesBySeed[(t*25 + (f-1)*5 + (u-1)) % typesBySeed.length];
+        const size = sizeByType[type];
+        const price = priceByType[type];
+        const rent = rentByType[type];
+        const status = statusPlan[idx];
+        const isOccupied = status === 'Occupied';
+        const fn = firstNames[(t*7 + f*3 + u) % firstNames.length];
+        const ln = lastNames[(t*11 + f*5 + u*2) % lastNames.length];
+        const ownerName = isOccupied ? (u % 3 === 0 ? 'Ms. ' : 'Mr. ') + fn + ' ' + ln : null;
+        const ownerPhone = isOccupied ? '+971 5' + ((t+f+u) % 9) + ' ' + String(100 + idx).padStart(3,'0') + ' ' + String((1000 + idx*137) % 10000).toString().padStart(4,'0') : null;
+        const occupants = isOccupied ? 1 + ((t + f + u) % 5) : 0;
+        // Lease window for occupied (tenants) and For Rent (last tenant history)
+        const leaseMonths = 12 + ((idx * 7) % 24);
+        const leaseStartYear = 2023 + ((idx * 3) % 3);
+        const leaseStartMonth = 1 + ((idx * 5) % 12);
+        const leaseStart = leaseStartYear + '-' + String(leaseStartMonth).padStart(2,'0') + '-01';
+        const leaseEnd = (leaseStartYear + Math.floor((leaseStartMonth + leaseMonths - 1) / 12)) + '-' + String(((leaseStartMonth + leaseMonths - 1) % 12) + 1).padStart(2,'0') + '-01';
+        list.push({
+          id: 'U-' + String(idx + 1).padStart(4,'0'),
+          flat,
+          tower,
+          floor: f,
+          unitNumber: u,
+          type,
+          sizeSqm: size,
+          status,                       // Occupied · Vacant · For Rent · For Sale
+          ownerName,
+          ownerPhone,
+          occupants,
+          valueAed: price,
+          monthlyRentAed: rent,
+          leaseStart: isOccupied ? leaseStart : null,
+          leaseEnd: isOccupied ? leaseEnd : null,
+          verified: isOccupied ? (idx % 4 !== 0) : false,
+          residentId: isOccupied ? 'RES-' + String(idx + 1).padStart(3,'0') : null,
+        });
+        idx++;
+      }
+    }
+  }
+  return list;
+})();
+
+// Aggregate totals derived from the authoritative units database
+const PROPERTY_UNITS_STATS = {
+  total:    PROPERTY_UNITS_DATABASE.length,
+  occupied: PROPERTY_UNITS_DATABASE.filter(u => u.status === 'Occupied').length,
+  vacant:   PROPERTY_UNITS_DATABASE.filter(u => u.status === 'Vacant').length,
+  forRent:  PROPERTY_UNITS_DATABASE.filter(u => u.status === 'For Rent').length,
+  forSale:  PROPERTY_UNITS_DATABASE.filter(u => u.status === 'For Sale').length,
+};
+
 // ==================== DATE FORMATTING HELPERS ====================
 const formatDate = (date) => {
   if (!date) return '';
@@ -728,10 +821,12 @@ const formatTime12 = (date) => {
 const initialData = {
   currentUser: { name: 'Hassan Al-PM', email: 'hassan@pinnaclepm.ae', phone: '+971 50 999 0001', role: 'Property Manager' },
   property: { name: 'VARS Property Management', location: 'Abu Dhabi, UAE', timezone: 'Asia/Dubai (GMT+4)', towers: 5, totalFlats: 4740, occupiedFlats: 4110 },
-  // Full units catalog + 100 residents — persisted to Supabase via app_state
+  // Full units catalog + residents — persisted to Supabase via app_state
   unitsCatalog: UNITS_DATABASE,
   residents: RESIDENTS_DATABASE,
-  kpis: { totalResidences: 1240, occupiedFlats: 1087, visitorsInside: 86, activeServiceReq: 15, scheduledVisits: 12, unackAlerts: 3, pendingApprovals: 7 },
+  // Authoritative property units database — drives PM Dashboard KPIs
+  propertyUnits: PROPERTY_UNITS_DATABASE,
+  kpis: { totalResidences: PROPERTY_UNITS_STATS.total, occupiedFlats: PROPERTY_UNITS_STATS.occupied, visitorsInside: 86, activeServiceReq: 15, scheduledVisits: 12, unackAlerts: 3, pendingApprovals: 7 },
   towers: [
     { name: 'The Pinnacle Residences', location: 'Al Reem Island', totalFlats: 1240, occupied: 1087 },
     { name: 'Al Raha Gardens', location: 'Al Raha Beach', totalFlats: 680, occupied: 598 },
@@ -740,16 +835,16 @@ const initialData = {
     { name: 'Bloom Living', location: 'Casares, Abu Dhabi', totalFlats: 1560, occupied: 1320 }
   ],
   visitors: [
-    { id: 1, name: 'James Harrison', resident: 'Mr. Khalid Al-Mansoori', flat: 'A-1204', contact: '+971 50 123 4567', type: 'Guest', gate: 'Main Gate', status: 'Inside', time: '09:14', date: '05 Apr', permitRef: 'VIS-2026-0001', duration: '2 hours', qrCode: 'Pre-approved' },
-    { id: 2, name: 'ProServ Cleaning Co.', resident: 'Ms. Amira Belhasa', flat: 'B-0803', contact: '+971 50 234 5678', type: 'Vendor', gate: 'Main Gate', status: 'Inside', time: '09:32', date: '05 Apr', permitRef: 'VIS-2026-0002', duration: '2 hours', qrCode: 'Pre-approved' },
-    { id: 3, name: 'Ahmad Al-Sayed', resident: 'Mr. Hassan Al-Farsi', flat: 'C-0501', contact: '+971 55 345 6789', type: 'Guest', gate: 'Gate no. 2', status: 'Inside', time: '08:55', date: '05 Apr', permitRef: 'VIS-2026-0003', duration: '3 hours', qrCode: 'Pre-approved' },
-    { id: 4, name: 'Emirates Move & Pack', resident: 'Ms. Noor Abdullah', flat: 'A-0202', contact: '+971 4 456 7890', type: 'Contractor', gate: 'Main Gate', status: 'Pending', time: '10:01', date: '05 Apr', permitRef: 'VIS-2026-0004', duration: '4 hours', qrCode: 'Pending' },
-    { id: 5, name: 'Sofia Mendes', resident: 'Mr. Omar Khouri', flat: 'D-1102', contact: '+971 56 567 8901', type: 'Guest', gate: 'Gate no. 2', status: 'Inside', time: '10:15', date: '05 Apr', permitRef: 'VIS-2026-0005', duration: '1 hour', qrCode: 'Pre-approved' },
-    { id: 6, name: 'TechServ IT Solutions', resident: 'Dr. Fatima Al-Ali', flat: 'B-0405', contact: '+971 55 678 9012', type: 'Vendor', gate: 'Gate no. 2', status: 'Pending', time: '10:22', date: '05 Apr', permitRef: 'VIS-2026-0006', duration: '2 hours', qrCode: 'Pending' },
-    { id: 7, name: 'Leila Nassif', resident: 'Mr. Yusuf Al-Breiki', flat: 'C-1001', contact: '+971 50 789 0123', type: 'Guest', gate: 'Main Gate', status: 'Checked Out', time: '08:30', date: '05 Apr', permitRef: 'VIS-2026-0007', duration: '2 hours', qrCode: 'Pre-approved' },
-    { id: 8, name: 'AquaFix Plumbing', resident: 'Ms. Rania Saab', flat: 'A-0708', contact: '+971 4 890 1234', type: 'Contractor', gate: 'Main Gate', status: 'Inside', time: '07:45', date: '05 Apr', permitRef: 'VIS-2026-0008', duration: '3 hours', qrCode: 'Pre-approved' },
-    { id: 9, name: 'Nour Al-Rashid', resident: 'Mr. Saif Al-Mazrouei', flat: 'C-0904', contact: '+971 56 901 2345', type: 'Guest', gate: 'Main Gate', status: 'Scheduled', time: '11:00', date: '05 Apr', permitRef: 'VIS-2026-0009', duration: '2 hours', qrCode: 'Pre-approved' },
-    { id: 10, name: 'MaintenancePro Handyman', resident: 'Ms. Maha Al-Tunaiji', flat: 'B-1201', contact: '+971 50 012 3456', type: 'Contractor', gate: 'Main Gate', status: 'Scheduled', time: '13:00', date: '05 Apr', permitRef: 'VIS-2026-0010', duration: '2 hours', qrCode: 'Pending' }
+    { id: 1, name: 'James Harrison', resident: 'Mr. Khalid Al-Mansoori', flat: 'A-1204', contact: '+971 50 123 4567', type: 'Guest', gate: 'Main Gate', status: 'Inside', time: '09:14', date: '05 Apr', dateIn: '2026-04-05', dateOut: '', permitRef: 'VIS-2026-0001', duration: '2 hours', qrCode: 'Pre-approved' },
+    { id: 2, name: 'ProServ Cleaning Co.', resident: 'Ms. Amira Belhasa', flat: 'B-0803', contact: '+971 50 234 5678', type: 'Vendor', gate: 'Main Gate', status: 'Inside', time: '09:32', date: '05 Apr', dateIn: '2026-04-05', dateOut: '', permitRef: 'VIS-2026-0002', duration: '2 hours', qrCode: 'Pre-approved' },
+    { id: 3, name: 'Ahmad Al-Sayed', resident: 'Mr. Hassan Al-Farsi', flat: 'C-0501', contact: '+971 55 345 6789', type: 'Guest', gate: 'Gate no. 2', status: 'Inside', time: '08:55', date: '05 Apr', dateIn: '2026-04-05', dateOut: '', permitRef: 'VIS-2026-0003', duration: '3 hours', qrCode: 'Pre-approved' },
+    { id: 4, name: 'Emirates Move & Pack', resident: 'Ms. Noor Abdullah', flat: 'A-0202', contact: '+971 4 456 7890', type: 'Contractor', gate: 'Main Gate', status: 'Pending', time: '10:01', date: '05 Apr', dateIn: '2026-04-05', dateOut: '', permitRef: 'VIS-2026-0004', duration: '4 hours', qrCode: 'Pending' },
+    { id: 5, name: 'Sofia Mendes', resident: 'Mr. Omar Khouri', flat: 'D-1102', contact: '+971 56 567 8901', type: 'Guest', gate: 'Gate no. 2', status: 'Inside', time: '10:15', date: '05 Apr', dateIn: '2026-04-05', dateOut: '', permitRef: 'VIS-2026-0005', duration: '1 hour', qrCode: 'Pre-approved' },
+    { id: 6, name: 'TechServ IT Solutions', resident: 'Dr. Fatima Al-Ali', flat: 'B-0405', contact: '+971 55 678 9012', type: 'Vendor', gate: 'Gate no. 2', status: 'Pending', time: '10:22', date: '06 Apr', dateIn: '2026-04-06', dateOut: '', permitRef: 'VIS-2026-0006', duration: '2 hours', qrCode: 'Pending' },
+    { id: 7, name: 'Leila Nassif', resident: 'Mr. Yusuf Al-Breiki', flat: 'C-1001', contact: '+971 50 789 0123', type: 'Guest', gate: 'Main Gate', status: 'Checked Out', time: '08:30', date: '04 Apr', dateIn: '2026-04-04', dateOut: '2026-04-04', permitRef: 'VIS-2026-0007', duration: '2 hours', qrCode: 'Pre-approved' },
+    { id: 8, name: 'AquaFix Plumbing', resident: 'Ms. Rania Saab', flat: 'A-0708', contact: '+971 4 890 1234', type: 'Contractor', gate: 'Main Gate', status: 'Inside', time: '07:45', date: '05 Apr', dateIn: '2026-04-05', dateOut: '', permitRef: 'VIS-2026-0008', duration: '3 hours', qrCode: 'Pre-approved' },
+    { id: 9, name: 'Nour Al-Rashid', resident: 'Mr. Saif Al-Mazrouei', flat: 'C-0904', contact: '+971 56 901 2345', type: 'Guest', gate: 'Main Gate', status: 'Scheduled', time: '11:00', date: '14 Apr', dateIn: '2026-04-14', dateOut: '', permitRef: 'VIS-2026-0009', duration: '2 hours', qrCode: 'Pre-approved' },
+    { id: 10, name: 'MaintenancePro Handyman', resident: 'Ms. Maha Al-Tunaiji', flat: 'B-1201', contact: '+971 50 012 3456', type: 'Contractor', gate: 'Main Gate', status: 'Scheduled', time: '13:00', date: '15 Apr', dateIn: '2026-04-15', dateOut: '', permitRef: 'VIS-2026-0010', duration: '2 hours', qrCode: 'Pending' }
   ],
   payments: [
     { id: 1, name: 'James Harrison', flat: 'A-1204', amount: 4500, status: 'Paid', time: '09:14' },
@@ -921,12 +1016,12 @@ const initialData = {
     { time: '15:30', description: 'Maid entry', flat: 'B-102', type: 'Staff' }
   ],
   entryLog: [
-    { id: 1, refId: 'VIS-001', visitor: 'James Harrison', phone: '+971 50 111 1111', initials: 'JH', type: 'Guest', flat: 'B-102', host: 'Nitin Sharma', purpose: 'Social Visit', timeIn: '08:30', timeOut: '10:15', duration: '1h 45m', idDoc: 'PASSPORT', status: 'INSIDE' },
-    { id: 2, refId: 'VIS-002', visitor: 'ProServ Cleaning', phone: '+971 4 222 3333', initials: 'PS', type: 'Vendor', flat: 'B-102', host: 'Facility Manager', purpose: 'Cleaning Service', timeIn: '09:15', timeOut: '', duration: '1h 20m', idDoc: 'ID CARD', status: 'INSIDE' },
-    { id: 3, refId: 'VIS-003', visitor: 'Marcus Johnson', phone: '+971 50 333 3333', initials: 'MJ', type: 'Guest', flat: 'B-102', host: 'Nitin Sharma', purpose: 'Meeting', timeIn: '10:30', timeOut: '', duration: '0h 00m', idDoc: 'PASSPORT', status: 'PENDING' },
-    { id: 4, refId: 'VIS-004', visitor: 'Lana Cooper', phone: '+971 55 444 4444', initials: 'LC', type: 'Guest', flat: 'B-102', host: 'Priya Sharma', purpose: 'Social', timeIn: '09:45', timeOut: '10:00', duration: '0h 15m', idDoc: 'EMIRATES ID', status: 'APPROVED' },
-    { id: 5, refId: 'VIS-005', visitor: 'Ahmed Al-Mansoori', phone: '+971 55 555 5555', initials: 'AM', type: 'Guest', flat: 'B-102', host: 'Nitin Sharma', purpose: 'Business', timeIn: '07:00', timeOut: '08:45', duration: '1h 45m', idDoc: 'EMIRATES ID', status: 'APPROVED' },
-    { id: 6, refId: 'VIS-006', visitor: 'Youssef Contractor', phone: '+971 50 666 6666', initials: 'YC', type: 'Contractor', flat: 'B-102', host: 'Facility Mgr', purpose: 'Maintenance', timeIn: '11:00', timeOut: '12:30', duration: '1h 30m', idDoc: 'ID CARD', status: 'APPROVED' }
+    { id: 1, refId: 'VIS-001', visitor: 'James Harrison', phone: '+971 50 111 1111', initials: 'JH', type: 'Guest', flat: 'B-102', host: 'Nitin Sharma', purpose: 'Social Visit', timeIn: '08:30', timeOut: '10:15', duration: '1h 45m', idDoc: 'PASSPORT', status: 'INSIDE', date: '2026-04-05', dateIn: '2026-04-05', dateOut: '' },
+    { id: 2, refId: 'VIS-002', visitor: 'ProServ Cleaning', phone: '+971 4 222 3333', initials: 'PS', type: 'Vendor', flat: 'B-102', host: 'Facility Manager', purpose: 'Cleaning Service', timeIn: '09:15', timeOut: '', duration: '1h 20m', idDoc: 'ID CARD', status: 'INSIDE', date: '2026-04-05', dateIn: '2026-04-05', dateOut: '' },
+    { id: 3, refId: 'VIS-003', visitor: 'Marcus Johnson', phone: '+971 50 333 3333', initials: 'MJ', type: 'Guest', flat: 'B-102', host: 'Nitin Sharma', purpose: 'Meeting', timeIn: '10:30', timeOut: '', duration: '0h 00m', idDoc: 'PASSPORT', status: 'PENDING', date: '2026-04-05', dateIn: '2026-04-05', dateOut: '' },
+    { id: 4, refId: 'VIS-004', visitor: 'Lana Cooper', phone: '+971 55 444 4444', initials: 'LC', type: 'Guest', flat: 'B-102', host: 'Priya Sharma', purpose: 'Social', timeIn: '09:45', timeOut: '10:00', duration: '0h 15m', idDoc: 'EMIRATES ID', status: 'APPROVED', date: '2026-04-05', dateIn: '2026-04-05', dateOut: '2026-04-05' },
+    { id: 5, refId: 'VIS-005', visitor: 'Ahmed Al-Mansoori', phone: '+971 55 555 5555', initials: 'AM', type: 'Guest', flat: 'B-102', host: 'Nitin Sharma', purpose: 'Business', timeIn: '07:00', timeOut: '08:45', duration: '1h 45m', idDoc: 'EMIRATES ID', status: 'APPROVED', date: '2026-04-05', dateIn: '2026-04-05', dateOut: '2026-04-05' },
+    { id: 6, refId: 'VIS-006', visitor: 'Youssef Contractor', phone: '+971 50 666 6666', initials: 'YC', type: 'Contractor', flat: 'B-102', host: 'Facility Mgr', purpose: 'Maintenance', timeIn: '11:00', timeOut: '12:30', duration: '1h 30m', idDoc: 'ID CARD', status: 'APPROVED', date: '2026-04-05', dateIn: '2026-04-05', dateOut: '2026-04-05' }
   ],
   chatRooms: [
     { id: 'pm-guard-001', participants: [{ id: 'pm-1', name: 'Hassan Al-PM', role: 'Property Manager' }, { id: 'guard-001', name: 'Ahmed Khalil', role: 'Security Guard' }], lastMessage: 'Check visitor at main gate', lastMessageTime: '14:32', unreadCount: 0 },
@@ -963,7 +1058,8 @@ const initialData = {
 // always has historic, current, and future data. Stable SEED-xxx ids make the
 // one-time migration idempotent — re-running never creates duplicates, and any
 // additional visitors added through the app are merged in on top.
-const SEED_ENTRY_LOG_VERSION = 'v1-2026-04-10';
+// Version includes today's date so seed rows regenerate with current-day offsets each day
+const SEED_ENTRY_LOG_VERSION = 'v4-' + (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
 const buildSeedEntryLog = () => {
   const today = new Date();
   const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -972,18 +1068,31 @@ const buildSeedEntryLog = () => {
   const t12 = (h, m = 0) => { const ap = h >= 12 ? 'PM' : 'AM'; const hr = ((h + 11) % 12) + 1; return String(hr).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ' ' + ap; };
   const dur = (hIn, mIn, hOut, mOut) => { const a = hIn * 60 + mIn, b = hOut * 60 + mOut; const mins = Math.max(0, b - a); return Math.floor(mins / 60) + 'h ' + String(mins % 60).padStart(2, '0') + 'm'; };
 
+  // Dynamic INSIDE times: spread 10 visitors between 7:00 AM and current time (never future)
+  const nowHr = today.getHours(), nowMn = today.getMinutes();
+  const nowTotalMin = nowHr * 60 + nowMn;
+  const startMin = 7 * 60; // 7:00 AM
+  const availMin = Math.max(nowTotalMin - startMin, 60); // at least 60 min range
+  const insideSlot = (idx) => {
+    const m = startMin + Math.floor((availMin * idx) / 10) + Math.floor(idx * 3.7); // slight jitter
+    const clamped = Math.min(m, nowTotalMin - 5); // always at least 5 min before now
+    const h = Math.floor(Math.max(clamped, startMin) / 60);
+    const mn = Math.max(clamped, startMin) % 60;
+    return t12(h, mn);
+  };
+
   const rows = [
-    // ===== 10 × INSIDE today (2026-04-10) =====
-    { visitor: 'Ali Hassan Rashid',     type: 'Resident Guest',     flat: 'A-1201', host: 'Nitin Sharma',       phone: '+971 50 111 2233', company: '',                          timeIn: t12(8, 15),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Social Visit',    date: offset(0) },
-    { visitor: 'DHL Express Courier',   type: 'Delivery / Courier', flat: 'B-305',  host: 'Zahra Al-Nahyan',    phone: '+971 4 800 1001',  company: 'DHL Express',                timeIn: t12(9, 5),   timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Parcel Delivery', date: offset(0) },
-    { visitor: 'Modern Plumbing Co',    type: 'Contractor / Worker',flat: 'C-605',  host: 'Layla Abdullah',     phone: '+971 50 244 1800', company: 'Modern Plumbing LLC',        timeIn: t12(9, 30),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'TRADE LICENCE', purpose: 'Leak Repair',    date: offset(0) },
-    { visitor: 'Fatima Al-Khouri',      type: 'Resident Guest',     flat: 'C-1805', host: 'Fatima Al-Saeed',    phone: '+971 55 776 9911', company: '',                          timeIn: t12(10, 0),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Family Visit',    date: offset(0) },
-    { visitor: 'Emirates Post',         type: 'Delivery / Courier', flat: 'B-703',  host: 'Omar Farooq',        phone: '+971 600 599 999', company: 'Emirates Post',              timeIn: t12(10, 25), timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Registered Mail', date: offset(0) },
-    { visitor: 'Elite HVAC Services',   type: 'Contractor / Worker',flat: 'A-908',  host: 'Aisha Al-Marzooqi',  phone: '+971 4 333 7788',  company: 'Elite HVAC Services LLC',    timeIn: t12(11, 10), timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'TRADE LICENCE', purpose: 'AC Maintenance', date: offset(0) },
-    { visitor: 'Raj Mehta',             type: 'Resident Guest',     flat: 'B-1102', host: 'Raj Patel',          phone: '+971 56 121 4455', company: '',                          timeIn: t12(11, 45), timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Main Gate',    idDoc: 'PASSPORT',    purpose: 'Lunch Meeting',   date: offset(0) },
-    { visitor: 'Noon Delivery',         type: 'Delivery / Courier', flat: 'A-2203', host: 'Sara Khalifa',       phone: '+971 4 209 9999',  company: 'Noon.com',                    timeIn: t12(12, 20), timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Grocery Delivery',date: offset(0) },
-    { visitor: 'Dubai Gas Technician',  type: 'Vendor',             flat: 'B-401',  host: 'Mohammed Al-Rashid', phone: '+971 4 296 3131',  company: 'Dubai Gas Distribution',     timeIn: t12(13, 0),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Gas Inspection',  date: offset(0) },
-    { visitor: 'Yuki Tanaka',           type: 'Resident Guest',     flat: 'A-1707', host: 'Daniel Chen',        phone: '+81 90 1234 5678', company: '',                          timeIn: t12(13, 30), timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Main Gate',    idDoc: 'PASSPORT',    purpose: 'Friend Visit',    date: offset(0) },
+    // ===== 10 × INSIDE today — times computed dynamically to always be before current time =====
+    { visitor: 'Ali Hassan Rashid',     type: 'Resident Guest',     flat: 'A-1201', host: 'Nitin Sharma',       phone: '+971 50 111 2233', company: '',                          timeIn: insideSlot(0),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Social Visit',    date: offset(0) },
+    { visitor: 'DHL Express Courier',   type: 'Delivery / Courier', flat: 'B-305',  host: 'Zahra Al-Nahyan',    phone: '+971 4 800 1001',  company: 'DHL Express',                timeIn: insideSlot(1),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Parcel Delivery', date: offset(0) },
+    { visitor: 'Modern Plumbing Co',    type: 'Contractor / Worker',flat: 'C-605',  host: 'Layla Abdullah',     phone: '+971 50 244 1800', company: 'Modern Plumbing LLC',        timeIn: insideSlot(2),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'TRADE LICENCE', purpose: 'Leak Repair',    date: offset(0) },
+    { visitor: 'Fatima Al-Khouri',      type: 'Resident Guest',     flat: 'C-1805', host: 'Fatima Al-Saeed',    phone: '+971 55 776 9911', company: '',                          timeIn: insideSlot(3),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Family Visit',    date: offset(0) },
+    { visitor: 'Emirates Post',         type: 'Delivery / Courier', flat: 'B-703',  host: 'Omar Farooq',        phone: '+971 600 599 999', company: 'Emirates Post',              timeIn: insideSlot(4),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Registered Mail', date: offset(0) },
+    { visitor: 'Elite HVAC Services',   type: 'Contractor / Worker',flat: 'A-908',  host: 'Aisha Al-Marzooqi',  phone: '+971 4 333 7788',  company: 'Elite HVAC Services LLC',    timeIn: insideSlot(5),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'TRADE LICENCE', purpose: 'AC Maintenance', date: offset(0) },
+    { visitor: 'Raj Mehta',             type: 'Resident Guest',     flat: 'B-1102', host: 'Raj Patel',          phone: '+971 56 121 4455', company: '',                          timeIn: insideSlot(6),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Main Gate',    idDoc: 'PASSPORT',    purpose: 'Lunch Meeting',   date: offset(0) },
+    { visitor: 'Noon Delivery',         type: 'Delivery / Courier', flat: 'A-2203', host: 'Sara Khalifa',       phone: '+971 4 209 9999',  company: 'Noon.com',                    timeIn: insideSlot(7),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Grocery Delivery',date: offset(0) },
+    { visitor: 'Dubai Gas Technician',  type: 'Vendor',             flat: 'B-401',  host: 'Mohammed Al-Rashid', phone: '+971 4 296 3131',  company: 'Dubai Gas Distribution',     timeIn: insideSlot(8),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Gas Inspection',  date: offset(0) },
+    { visitor: 'Yuki Tanaka',           type: 'Resident Guest',     flat: 'A-1707', host: 'Daniel Chen',        phone: '+81 90 1234 5678', company: '',                          timeIn: insideSlot(9),  timeOut: '', duration: '—', status: 'Passed Security', gateUsed: 'Main Gate',    idDoc: 'PASSPORT',    purpose: 'Friend Visit',    date: offset(0) },
 
     // ===== 15 × SCHEDULED (future, next 14 days) =====
     { visitor: 'Careem Now',            type: 'Delivery / Courier', flat: 'B-102',  host: 'Nitin Sharma',       phone: '+971 4 420 5566',  company: 'Careem Now',                 timeIn: '', timeOut: '', duration: '—', status: 'Scheduled', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Pharmacy Delivery',date: offset(1) },
@@ -1002,12 +1111,30 @@ const buildSeedEntryLog = () => {
     { visitor: 'Sky Paint LLC',         type: 'Contractor / Worker',flat: 'A-501',  host: 'Priya Sharma',       phone: '+971 50 777 6600', company: 'Sky Paint LLC',              timeIn: '', timeOut: '', duration: '—', status: 'Scheduled', gateUsed: 'Service Gate', idDoc: 'TRADE LICENCE', purpose: 'Interior Paint',  date: offset(12) },
     { visitor: 'FedEx Courier',         type: 'Delivery / Courier', flat: 'B-703',  host: 'Omar Farooq',        phone: '+971 4 805 0555',  company: 'FedEx',                       timeIn: '', timeOut: '', duration: '—', status: 'Scheduled', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Express Package', date: offset(14) },
 
-    // ===== 15 × CHECKED OUT (5 today + 10 past 14 days) =====
-    { visitor: 'Karim Jabri',           type: 'Resident Guest',     flat: 'B-102',  host: 'Nitin Sharma',       phone: '+971 50 661 2280', company: '',                          timeIn: t12(7, 30),  timeOut: t12(9, 45),  duration: dur(7,30,9,45),  status: 'Checked Out', gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Breakfast',      date: offset(0) },
-    { visitor: 'Hub Delivery',          type: 'Delivery / Courier', flat: 'A-1201', host: 'Nitin Sharma',       phone: '+971 4 220 3030',  company: 'Hub Delivery',               timeIn: t12(8, 10),  timeOut: t12(8, 25),  duration: dur(8,10,8,25),  status: 'Checked Out', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Grocery Drop',   date: offset(0) },
-    { visitor: 'Sanjay Iyer',           type: 'Resident Guest',     flat: 'B-1102', host: 'Raj Patel',          phone: '+971 56 700 8833', company: '',                          timeIn: t12(9, 0),   timeOut: t12(11, 30), duration: dur(9,0,11,30),  status: 'Checked Out', gateUsed: 'Main Gate',    idDoc: 'PASSPORT',    purpose: 'Coffee',         date: offset(0) },
-    { visitor: 'Zomato Rider',          type: 'Delivery / Courier', flat: 'A-501',  host: 'Priya Sharma',       phone: '+971 4 509 1200',  company: 'Zomato',                      timeIn: t12(10, 15), timeOut: t12(10, 28), duration: dur(10,15,10,28),status: 'Checked Out', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Lunch Delivery', date: offset(0) },
-    { visitor: 'Khaled Al-Amiri',       type: 'Resident Guest',     flat: 'B-401',  host: 'Mohammed Al-Rashid', phone: '+971 55 300 1144', company: '',                          timeIn: t12(11, 0),  timeOut: t12(12, 15), duration: dur(11,0,12,15), status: 'Checked Out', gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Brief Meeting',  date: offset(0) },
+    // ===== 15 × CHECKED OUT (5 today, dynamic times + 10 past 14 days) =====
+    // Today's checked-out: all times must be before current time
+    // coSlot(idx, count) spreads checked-out pairs in early morning before INSIDE visitors
+    ...(() => {
+      const coData = [
+        { visitor: 'Karim Jabri',    type: 'Resident Guest',     flat: 'B-102',  host: 'Nitin Sharma',       phone: '+971 50 661 2280', company: '',             gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Breakfast' },
+        { visitor: 'Hub Delivery',   type: 'Delivery / Courier', flat: 'A-1201', host: 'Nitin Sharma',       phone: '+971 4 220 3030',  company: 'Hub Delivery', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Grocery Drop' },
+        { visitor: 'Sanjay Iyer',    type: 'Resident Guest',     flat: 'B-1102', host: 'Raj Patel',          phone: '+971 56 700 8833', company: '',             gateUsed: 'Main Gate',    idDoc: 'PASSPORT',    purpose: 'Coffee' },
+        { visitor: 'Zomato Rider',   type: 'Delivery / Courier', flat: 'A-501',  host: 'Priya Sharma',       phone: '+971 4 509 1200',  company: 'Zomato',       gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Lunch Delivery' },
+        { visitor: 'Khaled Al-Amiri',type: 'Resident Guest',     flat: 'B-401',  host: 'Mohammed Al-Rashid', phone: '+971 55 300 1144', company: '',             gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Brief Meeting' },
+      ];
+      // Each pair: enter between 6:00 and (now - 30min), leave 10-90 min after entry
+      const coStart = 6 * 60; // 6:00 AM
+      const coEnd = Math.max(nowTotalMin - 30, coStart + 60);
+      const coSpan = coEnd - coStart;
+      return coData.map((d, idx) => {
+        const inMin = coStart + Math.floor((coSpan * idx) / coData.length) + idx * 7;
+        const stayMin = [15, 12, 25, 13, 20][idx]; // realistic durations
+        const outMin = Math.min(inMin + stayMin + Math.floor(idx * 18), nowTotalMin - 10);
+        const hIn = Math.floor(inMin / 60), mIn = inMin % 60;
+        const hOut = Math.floor(Math.max(outMin, inMin + 10) / 60), mOut = Math.max(outMin, inMin + 10) % 60;
+        return { ...d, timeIn: t12(hIn, mIn), timeOut: t12(hOut, mOut), duration: dur(hIn, mIn, hOut, mOut), status: 'Checked Out', date: offset(0) };
+      });
+    })(),
     { visitor: 'Rania Khoury',          type: 'Resident Guest',     flat: 'C-1805', host: 'Fatima Al-Saeed',    phone: '+961 3 778 990',   company: '',                          timeIn: t12(14, 20), timeOut: t12(18, 0),  duration: dur(14,20,18,0), status: 'Checked Out', gateUsed: 'Main Gate',    idDoc: 'PASSPORT',    purpose: 'Afternoon Tea',  date: offset(-1) },
     { visitor: 'Aramex',                type: 'Delivery / Courier', flat: 'B-305',  host: 'Zahra Al-Nahyan',    phone: '+971 600 544 000', company: 'Aramex',                      timeIn: t12(11, 50), timeOut: t12(12, 5),  duration: dur(11,50,12,5), status: 'Checked Out', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Express Pkg',    date: offset(-1) },
     { visitor: 'Elite HVAC Services',   type: 'Contractor / Worker',flat: 'A-2203', host: 'Sara Khalifa',       phone: '+971 4 333 7788',  company: 'Elite HVAC Services LLC',    timeIn: t12(9, 0),   timeOut: t12(13, 30), duration: dur(9,0,13,30),  status: 'Checked Out', gateUsed: 'Service Gate', idDoc: 'TRADE LICENCE', purpose: 'AC Install',    date: offset(-2) },
@@ -1019,10 +1146,24 @@ const buildSeedEntryLog = () => {
     { visitor: 'Emirates Post',         type: 'Delivery / Courier', flat: 'C-304',  host: 'Ahmed Tariq',        phone: '+971 600 599 999', company: 'Emirates Post',              timeIn: t12(13, 40), timeOut: t12(13, 55), duration: dur(13,40,13,55),status: 'Checked Out', gateUsed: 'Service Gate', idDoc: 'WORK ID',     purpose: 'Registered Mail',date: offset(-7) },
     { visitor: 'Chen Wei',              type: 'Resident Guest',     flat: 'A-1707', host: 'Daniel Chen',        phone: '+86 138 0013 8000',company: '',                          timeIn: t12(9, 0),   timeOut: t12(20, 15), duration: dur(9,0,20,15),  status: 'Checked Out', gateUsed: 'Main Gate',    idDoc: 'PASSPORT',    purpose: 'Business Meeting',date: offset(-9) },
 
-    // ===== 10 × REJECTED (3 today + 7 past 14 days) =====
-    { visitor: 'Unknown Courier',       type: 'Delivery / Courier', flat: 'B-102',  host: 'Nitin Sharma',       phone: '—',                company: 'Unverified',                 timeIn: t12(8, 0),   timeOut: '', duration: '—', status: 'Rejected', gateUsed: 'Service Gate', idDoc: 'NONE',        purpose: 'Unsolicited Delivery', date: offset(0) },
-    { visitor: 'Rashid (ex-contractor)',type: 'Contractor / Worker',flat: 'A-1201', host: 'Nitin Sharma',       phone: '+971 50 000 1111', company: 'Former Vendor',              timeIn: t12(10, 40), timeOut: '', duration: '—', status: 'Rejected', gateUsed: 'Service Gate', idDoc: 'EMIRATES ID', purpose: 'No Work Order', date: offset(0) },
-    { visitor: 'Tariq Bin Faisal',      type: 'Other / Misc.',      flat: 'C-1805', host: 'Fatima Al-Saeed',    phone: '+971 56 000 2222', company: '',                          timeIn: t12(14, 15), timeOut: '', duration: '—', status: 'Rejected', gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Resident Not Home',date: offset(0) },
+    // ===== 10 × REJECTED (3 today, dynamic times + 7 past 14 days) =====
+    ...(() => {
+      const rejData = [
+        { visitor: 'Unknown Courier',       type: 'Delivery / Courier', flat: 'B-102',  host: 'Nitin Sharma',       phone: '—',                company: 'Unverified',    gateUsed: 'Service Gate', idDoc: 'NONE',        purpose: 'Unsolicited Delivery' },
+        { visitor: 'Rashid (ex-contractor)',type: 'Contractor / Worker',flat: 'A-1201', host: 'Nitin Sharma',       phone: '+971 50 000 1111', company: 'Former Vendor', gateUsed: 'Service Gate', idDoc: 'EMIRATES ID', purpose: 'No Work Order' },
+        { visitor: 'Tariq Bin Faisal',      type: 'Other / Misc.',      flat: 'C-1805', host: 'Fatima Al-Saeed',    phone: '+971 56 000 2222', company: '',              gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Resident Not Home' },
+      ];
+      const rejStart = 6 * 60 + 30; // 6:30 AM
+      const rejEnd = Math.max(nowTotalMin - 15, rejStart + 30);
+      const rejSpan = rejEnd - rejStart;
+      return rejData.map((d, idx) => {
+        const m = rejStart + Math.floor((rejSpan * idx) / rejData.length) + idx * 11;
+        const clamped = Math.min(m, nowTotalMin - 10);
+        const h = Math.floor(Math.max(clamped, rejStart) / 60);
+        const mn = Math.max(clamped, rejStart) % 60;
+        return { ...d, timeIn: t12(h, mn), timeOut: '', duration: '—', status: 'Rejected', date: offset(0) };
+      });
+    })(),
     { visitor: 'Anonymous Delivery',    type: 'Delivery / Courier', flat: 'B-703',  host: 'Omar Farooq',        phone: '—',                company: 'Unverified',                 timeIn: t12(11, 10), timeOut: '', duration: '—', status: 'Rejected', gateUsed: 'Service Gate', idDoc: 'NONE',        purpose: 'No ID Provided', date: offset(-1) },
     { visitor: 'Faisal Omar',           type: 'Resident Guest',     flat: 'A-501',  host: 'Priya Sharma',       phone: '+971 55 432 1100', company: '',                          timeIn: t12(19, 30), timeOut: '', duration: '—', status: 'Rejected', gateUsed: 'Main Gate',    idDoc: 'EMIRATES ID', purpose: 'Resident Declined',date: offset(-2) },
     { visitor: 'FlyJet Movers',         type: 'Contractor / Worker',flat: 'B-1504', host: 'Yasmin Hassan',      phone: '+971 4 222 0000',  company: 'FlyJet Movers LLC',          timeIn: t12(12, 0),  timeOut: '', duration: '—', status: 'Rejected', gateUsed: 'Service Gate', idDoc: 'TRADE LICENCE', purpose: 'No Prior Notice',date: offset(-4) },
@@ -1050,6 +1191,9 @@ const buildSeedEntryLog = () => {
     initials: initials(r.visitor),
     registeredDate: r.date,
     visitDate: r.date,
+    // Full date fields: dateIn = day visitor entered, dateOut = day visitor left
+    dateIn: r.date,
+    dateOut: (r.status === 'Checked Out') ? r.date : '',
     idVerified: r.status !== 'Rejected',
     vehicleVerified: r.type === 'Delivery / Courier' || r.type === 'Contractor / Worker' || r.type === 'Vendor',
     _seed: true,
@@ -1491,7 +1635,10 @@ const Sidebar = ({ page, setPage, isOpen, onClose, onLogout }) => {
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
-        <div className="v-badge">V</div>
+        <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="VARS" style={{flexShrink:0}}>
+          <rect width="100" height="100" rx="4" fill="#928989"/>
+          <path d="M33.3 16.7 L50 16.7 L58.1 25.2 L66.7 33.3 L66.7 83.3 L50 83.3 L33.3 66.7 Z" fill="#ffffff"/>
+        </svg>
         <span>VARS</span>
       </div>
       <nav className="sidebar-nav">
@@ -1517,13 +1664,38 @@ const ALL_PROPERTIES = [
 ];
 
 const TopBar = ({ onCreateClick, onMenuToggle, onLogout, onSearchSelect }) => {
-  const { data } = useApp();
+  const { data, setData } = useApp();
   const [showCreate, setShowCreate] = useState(false);
   const [showPmProfile, setShowPmProfile] = useState(false);
   const [showPropertyDropdown, setShowPropertyDropdown] = useState(false);
   const [selectedProperties, setSelectedProperties] = useState(['pinnacle']);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
+  const [showMyProfileModal, setShowMyProfileModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: data.currentUser?.name || '',
+    email: data.currentUser?.email || '',
+    phone: data.currentUser?.phone || '',
+    role: data.currentUser?.role || '',
+    property: 'The Pinnacle Residences',
+    location: 'Al Reem Island, Abu Dhabi, UAE',
+    language: 'English',
+  });
+  const [settingsForm, setSettingsForm] = useState({
+    theme: 'Warm Light',
+    density: 'Comfortable',
+    timezone: 'Asia/Dubai (GMT+4)',
+    dateFormat: 'DD MMM YYYY',
+    notifyEmail: true,
+    notifyPush: true,
+    notifySms: false,
+    notifyDigest: 'Daily',
+    twoFactor: false,
+    sessionTimeout: '30 minutes',
+  });
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
 
   const toggleProperty = (id) => {
     setSelectedProperties(prev => {
@@ -1706,7 +1878,6 @@ const TopBar = ({ onCreateClick, onMenuToggle, onLogout, onSearchSelect }) => {
         <div className="topbar-icon" style={{borderRadius:'50%',width:34,height:34}}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
         </div>
-        <div style={{fontSize:10,fontWeight:600,color:"#a89a92",background:"#f2efec",padding:"4px 8px",borderRadius:4,whiteSpace:"nowrap"}}>{data.currentUser.role}</div>
         <div style={{position:'relative'}}>
           <div className="avatar" onClick={()=>setShowPmProfile(!showPmProfile)} style={{width:34,height:34,borderRadius:'50%',background:'#e8e3de',cursor:'pointer'}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
@@ -1715,16 +1886,20 @@ const TopBar = ({ onCreateClick, onMenuToggle, onLogout, onSearchSelect }) => {
           {showPmProfile && (
             <div onClick={e=>e.stopPropagation()} style={{position:'absolute',top:44,right:-14,width:260,background:'#fff',borderRadius:10,boxShadow:'0 8px 32px rgba(0,0,0,.15)',border:'1px solid #ebe7e3',zIndex:999,overflow:'hidden'}}>
               <div style={{padding:'20px 16px',textAlign:'center',borderBottom:'1px solid #ebe7e3'}}>
-                <div style={{width:52,height:52,borderRadius:'50%',border:'2px solid #d0d0d0',background:'#f2efec',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                <div style={{display:'inline-flex',alignItems:'center',gap:10,margin:'0 auto 10px'}}>
+                  <svg width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="VARS">
+                    <rect width="100" height="100" rx="4" fill="#928989"/>
+                    <path d="M33.3 16.7 L50 16.7 L58.1 25.2 L66.7 33.3 L66.7 83.3 L50 83.3 L33.3 66.7 Z" fill="#ffffff"/>
+                  </svg>
+                  <span style={{fontSize:22,fontWeight:500,letterSpacing:'-0.01em',color:'#1a1a1a',lineHeight:1}}>VARS</span>
                 </div>
                 <div style={{fontSize:15,fontWeight:600,color:'#1a1a1a'}}>Hassan Al-PM</div>
                 <div style={{fontSize:12,color:'#a89a92'}}>Property Manager</div>
                 <div style={{fontSize:11,color:'#c4b8b0'}}>The Pinnacle Residences</div>
               </div>
               <div style={{padding:'8px 12px'}}>
-                {[{label:'My Profile',icon:'user'},{label:'Settings',icon:'settings'}].map((item,i)=>(
-                  <div key={i} onClick={item.label==='Settings'?()=>{setShowPmProfile(false);onCreateClick?.('settings')}:()=>{}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 4px',borderBottom:i<1?'1px solid #f0f0f0':'none',cursor:'pointer',fontSize:13,color:'#1a1a1a'}}>
+                {[{label:'My Profile',icon:'user',action:()=>{setShowPmProfile(false);setShowMyProfileModal(true);}},{label:'Settings',icon:'settings',action:()=>{setShowPmProfile(false);setShowSettingsModal(true);}}].map((item,i)=>(
+                  <div key={i} onClick={item.action} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 4px',borderBottom:i<1?'1px solid #f0f0f0':'none',cursor:'pointer',fontSize:13,color:'#1a1a1a'}}>
                     <div style={{width:30,height:30,borderRadius:'50%',background:'#f2efec',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name={item.icon} size={14}/></div>
                     {item.label}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2" style={{marginLeft:'auto'}}><polyline points="9 18 15 12 9 6"/></svg>
@@ -1744,6 +1919,226 @@ const TopBar = ({ onCreateClick, onMenuToggle, onLogout, onSearchSelect }) => {
         </div>
       </div>
       {showPmProfile && <div onClick={()=>setShowPmProfile(false)} style={{position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:998}}/>}
+
+      {/* ===== My Profile Modal — warm palette, VARS branded ===== */}
+      {showMyProfileModal && (
+        <div onClick={()=>setShowMyProfileModal(false)} style={{position:'fixed',inset:0,background:'rgba(26,26,26,0.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20,fontFamily:"'Helvetica Now Text','Inter',-apple-system,sans-serif",letterSpacing:'-0.01em'}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:'#faf8f6',borderRadius:14,width:'100%',maxWidth:560,maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.25)',border:'1px solid #ebe7e3'}}>
+            {/* Header */}
+            <div style={{padding:'22px 26px 18px',borderBottom:'1px solid #ebe7e3',display:'flex',alignItems:'center',gap:14}}>
+              <svg width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="VARS" style={{flexShrink:0}}>
+                <rect width="100" height="100" rx="4" fill="#928989"/>
+                <path d="M33.3 16.7 L50 16.7 L58.1 25.2 L66.7 33.3 L66.7 83.3 L50 83.3 L33.3 66.7 Z" fill="#ffffff"/>
+              </svg>
+              <div style={{flex:1}}>
+                <div style={{fontSize:17,fontWeight:600,color:'#1a1a1a',lineHeight:1.2}}>My Profile</div>
+                <div style={{fontSize:11,color:'#8a8078',marginTop:3,letterSpacing:'0.04em',textTransform:'uppercase'}}>Personal details · Account</div>
+              </div>
+              <button onClick={()=>setShowMyProfileModal(false)} style={{background:'transparent',border:'none',cursor:'pointer',padding:6,borderRadius:6,color:'#8a8078'}}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            {/* Body */}
+            <div style={{padding:'22px 26px',overflowY:'auto'}}>
+              {profileSaved && (
+                <div style={{background:'#eef5ec',border:'1px solid #cfe0c9',color:'#3d5c36',padding:'10px 14px',borderRadius:8,fontSize:12,marginBottom:18,display:'flex',alignItems:'center',gap:8}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  Profile updated successfully.
+                </div>
+              )}
+              {/* Avatar row */}
+              <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:22,padding:'14px 16px',background:'#f5f3f0',borderRadius:10,border:'1px solid #ebe7e3'}}>
+                <div style={{width:56,height:56,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8a8078" strokeWidth="1.4"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{profileForm.name}</div>
+                  <div style={{fontSize:11,color:'#8a8078',marginTop:2}}>{profileForm.role} · {profileForm.property}</div>
+                </div>
+                <button style={{background:'#fff',border:'1px solid #d5cfc8',padding:'7px 12px',borderRadius:6,fontSize:11,color:'#1a1a1a',cursor:'pointer',fontWeight:500,letterSpacing:'0.02em'}}>Change Photo</button>
+              </div>
+              {/* Form fields */}
+              <div style={{fontSize:10,letterSpacing:'0.1em',textTransform:'uppercase',color:'#8a8078',marginBottom:10,fontWeight:600}}>Personal Information</div>
+              {[
+                {key:'name',label:'Full Name',type:'text'},
+                {key:'email',label:'Email Address',type:'email'},
+                {key:'phone',label:'Phone Number',type:'tel'},
+              ].map(f => (
+                <div key={f.key} style={{marginBottom:14}}>
+                  <label style={{display:'block',fontSize:11,color:'#5a5550',marginBottom:5,fontWeight:500}}>{f.label}</label>
+                  <input type={f.type} value={profileForm[f.key]} onChange={e=>setProfileForm({...profileForm,[f.key]:e.target.value})} style={{width:'100%',padding:'10px 12px',fontSize:13,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,outline:'none',fontFamily:'inherit',letterSpacing:'-0.01em'}}/>
+                </div>
+              ))}
+              <div style={{fontSize:10,letterSpacing:'0.1em',textTransform:'uppercase',color:'#8a8078',margin:'18px 0 10px',fontWeight:600}}>Assignment</div>
+              {[
+                {key:'role',label:'Role',readonly:true},
+                {key:'property',label:'Property',readonly:true},
+                {key:'location',label:'Location',readonly:true},
+              ].map(f => (
+                <div key={f.key} style={{marginBottom:14}}>
+                  <label style={{display:'block',fontSize:11,color:'#5a5550',marginBottom:5,fontWeight:500}}>{f.label}</label>
+                  <input type="text" value={profileForm[f.key]} readOnly style={{width:'100%',padding:'10px 12px',fontSize:13,color:'#5a5550',background:'#f5f3f0',border:'1px solid #ebe7e3',borderRadius:8,outline:'none',fontFamily:'inherit',letterSpacing:'-0.01em',cursor:'not-allowed'}}/>
+                </div>
+              ))}
+              <div style={{fontSize:10,letterSpacing:'0.1em',textTransform:'uppercase',color:'#8a8078',margin:'18px 0 10px',fontWeight:600}}>Preferences</div>
+              <div style={{marginBottom:4}}>
+                <label style={{display:'block',fontSize:11,color:'#5a5550',marginBottom:5,fontWeight:500}}>Language</label>
+                <select value={profileForm.language} onChange={e=>setProfileForm({...profileForm,language:e.target.value})} style={{width:'100%',padding:'10px 12px',fontSize:13,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+                  <option>English</option>
+                  <option>Arabic (العربية)</option>
+                  <option>Hindi (हिन्दी)</option>
+                  <option>Urdu (اردو)</option>
+                  <option>Tagalog</option>
+                </select>
+              </div>
+            </div>
+            {/* Footer */}
+            <div style={{padding:'16px 26px',borderTop:'1px solid #ebe7e3',display:'flex',gap:10,justifyContent:'flex-end',background:'#fff'}}>
+              <button onClick={()=>setShowMyProfileModal(false)} style={{padding:'10px 20px',fontSize:12,fontWeight:500,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,cursor:'pointer',letterSpacing:'0.02em'}}>Cancel</button>
+              <button onClick={()=>{
+                setData(prev=>({...prev,currentUser:{...prev.currentUser,name:profileForm.name,email:profileForm.email,phone:profileForm.phone}}));
+                setProfileSaved(true);
+                setTimeout(()=>{setProfileSaved(false);setShowMyProfileModal(false);},1400);
+              }} style={{padding:'10px 22px',fontSize:12,fontWeight:600,color:'#fff',background:'#928989',border:'none',borderRadius:8,cursor:'pointer',letterSpacing:'0.02em'}}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Settings Modal — warm palette ===== */}
+      {showSettingsModal && (
+        <div onClick={()=>setShowSettingsModal(false)} style={{position:'fixed',inset:0,background:'rgba(26,26,26,0.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20,fontFamily:"'Helvetica Now Text','Inter',-apple-system,sans-serif",letterSpacing:'-0.01em'}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:'#faf8f6',borderRadius:14,width:'100%',maxWidth:600,maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 24px 80px rgba(0,0,0,0.25)',border:'1px solid #ebe7e3'}}>
+            {/* Header */}
+            <div style={{padding:'22px 26px 18px',borderBottom:'1px solid #ebe7e3',display:'flex',alignItems:'center',gap:14}}>
+              <svg width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="VARS" style={{flexShrink:0}}>
+                <rect width="100" height="100" rx="4" fill="#928989"/>
+                <path d="M33.3 16.7 L50 16.7 L58.1 25.2 L66.7 33.3 L66.7 83.3 L50 83.3 L33.3 66.7 Z" fill="#ffffff"/>
+              </svg>
+              <div style={{flex:1}}>
+                <div style={{fontSize:17,fontWeight:600,color:'#1a1a1a',lineHeight:1.2}}>Settings</div>
+                <div style={{fontSize:11,color:'#8a8078',marginTop:3,letterSpacing:'0.04em',textTransform:'uppercase'}}>Appearance · Regional · Notifications · Security</div>
+              </div>
+              <button onClick={()=>setShowSettingsModal(false)} style={{background:'transparent',border:'none',cursor:'pointer',padding:6,borderRadius:6,color:'#8a8078'}}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            {/* Body */}
+            <div style={{padding:'22px 26px',overflowY:'auto'}}>
+              {settingsSaved && (
+                <div style={{background:'#eef5ec',border:'1px solid #cfe0c9',color:'#3d5c36',padding:'10px 14px',borderRadius:8,fontSize:12,marginBottom:18,display:'flex',alignItems:'center',gap:8}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  Settings saved.
+                </div>
+              )}
+
+              {/* Appearance */}
+              <div style={{fontSize:10,letterSpacing:'0.1em',textTransform:'uppercase',color:'#8a8078',marginBottom:10,fontWeight:600}}>Appearance</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:18}}>
+                <div>
+                  <label style={{display:'block',fontSize:11,color:'#5a5550',marginBottom:5,fontWeight:500}}>Theme</label>
+                  <select value={settingsForm.theme} onChange={e=>setSettingsForm({...settingsForm,theme:e.target.value})} style={{width:'100%',padding:'10px 12px',fontSize:13,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+                    <option>Warm Light</option>
+                    <option>Dark</option>
+                    <option>System</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:'block',fontSize:11,color:'#5a5550',marginBottom:5,fontWeight:500}}>Density</label>
+                  <select value={settingsForm.density} onChange={e=>setSettingsForm({...settingsForm,density:e.target.value})} style={{width:'100%',padding:'10px 12px',fontSize:13,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+                    <option>Comfortable</option>
+                    <option>Compact</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Regional */}
+              <div style={{fontSize:10,letterSpacing:'0.1em',textTransform:'uppercase',color:'#8a8078',marginBottom:10,fontWeight:600}}>Regional</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:18}}>
+                <div>
+                  <label style={{display:'block',fontSize:11,color:'#5a5550',marginBottom:5,fontWeight:500}}>Timezone</label>
+                  <select value={settingsForm.timezone} onChange={e=>setSettingsForm({...settingsForm,timezone:e.target.value})} style={{width:'100%',padding:'10px 12px',fontSize:13,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+                    <option>Asia/Dubai (GMT+4)</option>
+                    <option>Asia/Riyadh (GMT+3)</option>
+                    <option>Europe/London (GMT+0)</option>
+                    <option>Asia/Singapore (GMT+8)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:'block',fontSize:11,color:'#5a5550',marginBottom:5,fontWeight:500}}>Date Format</label>
+                  <select value={settingsForm.dateFormat} onChange={e=>setSettingsForm({...settingsForm,dateFormat:e.target.value})} style={{width:'100%',padding:'10px 12px',fontSize:13,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+                    <option>DD MMM YYYY</option>
+                    <option>DD/MM/YYYY</option>
+                    <option>MM/DD/YYYY</option>
+                    <option>YYYY-MM-DD</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Notifications */}
+              <div style={{fontSize:10,letterSpacing:'0.1em',textTransform:'uppercase',color:'#8a8078',marginBottom:10,fontWeight:600}}>Notifications</div>
+              <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:10,marginBottom:18}}>
+                {[
+                  {key:'notifyEmail',label:'Email notifications',desc:'Approvals, alerts and daily digests'},
+                  {key:'notifyPush',label:'Push notifications',desc:'Real-time alerts on this device'},
+                  {key:'notifySms',label:'SMS notifications',desc:'Only urgent security alerts'},
+                ].map((opt,idx,arr)=>(
+                  <div key={opt.key} style={{padding:'14px 16px',borderBottom:idx<arr.length-1?'1px solid #f0ece8':'none',display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:500,color:'#1a1a1a'}}>{opt.label}</div>
+                      <div style={{fontSize:11,color:'#8a8078',marginTop:2}}>{opt.desc}</div>
+                    </div>
+                    <div onClick={()=>setSettingsForm({...settingsForm,[opt.key]:!settingsForm[opt.key]})} style={{width:38,height:22,borderRadius:999,background:settingsForm[opt.key]?'#928989':'#e8e3de',position:'relative',cursor:'pointer',transition:'background .15s',flexShrink:0}}>
+                      <div style={{position:'absolute',top:2,left:settingsForm[opt.key]?18:2,width:18,height:18,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left .15s'}}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginBottom:18}}>
+                <label style={{display:'block',fontSize:11,color:'#5a5550',marginBottom:5,fontWeight:500}}>Digest Frequency</label>
+                <select value={settingsForm.notifyDigest} onChange={e=>setSettingsForm({...settingsForm,notifyDigest:e.target.value})} style={{width:'100%',padding:'10px 12px',fontSize:13,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+                  <option>Hourly</option>
+                  <option>Daily</option>
+                  <option>Weekly</option>
+                  <option>Off</option>
+                </select>
+              </div>
+
+              {/* Security */}
+              <div style={{fontSize:10,letterSpacing:'0.1em',textTransform:'uppercase',color:'#8a8078',marginBottom:10,fontWeight:600}}>Security</div>
+              <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:10,marginBottom:14}}>
+                <div style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:500,color:'#1a1a1a'}}>Two-Factor Authentication</div>
+                    <div style={{fontSize:11,color:'#8a8078',marginTop:2}}>Require a code on sign-in</div>
+                  </div>
+                  <div onClick={()=>setSettingsForm({...settingsForm,twoFactor:!settingsForm.twoFactor})} style={{width:38,height:22,borderRadius:999,background:settingsForm.twoFactor?'#928989':'#e8e3de',position:'relative',cursor:'pointer',transition:'background .15s',flexShrink:0}}>
+                    <div style={{position:'absolute',top:2,left:settingsForm.twoFactor?18:2,width:18,height:18,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left .15s'}}/>
+                  </div>
+                </div>
+              </div>
+              <div style={{marginBottom:4}}>
+                <label style={{display:'block',fontSize:11,color:'#5a5550',marginBottom:5,fontWeight:500}}>Session Timeout</label>
+                <select value={settingsForm.sessionTimeout} onChange={e=>setSettingsForm({...settingsForm,sessionTimeout:e.target.value})} style={{width:'100%',padding:'10px 12px',fontSize:13,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+                  <option>15 minutes</option>
+                  <option>30 minutes</option>
+                  <option>1 hour</option>
+                  <option>4 hours</option>
+                  <option>Never</option>
+                </select>
+              </div>
+            </div>
+            {/* Footer */}
+            <div style={{padding:'16px 26px',borderTop:'1px solid #ebe7e3',display:'flex',gap:10,justifyContent:'flex-end',background:'#fff'}}>
+              <button onClick={()=>setShowSettingsModal(false)} style={{padding:'10px 20px',fontSize:12,fontWeight:500,color:'#1a1a1a',background:'#fff',border:'1px solid #d5cfc8',borderRadius:8,cursor:'pointer',letterSpacing:'0.02em'}}>Cancel</button>
+              <button onClick={()=>{
+                setSettingsSaved(true);
+                setTimeout(()=>{setSettingsSaved(false);setShowSettingsModal(false);},1400);
+              }} style={{padding:'10px 22px',fontSize:12,fontWeight:600,color:'#fff',background:'#928989',border:'none',borderRadius:8,cursor:'pointer',letterSpacing:'0.02em'}}>Save Settings</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1757,9 +2152,32 @@ const OverviewPage = ({ setPage }) => {
   useEffect(() => { const t = setInterval(() => setPmNow(new Date()), 60000); return () => clearInterval(t); }, []);
   const pmTime = formatTime12(pmNow);
   const pmDate = formatDate(pmNow);
-  const insideCount = data.visitors.filter(v => v.status === 'Inside').length;
-  const scheduledCount = data.visitors.filter(v => v.status === 'Scheduled' || v.status === 'Pre-Approved').length;
-  const pendingCount = data.visitors.filter(v => v.status === 'Pending').length;
+
+  // ===== Live KPI computation — everything derived from the actual databases =====
+  // 1. PROPERTY UNITS — authoritative source for residences & occupancy
+  const units = data.propertyUnits || [];
+  const totalResidences = units.length;
+  const occupiedFlats   = units.filter(u => u.status === 'Occupied').length;
+  const vacantFlats     = units.filter(u => u.status === 'Vacant').length;
+  const forRentFlats    = units.filter(u => u.status === 'For Rent').length;
+  const forSaleFlats    = units.filter(u => u.status === 'For Sale').length;
+  const occupancyRate   = totalResidences ? Math.round((occupiedFlats / totalResidences) * 100) : 0;
+
+  // 2. VISITORS — live from the visitors database
+  const visitors = data.visitors || [];
+  const insideCount    = visitors.filter(v => v.status === 'Inside').length;
+  const scheduledCount = visitors.filter(v => v.status === 'Scheduled' || v.status === 'Pre-Approved').length;
+  const pendingCount   = visitors.filter(v => v.status === 'Pending').length;
+
+  // 3. SERVICE REQUESTS — live from the service request database
+  const serviceRequests = data.serviceRequests || [];
+  const activeSR = serviceRequests.filter(sr =>
+    sr.status !== 'Completed' && sr.status !== 'Cancelled' && sr.status !== 'Closed'
+  ).length;
+
+  // 4. ALERTS / ESCALATIONS — unresolved + in review
+  const escalations = data.escalations || [];
+  const unackAlerts = escalations.filter(e => e.status === 'Unresolved' || e.status === 'In Review').length;
 
   // Mini sparkline SVG paths for KPI cards
   const sparklines = [
@@ -1772,14 +2190,17 @@ const OverviewPage = ({ setPage }) => {
     'M0,6 L8,8 L16,7 L24,10 L32,9 L40,11 L48,14',     // down
   ];
 
+  // Format with thousands separator
+  const fmt = (n) => n.toLocaleString('en-US');
+
   const kpis = [
-    { label: 'Total Residences', value: '1,240', change: '→ 0', spark: sparklines[0] },
-    { label: 'Occupied Flats', value: '1,087', change: '↗ +3', spark: sparklines[1] },
-    { label: 'Visitors Inside (Live)', value: String(insideCount || 86), change: '↗ +12', spark: sparklines[2] },
-    { label: 'Active Service Req.', value: '15', change: '↗ +1', spark: sparklines[3] },
-    { label: 'Scheduled Visits Today', value: String(scheduledCount || 12), change: '↗ +4', spark: sparklines[4] },
-    { label: 'Unacknowledged Alerts', value: '3', change: '↘ -1', spark: sparklines[5] },
-    { label: 'Pending Approvals', value: String(pendingCount || 7), change: '↘ -2', spark: sparklines[6] },
+    { label: 'Total Residences',      value: fmt(totalResidences), change: totalResidences + ' units in database', spark: sparklines[0] },
+    { label: 'Occupied Flats',        value: fmt(occupiedFlats),   change: occupancyRate + '% occupancy',           spark: sparklines[1] },
+    { label: 'Visitors Inside (Live)', value: fmt(insideCount),     change: 'from ' + visitors.length + ' records',  spark: sparklines[2] },
+    { label: 'Active Service Req.',   value: fmt(activeSR),        change: 'of ' + serviceRequests.length + ' total', spark: sparklines[3] },
+    { label: 'Scheduled Visits Today', value: fmt(scheduledCount),  change: 'pre-approved',                          spark: sparklines[4] },
+    { label: 'Unacknowledged Alerts', value: fmt(unackAlerts),     change: 'from ' + escalations.length + ' logged', spark: sparklines[5] },
+    { label: 'Pending Approvals',     value: fmt(pendingCount),    change: 'awaiting review',                       spark: sparklines[6] },
   ];
 
   // Stacked bar data for Service Requests chart (Mon-Sun)
@@ -2117,10 +2538,11 @@ const VisitorsPage = () => {
     // For multiple-visit QR: set validity to "Until Cancelled" (no auto-expiry)
     const validUntil = newVisitor.repeater === 'Single Visit' ? (dateStr + ' 23:59:59') : 'Until Cancelled';
 
+    const isoDate = timeNow.getFullYear()+'-'+String(timeNow.getMonth()+1).padStart(2,'0')+'-'+String(timeNow.getDate()).padStart(2,'0');
     const entry = {
       id, name: newVisitor.fullName.trim(), resident: newVisitor.host.trim() || 'Pending Assignment',
       flat: newVisitor.flat.trim(), contact: newVisitor.mobile.trim(), type: newVisitor.visitorType,
-      gate: 'Main Gate', status: 'Pending', time: timeStr, date: dateStr, permitRef,
+      gate: 'Main Gate', status: 'Pending', time: timeStr, date: dateStr, dateIn: isoDate, dateOut: '', permitRef,
       duration: newVisitor.repeater === 'Single Visit' ? 'Day pass' : 'Multi-entry',
       qrCode: 'Pending', entryType: newVisitor.entryType, idDoc: idDocFull,
       vehicle: newVisitor.vehicle.trim(), additionalVisitors: newVisitor.additionalVisitors,
@@ -2220,11 +2642,15 @@ const VisitorsPage = () => {
           <button className="btn btn-sm" onClick={handleExportExcel}><Icon name="download" size={12}/> Export Excel</button>
         </div>
         <table className="data-table">
-          <thead><tr><th>Timestamp</th><th>Name</th><th>Flat</th><th>Contact</th><th>Type</th><th>Gate</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Date In</th><th>Time</th><th>Date Out</th><th>Name</th><th>Flat</th><th>Contact</th><th>Type</th><th>Gate</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {filtered.map(v => (
+            {filtered.map(v => {
+              const fmtDt = (d) => { if(!d) return '—'; try { const dt = new Date(d.includes('-') ? d+'T00:00:00' : d); if(isNaN(dt)) return d; return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Dubai'}); } catch(e) { return d; } };
+              return (
               <tr key={v.id}>
-                <td>{v.date} · {v.time}</td>
+                <td>{fmtDt(v.dateIn) || v.date || '—'}</td>
+                <td>{v.time || '—'}</td>
+                <td>{v.dateOut ? fmtDt(v.dateOut) : '—'}</td>
                 <td className="name-cell">{v.name}<span className="sub">{v.resident}</span></td>
                 <td>{v.flat}</td><td>{v.contact}</td>
                 <td><StatusBadge status={v.type}/></td><td>{v.gate}</td>
@@ -2236,7 +2662,8 @@ const VisitorsPage = () => {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         <Pagination total={86} pageSize={10} page={1} onPageChange={()=>{}}/>
@@ -5543,6 +5970,7 @@ const ResidentApp = ({ onLogout }) => {
     } else {
       // Resident-originated: create new visitor entry
       const permitRef = 'PA-' + Date.now();
+      const isoDateRes = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
       const newVisitor = {
         id: Date.now(),
         name: visitor.name,
@@ -5550,6 +5978,8 @@ const ResidentApp = ({ onLogout }) => {
         contact: visitor.calledBy || 'Resident',
         resident: 'Nitin Sharma',
         date: dateStr,
+        dateIn: isoDateRes,
+        dateOut: '',
         time: timeStr12,
         status: 'Scheduled',
         purpose: visitor.purpose || 'Personal visit',
@@ -5803,8 +6233,9 @@ const ResidentApp = ({ onLogout }) => {
                     ['Type', selectedVisitor.type],
                     ['Total Guests', vp ? String(vp.guests) : '1'],
                     ['Vehicle', vp ? vp.vehicle : 'N/A'],
-                    ['Date', selectedVisitor.date],
+                    ['Date Entered', (() => { const d = selectedVisitor.dateIn || selectedVisitor.date || ''; if (!d) return '—'; if (/^\d{4}-\d{2}-\d{2}$/.test(d)) { const p = d.split('-'); const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return parseInt(p[2],10)+' '+m[parseInt(p[1],10)-1]+' '+p[0]; } return d; })()],
                     ['Time', selectedVisitor.time],
+                    ['Date Exit', (() => { const d = selectedVisitor.dateOut || ''; if (!d) return '—'; if (/^\d{4}-\d{2}-\d{2}$/.test(d)) { const p = d.split('-'); const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return parseInt(p[2],10)+' '+m[parseInt(p[1],10)-1]+' '+p[0]; } return d; })()],
                     ['Repeater', selectedVisitor.repeater || (vp ? vp.repeater : '') || 'Single Visit'],
                     ['Valid Until', selectedVisitor.validUntil || (vp ? vp.validUntil : '—')],
                   ];
@@ -6370,11 +6801,13 @@ const ResidentApp = ({ onLogout }) => {
                           <div style={{fontSize:12,color:'#8a7f76',marginBottom:3}}>{v.type || 'Guest'} — {v.purpose || 'Visit'}</div>
                           <div style={{fontSize:11,color:'#a89a92',marginBottom:3}}>{(() => {
                             const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                            const vd = v.date || '';
-                            if (/^\d{4}-\d{2}-\d{2}$/.test(vd)) { const p = vd.split('-'); return parseInt(p[2],10) + ' ' + months[parseInt(p[1],10)-1] + ' ' + p[0]; }
-                            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(vd)) { const p = vd.split('/'); return parseInt(p[0],10) + ' ' + months[parseInt(p[1],10)-1] + ' ' + p[2]; }
-                            return vd;
-                          })()} at {v.time}</div>
+                            const fmtD = (d) => { if (!d) return ''; if (/^\d{4}-\d{2}-\d{2}$/.test(d)) { const p = d.split('-'); return parseInt(p[2],10) + ' ' + months[parseInt(p[1],10)-1] + ' ' + p[0]; } if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(d)) { const p = d.split('/'); return parseInt(p[0],10) + ' ' + months[parseInt(p[1],10)-1] + ' ' + p[2]; } return d; };
+                            const dateIn = fmtD(v.dateIn || v.date || '');
+                            const dateOut = fmtD(v.dateOut || '');
+                            let line = dateIn ? 'In: ' + dateIn + ' at ' + (v.time || '—') : (v.time || '—');
+                            if (dateOut) line += '  ·  Out: ' + dateOut;
+                            return line;
+                          })()}</div>
                           <div style={{fontSize:11,color:'#a89a92'}}>
                             {(() => {
                               const vd = parseVisDate(v.date);
@@ -8140,7 +8573,9 @@ const SecurityApp = ({ onLogout }) => {
       securityNotes: newVisitorData.guardNotes.trim(),
       gateUsed: 'Main Gate',
       date: isoDate,
-      registeredDate: isoDate
+      registeredDate: isoDate,
+      dateIn: isoDate,
+      dateOut: ''
     };
 
     setData(prev => ({
@@ -8296,7 +8731,9 @@ const SecurityApp = ({ onLogout }) => {
       vehicleVerified: info.vehicleVerified,
       gateUsed: info.gateUsed,
       date: isoDate,
-      registeredDate: isoDate
+      registeredDate: isoDate,
+      dateIn: isoDate,
+      dateOut: ''
     };
 
     const insideEntry = info.action === 'admit' ? {
@@ -8415,7 +8852,7 @@ const SecurityApp = ({ onLogout }) => {
               const detailTimeOut = (isInsideDetail || isScheduledDetail) ? '—' : (entry.timeOut || viewingVisitor.timeOut || '—');
               const detailDuration = (isInsideDetail || isScheduledDetail)
                 ? '—'
-                : ((entry.timeIn && entry.timeOut ? computeDuration(entry.timeIn, entry.timeOut) : '') || entry.duration || viewingVisitor.duration || '—');
+                : ((entry.timeIn && entry.timeOut ? computeDuration(entry.timeIn, entry.timeOut, entry.dateIn || entry.registeredDate || entry.date || '', entry.dateOut || '') : '') || entry.duration || viewingVisitor.duration || '—');
               const rows = [
                 ['Permit Ref', viewingVisitor.permitRef || entry.refId || '—'],
                 ['Name', viewingVisitor.name || entry.visitor || '—'],
@@ -8427,8 +8864,9 @@ const SecurityApp = ({ onLogout }) => {
                 ['Purpose', viewingVisitor.purpose || entry.purpose || '—'],
                 ['ID Document', viewingVisitor.idDoc || entry.idDoc || (vp && vp.idDoc) || '—'],
                 ['Vehicle', vp ? (vp.vehicle || '—') : '—'],
-                ['Date', viewingVisitor.date || entry.date || entry.registeredDate || '—'],
+                ['Date Entered', (() => { const d = entry.dateIn || viewingVisitor.dateIn || entry.registeredDate || entry.date || ''; if (!d) return '—'; try { const dt = new Date(d.includes('-') ? d+'T00:00:00' : d); if (isNaN(dt)) return d; return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Dubai'}); } catch(e) { return d; } })()],
                 ['Time In', detailTimeIn || '—'],
+                ['Date Exit', (() => { const sn = ((entry.status||'').toUpperCase()); const isCo = sn === 'CHECKED OUT' || sn === 'EXITED'; const d = entry.dateOut || viewingVisitor.dateOut || (isCo ? (entry.dateIn || entry.registeredDate || entry.date || '') : ''); if (!d) return '—'; try { const dt = new Date(d.includes('-') ? d+'T00:00:00' : d); if (isNaN(dt)) return d; return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Dubai'}); } catch(e) { return d; } })()],
                 ['Check Out Time', detailTimeOut],
                 ['Duration', detailDuration],
                 ['Valid Until', vp ? (vp.validUntil || '—') : '—'],
@@ -8502,11 +8940,17 @@ const SecurityApp = ({ onLogout }) => {
       }
       const statusLabel = (s0) => { const s = normSt({status:s0}); if (isIn(s)) return 'INSIDE'; if (isCo(s)) return 'CHECKED OUT'; if (isSch(s)) return 'SCHEDULED'; if (isRej(s)) return 'REJECTED'; return s0||''; };
 
-      // ===== Expanded column set =====
-      const cols = ['#','Ref ID','Visitor Name','Phone','Visitor Type','Company','Host','Unit','Gate','Purpose','ID Document','ID Number','Time In','Check Out','Duration','Status','Date'];
+      // ===== Expanded column set — now includes Date Entered & Date Exit =====
+      const fmtExpDate = (d) => { if(!d) return '—'; try { const dt = new Date(d.includes('-') ? d+'T00:00:00' : d); if(isNaN(dt)) return d; return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e) { return d; } };
+      const cols = ['#','Ref ID','Visitor Name','Phone','Visitor Type','Company','Host','Unit','Gate','Purpose','ID Document','ID Number','Date Entered','Time In','Date Exit','Check Out','Duration','Status'];
       const aoa = rows.map((e, i) => {
         const parsed = parseIdDoc(e.idDoc);
         const idNumber = parsed.number !== '—' ? parsed.number : synthId(e.visitor, parsed.type);
+        const entryDt = e.dateIn || e.registeredDate || e.visitDate || e.date || '';
+        const ns = (e.status || '').toUpperCase().replace(/\s+/g,' ');
+        const isCoExp = ns === 'CHECKED OUT' || ns === 'EXITED';
+        const exitDt = e.dateOut || (isCoExp ? entryDt : '');
+        const expDuration = e.timeIn && e.timeOut ? (computeDuration(e.timeIn, e.timeOut, entryDt, exitDt) || e.duration || '—') : (e.duration || '—');
         return [
           i + 1,
           e.refId || e.id || '—',
@@ -8520,11 +8964,12 @@ const SecurityApp = ({ onLogout }) => {
           e.purpose || '—',
           parsed.type,
           idNumber,
+          fmtExpDate(entryDt),
           formatTimeExp(e.timeIn) || '—',
+          fmtExpDate(exitDt),
           formatTimeExp(e.timeOut) || '—',
-          e.duration || '—',
-          statusLabel(e.status),
-          entryDateStr(e) || '—'
+          expDuration,
+          statusLabel(e.status)
         ];
       });
 
@@ -8580,11 +9025,12 @@ const SecurityApp = ({ onLogout }) => {
           {wch:26},  // Purpose
           {wch:18},  // ID Document
           {wch:26},  // ID Number
+          {wch:14},  // Date Entered
           {wch:13},  // Time In
+          {wch:14},  // Date Exit
           {wch:13},  // Check Out
           {wch:12},  // Duration
           {wch:15},  // Status
-          {wch:14},  // Date
         ];
 
         // ===== VARS site colour palette =====
@@ -8735,7 +9181,7 @@ const SecurityApp = ({ onLogout }) => {
             const isNumber = typeof val === 'number';
             const base = isNumber ? (isEven ? numStyleEven : numStyleOdd) : (isEven ? dataStyleEven : dataStyleOdd);
             // Colour-code Status column
-            if (c === 15) { // Status column index
+            if (c === 17) { // Status column index
               const s = String(val||'').toUpperCase();
               let bg = base.fill.fgColor.rgb;
               let fg = COLOR.textDark;
@@ -8991,9 +9437,11 @@ const SecurityApp = ({ onLogout }) => {
   };
 
   // Action for checkout
-  // Compute duration between a timeIn ("HH:MM AM/PM" or "HH:MM") and a timeOut.
-  // Returns a string like "2h 15m" or "45m".
-  const computeDuration = (timeIn, timeOut) => {
+  // Compute duration between entry and exit, accounting for different dates.
+  // Accepts: computeDuration(timeIn, timeOut) for same-day, or
+  //          computeDuration(timeIn, timeOut, dateIn, dateOut) for cross-day.
+  // Returns a string like "2h 15m", "1d 3h 47m", or "45m".
+  const computeDuration = (timeIn, timeOut, dateIn, dateOut) => {
     const toMin = (t) => {
       if (!t && t !== 0) return null;
       const str = String(t).trim();
@@ -9024,23 +9472,42 @@ const SecurityApp = ({ onLogout }) => {
     const a = toMin(timeIn);
     const b = toMin(timeOut);
     if (a == null || b == null) return '';
-    let diff = b - a;
-    if (diff < 0) diff += 24 * 60; // crossed midnight
-    const h = Math.floor(diff / 60);
-    const m = diff % 60;
-    if (h > 0 && m > 0) return h + 'h ' + m + 'm';
-    if (h > 0) return h + 'h';
-    return m + 'm';
+    // Calculate day difference if dates provided
+    let dayDiffMin = 0;
+    if (dateIn && dateOut && dateIn !== dateOut) {
+      try {
+        const d1 = new Date(dateIn + 'T00:00:00');
+        const d2 = new Date(dateOut + 'T00:00:00');
+        if (!isNaN(d1) && !isNaN(d2)) {
+          const diffMs = d2.getTime() - d1.getTime();
+          dayDiffMin = Math.round(diffMs / 60000); // days in minutes
+        }
+      } catch(e) {}
+    }
+    let diff = dayDiffMin + b - a;
+    if (diff < 0) diff += 24 * 60; // crossed midnight (no dates provided)
+    const days = Math.floor(diff / (24 * 60));
+    const rem = diff % (24 * 60);
+    const h = Math.floor(rem / 60);
+    const m = rem % 60;
+    let parts = [];
+    if (days > 0) parts.push(days + 'd');
+    if (h > 0) parts.push(h + 'h');
+    if (m > 0) parts.push(m + 'm');
+    return parts.join(' ') || '0m';
   };
 
   const handleCheckout = (entry) => {
-    const timeOut = formatTime12(new Date());
-    const duration = computeDuration(entry.timeIn, timeOut) || entry.duration || '';
+    const now = new Date();
+    const timeOut = formatTime12(now);
+    const dateOutIso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    const dateInIso = entry.dateIn || entry.registeredDate || entry.visitDate || entry.date || dateOutIso;
+    const duration = computeDuration(entry.timeIn, timeOut, dateInIso, dateOutIso) || entry.duration || '';
     setData(prev => ({
       ...prev,
-      entryLog: prev.entryLog.map(e => e.id === entry.id ? {...e, status:'CHECKED OUT', timeOut, duration} : e),
+      entryLog: prev.entryLog.map(e => e.id === entry.id ? {...e, status:'CHECKED OUT', timeOut, dateOut: dateOutIso, duration} : e),
       insideVisitors: prev.insideVisitors.filter(v => v.name !== entry.visitor),
-      visitors: prev.visitors.map(v => v.name === entry.visitor && v.status === 'Inside' ? {...v, status:'Checked Out'} : v)
+      visitors: prev.visitors.map(v => v.name === entry.visitor && v.status === 'Inside' ? {...v, status:'Checked Out', dateOut: dateOutIso} : v)
     }));
     showToast(entry.visitor + ' checked out' + (duration ? ' · ' + duration : ''));
   };
@@ -9054,24 +9521,28 @@ const SecurityApp = ({ onLogout }) => {
       const dashIsCheckedOut = (e) => { const s = dashNormStatus(e); return s === 'CHECKED OUT' || s === 'EXITED'; };
       const dashIsScheduled = (e) => { const s = dashNormStatus(e); return s === 'SCHEDULED' || s === 'PRE-APPROVED' || s === 'PENDING' || s === 'AWAITING APPROVAL'; };
       const dashIsRejected = (e) => { const s = dashNormStatus(e); return s === 'REJECTED' || s === 'REJECTED BY SECURITY' || s === 'DENIED ENTRY' || s === 'ON HOLD' || s === 'FLAGGED'; };
-      // Derive all counts from entryLog so All Visitors and Dashboard always match
-      const clearedCount = data.entryLog.filter(dashIsInside).length;
+      // ===== Filter by TODAY only — dashboard shows current day activity =====
+      const now = new Date();
+      const todayIso = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const entryDate = (e) => e.dateIn || e.visitDate || e.registeredDate || e.date || '';
+      const todayLog = data.entryLog.filter(e => entryDate(e) === todayIso);
+      // Derive all counts from today's entries only
+      const clearedCount = todayLog.filter(dashIsInside).length;
       const pendingCount = activePending.length;
-      const scheduledCount = data.entryLog.filter(dashIsScheduled).length;
-      const flaggedCount = data.entryLog.filter(dashIsRejected).length;
-      const checkedOutCount = data.entryLog.filter(dashIsCheckedOut).length;
-      const rejectedCountToday = data.entryLog.filter(dashIsRejected).length;
+      const scheduledCount = todayLog.filter(dashIsScheduled).length;
+      const flaggedCount = todayLog.filter(dashIsRejected).length;
+      const checkedOutCount = todayLog.filter(dashIsCheckedOut).length;
+      const rejectedCountToday = todayLog.filter(dashIsRejected).length;
       const totalInside = clearedCount + pendingCount;
-      // Total Today must always equal the "ALL" count shown on the All Visitors tab,
-      // which is simply data.entryLog.length. Summing buckets would silently drop any
-      // entry whose status falls outside the four known buckets (e.g. APPROVED).
-      const totalToday = data.entryLog.length;
+      // Total Today = only entries whose date matches today
+      const totalToday = todayLog.length;
       // Visitors Inside middle column is now derived directly from entryLog so its
       // count, its filter chips, and the "Visitors Inside" KPI on the left always
       // agree. Each inside entry is normalized into the shape the card renderer
       // expects (name/initials/type/inTime/duration/host).
       const getInitialsFromName = (n) => (n||'').split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0,2);
-      const insideFromLog = data.entryLog.filter(dashIsInside).map(e => ({
+      // Visitors Inside — derived from today's log only
+      const insideFromLog = todayLog.filter(dashIsInside).map(e => ({
         id: e.id,
         entryId: e.id,
         name: e.visitor || e.name || '—',
@@ -9094,9 +9565,9 @@ const SecurityApp = ({ onLogout }) => {
         insideFilterTab === 'GUESTS' ? insideFromLog.filter(v => typeIsGuest(v.type)) :
         insideFilterTab === 'VENDORS' ? insideFromLog.filter(v => typeIsVendor(v.type)) :
         insideFromLog.filter(v => typeIsStaff(v.type));
-      // Entry log pagination
-      const totalLogPages = Math.max(1, Math.ceil(data.entryLog.length / ENTRY_LOG_PER_PAGE));
-      const pagedLog = data.entryLog.slice(entryLogPage * ENTRY_LOG_PER_PAGE, (entryLogPage + 1) * ENTRY_LOG_PER_PAGE);
+      // Entry log on dashboard — today's entries only, paginated
+      const totalLogPages = Math.max(1, Math.ceil(todayLog.length / ENTRY_LOG_PER_PAGE));
+      const pagedLog = todayLog.slice(entryLogPage * ENTRY_LOG_PER_PAGE, (entryLogPage + 1) * ENTRY_LOG_PER_PAGE);
 
       return (
         <div>
@@ -9208,11 +9679,13 @@ const SecurityApp = ({ onLogout }) => {
                     </div>
                     <div style={{fontSize:10,color:'#a89a92',marginBottom:8}}>Host: {v.host}</div>
                     <button className="sec-quick-checkout-btn" onClick={() => {
-                      const nowStr = formatTime12(new Date());
+                      const nowD = new Date();
+                      const nowStr = formatTime12(nowD);
+                      const dateOutIso = nowD.getFullYear()+'-'+String(nowD.getMonth()+1).padStart(2,'0')+'-'+String(nowD.getDate()).padStart(2,'0');
                       setData(prev => ({
                         ...prev,
                         insideVisitors: prev.insideVisitors.filter(iv => iv.name !== v.name),
-                        entryLog: prev.entryLog.map(e => e.id === v.entryId ? {...e, status:'CHECKED OUT', timeOut: nowStr, duration: computeDuration(e.timeIn, nowStr) || e.duration || ''} : e)
+                        entryLog: prev.entryLog.map(e => e.id === v.entryId ? {...e, status:'CHECKED OUT', timeOut: nowStr, dateOut: dateOutIso, duration: computeDuration(e.timeIn, nowStr, e.dateIn || e.registeredDate || e.date || dateOutIso, dateOutIso) || e.duration || ''} : e)
                       }));
                       showToast(v.name + ' checked out');
                     }}>QUICK CHECKOUT</button>
@@ -9417,25 +9890,48 @@ const SecurityApp = ({ onLogout }) => {
       const isCheckedOut = (e) => { const s = normStatus(e); return s === 'CHECKED OUT' || s === 'EXITED'; };
       const isScheduled = (e) => { const s = normStatus(e); return s === 'SCHEDULED' || s === 'PRE-APPROVED' || s === 'PENDING' || s === 'AWAITING APPROVAL'; };
       const isRejected = (e) => { const s = normStatus(e); return s === 'REJECTED' || s === 'REJECTED BY SECURITY' || s === 'DENIED ENTRY' || s === 'ON HOLD' || s === 'FLAGGED'; };
-      const insideCount = allEntries.filter(isInside).length;
-      const checkedOutCount = allEntries.filter(isCheckedOut).length;
-      const scheduledCount = allEntries.filter(isScheduled).length;
-      const rejectedCount = allEntries.filter(isRejected).length;
+
+      // Date helpers
+      const todayStr = (() => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+      const entryDate = (e) => {
+        const d = e.dateIn || e.registeredDate || e.visitDate || e.date || '';
+        if (d) return d;
+        if (e.id && typeof e.id === 'number' && e.id > 1600000000000) {
+          const dt = new Date(e.id);
+          return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+        }
+        return '';
+      };
+
+      // Apply date filter first, then compute counts on date-filtered set
+      let dateFiltered = allEntries;
+      if (visRegDateFrom) {
+        dateFiltered = dateFiltered.filter(e => entryDate(e) >= visRegDateFrom);
+      }
+      if (visRegDateTo) {
+        dateFiltered = dateFiltered.filter(e => entryDate(e) <= visRegDateTo);
+      }
+
+      // Tab counts reflect date-filtered entries (so "Checked Out 6" matches Today's Summary)
+      const insideCount = dateFiltered.filter(isInside).length;
+      const checkedOutCount = dateFiltered.filter(isCheckedOut).length;
+      const scheduledCount = dateFiltered.filter(isScheduled).length;
+      const rejectedCount = dateFiltered.filter(isRejected).length;
       const secFilterOptions = [
-        { key: 'ALL', label: 'ALL', count: allEntries.length },
+        { key: 'ALL', label: 'ALL', count: dateFiltered.length },
         { key: 'INSIDE', label: 'INSIDE', count: insideCount },
         { key: 'CHECKED_OUT', label: 'CHECKED OUT', count: checkedOutCount },
         { key: 'SCHEDULED', label: 'SCHEDULED', count: scheduledCount },
         { key: 'REJECTED', label: 'REJECTED', count: rejectedCount }
       ];
-      let filteredEntries = secVisitorFilter === 'ALL' ? allEntries :
-        secVisitorFilter === 'INSIDE' ? allEntries.filter(isInside) :
-        secVisitorFilter === 'CHECKED_OUT' ? allEntries.filter(isCheckedOut) :
-        secVisitorFilter === 'SCHEDULED' ? allEntries.filter(isScheduled) :
-        secVisitorFilter === 'REJECTED' ? allEntries.filter(isRejected) :
-        // Back-compat for legacy keys coming from the dashboard navigation
-        secVisitorFilter === 'EXITED' ? allEntries.filter(isCheckedOut) :
-        allEntries;
+      // Apply status filter on the date-filtered set
+      let filteredEntries = secVisitorFilter === 'ALL' ? dateFiltered :
+        secVisitorFilter === 'INSIDE' ? dateFiltered.filter(isInside) :
+        secVisitorFilter === 'CHECKED_OUT' ? dateFiltered.filter(isCheckedOut) :
+        secVisitorFilter === 'SCHEDULED' ? dateFiltered.filter(isScheduled) :
+        secVisitorFilter === 'REJECTED' ? dateFiltered.filter(isRejected) :
+        secVisitorFilter === 'EXITED' ? dateFiltered.filter(isCheckedOut) :
+        dateFiltered;
       // Search filter
       if (visRegSearch.trim()) {
         const q = visRegSearch.trim().toLowerCase();
@@ -9445,18 +9941,6 @@ const SecurityApp = ({ onLogout }) => {
           (e.refId||'').toLowerCase().includes(q) ||
           (e.host||'').toLowerCase().includes(q)
         );
-      }
-      // Date range filter
-      // Future dates → only scheduled visitors are shown (they haven't happened yet)
-      // Past/today dates → actual visitor activity
-      // Entries without a date are treated as today so legacy rows still appear under the today filter.
-      const todayStr = (() => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
-      const entryDate = (e) => e.registeredDate || e.visitDate || e.date || todayStr;
-      if (visRegDateFrom) {
-        filteredEntries = filteredEntries.filter(e => entryDate(e) >= visRegDateFrom);
-      }
-      if (visRegDateTo) {
-        filteredEntries = filteredEntries.filter(e => entryDate(e) <= visRegDateTo);
       }
       // If the selected "from" date is strictly in the future, narrow to SCHEDULED only
       if (visRegDateFrom && visRegDateFrom > todayStr) {
@@ -9580,14 +10064,14 @@ const SecurityApp = ({ onLogout }) => {
                   ? ('Expected ' + (formatTimeDisplay(e.timeIn) || '—'))
                   : mIsInside
                     ? (formatTimeDisplay(e.timeIn) || '—')
-                    : (formatTimeDisplay(e.timeIn) + (e.timeOut ? ' → ' + formatTimeDisplay(e.timeOut) + ' · ' + (computeDuration(e.timeIn, e.timeOut) || e.duration || '') : ''));
+                    : (formatTimeDisplay(e.timeIn) + (e.timeOut ? ' → ' + formatTimeDisplay(e.timeOut) + ' · ' + (computeDuration(e.timeIn, e.timeOut, e.dateIn || e.registeredDate || e.date || '', e.dateOut || '') || e.duration || '') : ''));
                 return (
                 <div key={e.id} style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:12,marginBottom:8,cursor:'pointer'}} onClick={() => setViewingVisitor(findFullVisitor(e))}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                     <div style={{fontWeight:600,fontSize:13,color:'#1a1a1a'}}>{e.visitor}</div>
                     <span style={{background:mSts.bg,color:mSts.color,border:`1px solid ${mSts.border||mSts.bg}`,padding:'3px 8px',borderRadius:3,fontSize:9,fontWeight:700,display:'inline-block',letterSpacing:'0.03em',whiteSpace:'nowrap'}}>{mSts.label}</span>
                   </div>
-                  <div style={{fontSize:11,color:'#a89a92'}}>{e.type} • {formatUnit(e.flat)} • {mTimeLabel} • Host: {e.host || '—'}</div>
+                  <div style={{fontSize:11,color:'#a89a92'}}>{e.type} • {formatUnit(e.flat)} • {(() => { const d = e.dateIn || e.registeredDate || e.visitDate || e.date || ''; if (!d) return ''; try { const dt = new Date(d+'T00:00:00'); if (isNaN(dt)) return d; return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}); } catch(x) { return d; } })()} {mTimeLabel} • Host: {e.host || '—'}</div>
                 </div>
                 );
               })}
@@ -9600,8 +10084,9 @@ const SecurityApp = ({ onLogout }) => {
                   <th>VISITOR NAME</th>
                   <th>VISITOR TYPE</th>
                   <th>UNIT NO.</th>
-                  <th>EXPECTED TIME</th>
-                  <th>TIME ENTERED</th>
+                  <th>{secVisitorFilter === 'SCHEDULED' ? 'SCHEDULED DATE' : 'DATE ENTERED'}</th>
+                  <th>{secVisitorFilter === 'SCHEDULED' ? 'SCHEDULED TIME' : 'TIME ENTERED'}</th>
+                  <th>{secVisitorFilter === 'SCHEDULED' ? 'SCHEDULED EXIT' : 'DATE EXIT'}</th>
                   <th>CHECK OUT TIME</th>
                   <th>DURATION</th>
                   <th>GATE</th>
@@ -9615,17 +10100,21 @@ const SecurityApp = ({ onLogout }) => {
                   const sts = getStatusStyle(e.status);
                   const isLogInside = sts.label === 'INSIDE';
                   const isLogScheduled = sts.label === 'SCHEDULED';
+                  // Format ISO date (YYYY-MM-DD) → "12 Apr 2026"
+                  const fmtDateCell = (d) => { if (!d) return '—'; try { const dt = new Date(d + 'T00:00:00'); if (isNaN(dt)) return d; return dt.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Dubai'}); } catch(e) { return d; } };
+                  const entryDateVal = e.dateIn || e.registeredDate || e.visitDate || e.date || (() => { if (e.id && typeof e.id === 'number' && e.id > 1600000000000) { const d = new Date(e.id); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); } return ''; })();
+                  const exitDateVal = e.dateOut || (sts.label === 'CHECKED OUT' ? entryDateVal : '');
                   return (
                   <tr key={e.id} style={{cursor:'pointer'}} onClick={() => setViewingVisitor(findFullVisitor(e))}>
                     <td style={{color:'#a89a92'}}>{visRegPage * VIS_REG_PER_PAGE + i + 1}</td>
                     <td style={{fontWeight:500,color:'#1a1a1a'}}>{e.visitor}</td>
                     <td style={{color:'#a89a92'}}>{e.type || '—'}</td>
                     <td style={{color:'#a89a92'}}>{formatUnit(e.flat)}</td>
-                    <td style={{color:'#a89a92'}}>{isLogScheduled ? (formatTimeDisplay(e.timeIn) || '—') : '—'}</td>
-                    <td style={{color:'#a89a92'}}>{isLogScheduled ? '—' : (formatTimeDisplay(e.timeIn) || '—')}</td>
-                    {/* A visitor who is still INSIDE (or SCHEDULED) has no check-out time yet */}
+                    <td style={{color:'#a89a92'}}>{fmtDateCell(entryDateVal)}</td>
+                    <td style={{color:'#a89a92'}}>{formatTimeDisplay(e.timeIn) || '—'}</td>
+                    <td style={{color:'#a89a92'}}>{(isLogInside || isLogScheduled) ? '—' : fmtDateCell(exitDateVal)}</td>
                     <td style={{color:'#a89a92'}}>{(isLogInside || isLogScheduled) ? '—' : (formatTimeDisplay(e.timeOut) || '—')}</td>
-                    <td style={{color:'#a89a92'}}>{(isLogInside || isLogScheduled) ? '—' : (e.timeOut ? (computeDuration(e.timeIn, e.timeOut) || e.duration || '—') : (e.duration || '—'))}</td>
+                    <td style={{color:'#a89a92'}}>{(isLogInside || isLogScheduled) ? '—' : (e.timeOut ? (computeDuration(e.timeIn, e.timeOut, e.dateIn || entryDateVal, e.dateOut || exitDateVal) || e.duration || '—') : (e.duration || '—'))}</td>
                     <td style={{color:'#a89a92'}}>{e.gateUsed || e.gate || 'Main Gate'}</td>
                     <td style={{color:'#a89a92'}}>{e.host || '—'}</td>
                     <td>
@@ -10833,10 +11322,10 @@ const App = () => {
     seedAppliedRef.current = true;
     const seedRows = buildSeedEntryLog();
     setData(prev => {
-      const existingIds = new Set((prev.entryLog || []).map(e => e.id));
-      const fresh = seedRows.filter(s => !existingIds.has(s.id));
-      const merged = [...fresh, ...(prev.entryLog || [])];
-      console.log('Entry log seed applied: +' + fresh.length + ' rows (total: ' + merged.length + ')');
+      // Remove stale seed entries (they carry _seed: true) so dates refresh daily
+      const userEntries = (prev.entryLog || []).filter(e => !e._seed);
+      const merged = [...seedRows, ...userEntries];
+      console.log('Entry log seed refreshed: ' + seedRows.length + ' seed + ' + userEntries.length + ' user = ' + merged.length + ' total');
       return { ...prev, entryLog: merged, entryLogSeedVersion: SEED_ENTRY_LOG_VERSION };
     });
   }, [data, syncStatus]);
