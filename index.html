@@ -1322,7 +1322,7 @@ const MiniCalendar = ({ month = 'April 2026' }) => {
 // ==================== LOGIN PAGE ====================
 const LoginPage = ({ onLogin, syncStatus }) => {
   const [selectedRole, setSelectedRole] = useState('resident');
-  const [email, setEmail] = useState('nitin@resident.ae');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -1333,8 +1333,7 @@ const LoginPage = ({ onLogin, syncStatus }) => {
   };
 
   useEffect(() => {
-    const cred = credentials[selectedRole];
-    setEmail(cred.email);
+    setEmail('');
     setPassword('');
     setError('');
   }, [selectedRole]);
@@ -1390,9 +1389,9 @@ const LoginPage = ({ onLogin, syncStatus }) => {
         <div style={{fontSize:10,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--text-secondary)',marginBottom:10,fontWeight:500}}>Select Access Role</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:28}}>
           {[
-            {id:'resident',label:'Resident',sub:'Owner / Tenant'},
-            {id:'security',label:'Security',sub:'Guard / Officer'},
-            {id:'manager',label:'Manager',sub:'Property / Facility'}
+            {id:'resident',label:'Resident',sub:''},
+            {id:'security',label:'Security',sub:''},
+            {id:'manager',label:'Property Manager',sub:''}
           ].map(role => {
             const active = selectedRole === role.id;
             return (
@@ -1413,7 +1412,7 @@ const LoginPage = ({ onLogin, syncStatus }) => {
                 {active && <div style={{position:'absolute',top:-1,left:'50%',transform:'translateX(-50%)',width:20,height:2,background:'var(--bg-warm-dark)',borderRadius:1}}></div>}
                 <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>{roleIcons[role.id](active)}</div>
                 <div style={{fontSize:12,fontWeight:500,color: active ? 'var(--text-dark)' : 'var(--text-muted)',letterSpacing:'-0.01em'}}>{role.label}</div>
-                <div style={{fontSize:9,color: active ? 'var(--text-secondary)' : '#ccc',letterSpacing:'0.04em',marginTop:2,textTransform:'uppercase'}}>{role.sub}</div>
+                {role.sub && <div style={{fontSize:9,color: active ? 'var(--text-secondary)' : '#ccc',letterSpacing:'0.04em',marginTop:2,textTransform:'uppercase'}}>{role.sub}</div>}
               </div>
             );
           })}
@@ -1430,12 +1429,6 @@ const LoginPage = ({ onLogin, syncStatus }) => {
             <input className="form-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password" style={{borderColor:'var(--border-light)',fontSize:13,borderRadius:8}}/>
           </div>
 
-          <div style={{background:'var(--bg-surface)',border:'1px solid var(--border-light)',borderRadius:8,padding:12,marginBottom:16,fontSize:11,color:'var(--text-muted)'}}>
-            <strong style={{color:'var(--accent-warm-dark)',fontSize:10,letterSpacing:'0.06em',textTransform:'uppercase'}}>Demo Access</strong><br/>
-            {selectedRole==='resident' && <span style={{fontSize:12,color:'var(--text-secondary)'}}>nitin@resident.ae · resident123</span>}
-            {selectedRole==='security' && <span style={{fontSize:12,color:'var(--text-secondary)'}}>suresh@security.ae · guard123</span>}
-            {selectedRole==='manager' && <span style={{fontSize:12,color:'var(--text-secondary)'}}>hassan@pinnaclepm.ae · admin123</span>}
-          </div>
 
           {error && <p style={{color:'#8b4a42',fontSize:12,marginBottom:12}}>{error}</p>}
           <button type="submit" className="btn btn-primary" style={{width:'100%',padding:'13px',fontSize:12,marginTop:4,background:'var(--bg-warm-dark)',border:'none',borderRadius:8,color:'#fff',fontWeight:500,letterSpacing:'0.02em',textTransform:'uppercase',cursor:'pointer',transition:'all .2s'}}>Sign In</button>
