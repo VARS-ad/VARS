@@ -14,6 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 @font-face{font-family:'Helvetica Now Text';src:local('Helvetica Now Text'),local('HelveticaNowText'),local('Helvetica Now Text Regular'),local('HelveticaNowText-Regular');font-weight:100 900;font-display:swap}
 </style>
@@ -309,6 +310,7 @@ body{font-family:'Helvetica Now Text','Inter',-apple-system,BlinkMacSystemFont,'
 /* Toast */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--bg-warm-dark);color:#fff;padding:12px 24px;border-radius:var(--radius-sm);font-size:12px;z-index:2000;animation:slideUp .3s ease;box-shadow:var(--shadow-md)}
 @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
 /* Mobile bottom nav */
 .mobile-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #d0d0d0;z-index:100;padding:4px 0 env(safe-area-inset-bottom,4px) 0}
@@ -8380,6 +8382,13 @@ const SecurityApp = ({ onLogout }) => {
   const dismissedSecNotifIds = data.dismissedSecNotifIds || [];
   const [secFormStep, setSecFormStep] = useState('form'); // form | review
   const [secUnitFocused, setSecUnitFocused] = useState(false);
+  const [showIdScanner, setShowIdScanner] = useState(false);
+  const [idScanStatus, setIdScanStatus] = useState(''); // '' | 'opening' | 'ready' | 'capturing' | 'processing' | 'done' | 'error'
+  const [idScanStep, setIdScanStep] = useState('front'); // 'front' | 'back'
+  const [idScanFrontData, setIdScanFrontData] = useState(null); // stores front-side parse results between steps
+  const idScanVideoRef = React.useRef(null);
+  const idScanCanvasRef = React.useRef(null);
+  const idScanStreamRef = React.useRef(null);
   const [newVisitorData, setNewVisitorData] = useState({
     visitorType: 'Resident Guest',
     entryType: 'Walk-in',
@@ -8453,6 +8462,268 @@ const SecurityApp = ({ onLogout }) => {
   const clearAllSecNotifs = () => {
     const allIds = secNotifications.map(n => n.id);
     setData(prev => ({ ...prev, dismissedSecNotifIds: allIds }));
+  };
+
+  // ==================== EMIRATES ID SCANNER ====================
+  const stopIdScanCamera = () => {
+    if (idScanStreamRef.current) {
+      idScanStreamRef.current.getTracks().forEach(t => t.stop());
+      idScanStreamRef.current = null;
+    }
+  };
+
+  const openIdScanner = async () => {
+    setShowIdScanner(true);
+    setIdScanStep('front');
+    setIdScanFrontData(null);
+    setIdScanStatus('opening');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      idScanStreamRef.current = stream;
+      if (idScanVideoRef.current) {
+        idScanVideoRef.current.srcObject = stream;
+        idScanVideoRef.current.play();
+      }
+      setIdScanStatus('ready');
+    } catch (err) {
+      console.error('Camera access denied:', err);
+      setIdScanStatus('error');
+      showToast('Camera access denied. Please allow camera permissions.');
+    }
+  };
+
+  // Restart camera for back side scan
+  const startBackSideScan = async () => {
+    setIdScanStep('back');
+    setIdScanStatus('opening');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      idScanStreamRef.current = stream;
+      if (idScanVideoRef.current) {
+        idScanVideoRef.current.srcObject = stream;
+        idScanVideoRef.current.play();
+      }
+      setIdScanStatus('ready');
+    } catch (err) {
+      console.error('Camera error:', err);
+      setIdScanStatus('error');
+    }
+  };
+
+  // Prepare canvas with rotation handling (landscape card in portrait photo)
+  const prepareCanvasForOCR = (video) => {
+    const canvas = idScanCanvasRef.current;
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    // If image is taller than wide (portrait photo of landscape card), rotate 90° CW
+    if (vh > vw * 1.2) {
+      canvas.width = vh;
+      canvas.height = vw;
+      const ctx = canvas.getContext('2d');
+      ctx.save();
+      ctx.translate(vh, 0);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(video, 0, 0);
+      ctx.restore();
+    } else {
+      canvas.width = vw;
+      canvas.height = vh;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+    }
+    return canvas;
+  };
+
+  const captureIdScan = async () => {
+    if (!idScanVideoRef.current || !idScanCanvasRef.current) return;
+    setIdScanStatus('capturing');
+    const video = idScanVideoRef.current;
+    const canvas = prepareCanvasForOCR(video);
+    stopIdScanCamera();
+    setIdScanStatus('processing');
+    try {
+      const worker = await Tesseract.createWorker('eng');
+      const { data: { text } } = await worker.recognize(canvas);
+      await worker.terminate();
+      console.log('[EID OCR ' + idScanStep + ']', text);
+
+      if (idScanStep === 'front') {
+        // Parse front side: Name + ID Number
+        const frontData = parseFrontSide(text);
+        setIdScanFrontData(frontData);
+        // Auto-populate front-side fields immediately
+        if (frontData.name) setNewVisitorData(prev => ({ ...prev, fullName: frontData.name }));
+        setNewVisitorData(prev => ({ ...prev, idDocType: 'Emirates ID' }));
+        if (frontData.idNumber) setNewVisitorData(prev => ({ ...prev, idDocNumber: frontData.idNumber }));
+        if (frontData.nationality) setNewVisitorData(prev => ({ ...prev, guardNotes: prev.guardNotes ? prev.guardNotes + '\nNationality: ' + frontData.nationality : 'Nationality: ' + frontData.nationality }));
+        setIdScanStatus('done');
+        showToast(frontData.name ? 'Front scanned — ' + frontData.name : 'Front scanned — now flip to back side');
+        // After a short pause, prompt for back side
+        setTimeout(() => { startBackSideScan(); }, 1500);
+      } else {
+        // Parse back side: Employer/Occupation + MRZ fallback for name
+        const backData = parseBackSide(text);
+        // If front didn't get name, try MRZ from back as fallback
+        if (!idScanFrontData?.name && backData.mrzName) {
+          setNewVisitorData(prev => ({ ...prev, fullName: backData.mrzName }));
+        }
+        // Populate employer/company for non-Resident Guest
+        if (backData.employer) {
+          setNewVisitorData(prev => {
+            if (prev.visitorType !== 'Resident Guest') {
+              return { ...prev, company: backData.employer };
+            }
+            return prev;
+          });
+        }
+        setIdScanStatus('done');
+        showToast(backData.employer ? 'Back scanned — ' + backData.employer : 'Back scan complete');
+        setTimeout(() => { setShowIdScanner(false); setIdScanStatus(''); setIdScanStep('front'); setIdScanFrontData(null); }, 1200);
+      }
+    } catch (err) {
+      console.error('OCR error:', err);
+      setIdScanStatus('error');
+      showToast('Could not read ID. Please try again or enter manually.');
+    }
+  };
+
+  const closeIdScanner = () => {
+    stopIdScanCamera();
+    setShowIdScanner(false);
+    setIdScanStatus('');
+    setIdScanStep('front');
+    setIdScanFrontData(null);
+  };
+
+  // Skip back side scan and close
+  const skipBackSide = () => {
+    stopIdScanCamera();
+    setShowIdScanner(false);
+    setIdScanStatus('');
+    setIdScanStep('front');
+    setIdScanFrontData(null);
+    showToast('ID scan complete — back side skipped');
+  };
+
+  // ---- FRONT SIDE PARSER: Full Name + ID Number ----
+  const parseFrontSide = (text) => {
+    const result = { name: '', idNumber: '', nationality: '', dob: '', gender: '', expiry: '' };
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+    // Emirates ID number: 784-YYYY-NNNNNNN-N (with possible OCR artifacts)
+    const idMatch = text.match(/784[-\s.]?\d{4}[-\s.]?\d{7}[-\s.]?\d/);
+    if (idMatch) {
+      result.idNumber = idMatch[0].replace(/[\s.]/g, '').replace(/(\d{3})(\d{4})(\d{7})(\d)/, '$1-$2-$3-$4');
+    }
+
+    // Name — look for "Name" label, then take the next line
+    const nameLineIdx = lines.findIndex(l => /^name\b/i.test(l));
+    if (nameLineIdx >= 0 && nameLineIdx + 1 < lines.length) {
+      const candidate = lines[nameLineIdx + 1].replace(/[^a-zA-Z\s\-']/g, '').trim();
+      if (candidate.length > 3) result.name = candidate;
+    }
+    // Fallback: look for multi-word alpha lines that aren't labels
+    if (!result.name) {
+      const labels = /nationality|date|birth|sex|gender|expiry|id\s*number|card|resident|authority|emirates|united|arab|ajnabi|issue/i;
+      const nameCandidates = lines
+        .filter(l => {
+          const clean = l.replace(/[^a-zA-Z\s]/g, '').trim();
+          return clean.length > 5 && clean.split(/\s+/).length >= 2 && clean.length > l.length * 0.6 && !labels.test(clean);
+        })
+        .map(l => l.replace(/[^a-zA-Z\s\-']/g, '').trim());
+      if (nameCandidates.length > 0) {
+        result.name = nameCandidates.reduce((a, b) => a.length >= b.length ? a : b);
+      }
+    }
+    // Title case the name
+    if (result.name) {
+      result.name = result.name.split(/\s+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
+
+    // Nationality
+    const natMatch = text.match(/nationality[:\s]*([A-Za-z\s]+)/i);
+    if (natMatch) result.nationality = natMatch[1].trim().split('\n')[0].trim();
+
+    // Date of birth
+    const dobMatch = text.match(/(?:birth|dob|d\.o\.b)[:\s]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+    if (dobMatch) result.dob = dobMatch[1];
+
+    // Gender
+    const genderMatch = text.match(/(?:sex|gender)[:\s]*(male|female|m|f)\b/i);
+    if (genderMatch) result.gender = genderMatch[1].length === 1 ? (genderMatch[1].toUpperCase() === 'M' ? 'Male' : 'Female') : genderMatch[1];
+
+    // Expiry
+    const expMatch = text.match(/(?:expiry|exp)[:\s]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+    if (expMatch) result.expiry = expMatch[1];
+
+    return result;
+  };
+
+  // ---- BACK SIDE PARSER: Employer/Occupation + MRZ ----
+  const parseBackSide = (text) => {
+    const result = { employer: '', occupation: '', mrzName: '', issuingPlace: '' };
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+    // Employer — look for "Employer" or "Employer / Occupation" label
+    const empIdx = lines.findIndex(l => /employer/i.test(l));
+    if (empIdx >= 0) {
+      // The employer value might be on the same line after colon, or on the next line
+      const sameLine = lines[empIdx].replace(/.*employer[\/\s]*(?:occupation)?[:\s]*/i, '').trim();
+      if (sameLine.length > 2 && !/occupation/i.test(sameLine)) {
+        result.employer = sameLine;
+      } else if (empIdx + 1 < lines.length) {
+        const nextLine = lines[empIdx + 1].replace(/[^a-zA-Z\s\-&.,']/g, '').trim();
+        if (nextLine.length > 1) result.employer = nextLine;
+      }
+    }
+
+    // Occupation — look for "Occupation" label (separate from employer)
+    const occIdx = lines.findIndex(l => /^occupation[:\s]/i.test(l) || (l.toLowerCase().includes('occupation') && !l.toLowerCase().includes('employer')));
+    if (occIdx >= 0) {
+      const sameLine = lines[occIdx].replace(/.*occupation[:\s]*/i, '').trim();
+      if (sameLine.length > 2) {
+        result.occupation = sameLine;
+      } else if (occIdx + 1 < lines.length) {
+        const nextLine = lines[occIdx + 1].replace(/[^a-zA-Z\s\-&.,']/g, '').trim();
+        if (nextLine.length > 1) result.occupation = nextLine;
+      }
+    }
+    // If no separate employer found, use occupation as employer fallback
+    if (!result.employer && result.occupation) result.employer = result.occupation;
+
+    // Issuing Place
+    const ipIdx = lines.findIndex(l => /issuing\s*place/i.test(l));
+    if (ipIdx >= 0) {
+      const sameLine = lines[ipIdx].replace(/.*issuing\s*place[:\s]*/i, '').trim();
+      if (sameLine.length > 2) result.issuingPlace = sameLine;
+      else if (ipIdx + 1 < lines.length) result.issuingPlace = lines[ipIdx + 1].replace(/[^a-zA-Z\s]/g, '').trim();
+    }
+
+    // MRZ parsing (Machine Readable Zone — bottom of back side)
+    // Emirates ID MRZ has 3 lines of 30 chars, format:
+    // Line 3 pattern: LASTNAME<<FIRSTNAME<<<<<<<<<<<
+    const mrzLines = lines.filter(l => {
+      const clean = l.replace(/\s/g, '');
+      return clean.length >= 20 && /^[A-Z0-9<]{15,}$/.test(clean);
+    });
+    for (const mrzLine of mrzLines) {
+      const clean = mrzLine.replace(/\s/g, '');
+      const nameMatch = clean.match(/([A-Z]+)<<([A-Z]+)/);
+      if (nameMatch) {
+        const lastName = nameMatch[1].replace(/</g, ' ').trim();
+        const firstName = nameMatch[2].replace(/</g, ' ').trim();
+        if (lastName.length > 1 && firstName.length > 1) {
+          result.mrzName = (firstName.charAt(0) + firstName.slice(1).toLowerCase()) + ' ' + (lastName.charAt(0) + lastName.slice(1).toLowerCase());
+        }
+        break;
+      }
+    }
+
+    return result;
   };
 
   const resetNewVisitorForm = () => {
@@ -10772,9 +11043,27 @@ const SecurityApp = ({ onLogout }) => {
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
                   {/* Section 01 — Visitor Identity */}
                   <div style={{background:'#fff',border:'1px solid #ebe7e3',borderRadius:6,padding:20}}>
-                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
                       <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a',display:'flex',alignItems:'center',gap:8}}><span style={{background:'#e8e3de',padding:'2px 8px',borderRadius:3,fontSize:10,color:'#a89a92'}}>01</span> VISITOR IDENTITY</div>
-                                          </div>
+                    </div>
+
+                    {/* Scan Emirates ID button */}
+                    <div style={{marginBottom:18}}>
+                      <button onClick={openIdScanner}
+                        style={{width:'100%',padding:'12px 16px',background:'linear-gradient(135deg,#1a1a1a 0%,#333 100%)',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,letterSpacing:'0.03em',transition:'all .2s',boxShadow:'0 2px 8px rgba(0,0,0,0.15)'}}
+                        onMouseEnter={e => { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'; }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5">
+                          <rect x="2" y="2" width="6" height="6" rx="1"/><rect x="16" y="2" width="6" height="6" rx="1"/>
+                          <rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/>
+                          <circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+                        </svg>
+                        SCAN EMIRATES ID
+                      </button>
+                      <div style={{fontSize:10,color:'#a89a92',textAlign:'center',marginTop:6}}>Use camera to auto-fill visitor details from Emirates ID</div>
+                    </div>
+
+                    <div style={{height:1,background:'#ebe7e3',marginBottom:16}}></div>
 
                     {/* Visitor Type */}
                     <div style={{marginBottom:16}}>
@@ -11023,6 +11312,137 @@ const SecurityApp = ({ onLogout }) => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Emirates ID Scanner Modal — Two-Step (Front + Back) */}
+      {showIdScanner && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.85)',zIndex:2000,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+          {/* Header */}
+          <div style={{position:'absolute',top:0,left:0,right:0,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 24px',zIndex:2001}}>
+            <div>
+              <div style={{fontSize:16,fontWeight:600,color:'#fff',display:'flex',alignItems:'center',gap:10}}>
+                Scan Emirates ID
+                <span style={{fontSize:10,fontWeight:500,background: idScanStep === 'front' ? 'rgba(255,255,255,0.15)' : '#4caf50',padding:'3px 10px',borderRadius:20,color:'#fff'}}>
+                  {idScanStep === 'front' ? 'Step 1/2 — Front Side' : 'Step 2/2 — Back Side'}
+                </span>
+              </div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.6)',marginTop:2}}>
+                {idScanStatus === 'opening' ? 'Opening camera...'
+                  : idScanStatus === 'ready' ? (idScanStep === 'front' ? 'Show the FRONT of the Emirates ID (photo side)' : 'Now flip to the BACK side (employer/MRZ side)')
+                  : idScanStatus === 'capturing' ? 'Capturing...'
+                  : idScanStatus === 'processing' ? (idScanStep === 'front' ? 'Reading front — extracting name & ID number...' : 'Reading back — extracting employer info...')
+                  : idScanStatus === 'done' ? (idScanStep === 'front' ? 'Front side captured! Preparing back side...' : 'ID scan complete!')
+                  : idScanStatus === 'error' ? 'Camera error — please try again'
+                  : ''}
+              </div>
+            </div>
+            <button onClick={closeIdScanner} style={{background:'rgba(255,255,255,0.15)',border:'none',color:'#fff',width:36,height:36,borderRadius:'50%',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+          </div>
+
+          {/* Step indicator dots */}
+          <div style={{position:'absolute',top:70,left:'50%',transform:'translateX(-50)',display:'flex',gap:8,zIndex:2001}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background: idScanStep === 'front' ? '#fff' : '#4caf50',transition:'all .3s'}}/>
+            <div style={{width:8,height:8,borderRadius:'50%',background: idScanStep === 'back' ? '#fff' : 'rgba(255,255,255,0.3)',transition:'all .3s'}}/>
+          </div>
+
+          {/* Camera viewfinder */}
+          <div style={{position:'relative',width:'90%',maxWidth:640,aspectRatio:'16/10',borderRadius:12,overflow:'hidden',border:'2px solid rgba(255,255,255,0.2)'}}>
+            <video ref={idScanVideoRef} autoPlay playsInline muted
+              style={{width:'100%',height:'100%',objectFit:'cover',display: idScanStatus === 'ready' || idScanStatus === 'capturing' ? 'block' : 'none'}}/>
+
+            {/* Viewfinder overlay — card outline guide */}
+            {(idScanStatus === 'ready' || idScanStatus === 'capturing') && (
+              <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
+                <div style={{width:'85%',height:'55%',border:'2px dashed rgba(255,255,255,0.5)',borderRadius:12,position:'relative'}}>
+                  <div style={{position:'absolute',top:-24,left:'50%',transform:'translateX(-50)',background:'rgba(0,0,0,0.7)',padding:'5px 14px',borderRadius:4,fontSize:11,color:'rgba(255,255,255,0.9)',whiteSpace:'nowrap',fontWeight:500}}>
+                    {idScanStep === 'front' ? 'FRONT SIDE — Photo & Name' : 'BACK SIDE — Employer & MRZ'}
+                  </div>
+                  {/* Corner markers */}
+                  {[[0,0,'borderTop','borderLeft'],[1,0,'borderTop','borderRight'],[0,1,'borderBottom','borderLeft'],[1,1,'borderBottom','borderRight']].map(([x,y,bv,bh], i) => (
+                    <div key={i} style={{position:'absolute',[y?'bottom':'top']:-2,[x?'right':'left']:-2,width:20,height:20,[bv]:'3px solid #fff',[bh]:'3px solid #fff',borderRadius: x === y ? (x ? '0 0 0 0' : '0 0 0 0') : '0'}}/>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Processing overlay */}
+            {idScanStatus === 'processing' && (
+              <div style={{width:'100%',height:'100%',background:'rgba(0,0,0,0.7)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16}}>
+                <div style={{width:48,height:48,border:'3px solid rgba(255,255,255,0.2)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>
+                <div style={{color:'#fff',fontSize:14,fontWeight:500}}>
+                  {idScanStep === 'front' ? 'Reading front side...' : 'Reading back side...'}
+                </div>
+                <div style={{color:'rgba(255,255,255,0.5)',fontSize:11}}>
+                  {idScanStep === 'front' ? 'Extracting name, ID number, nationality' : 'Extracting employer, occupation, MRZ data'}
+                </div>
+              </div>
+            )}
+
+            {/* Done overlay */}
+            {idScanStatus === 'done' && (
+              <div style={{width:'100%',height:'100%',background:'rgba(0,0,0,0.7)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12}}>
+                <div style={{width:56,height:56,borderRadius:'50%',background:'#4caf50',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div style={{color:'#fff',fontSize:16,fontWeight:600}}>
+                  {idScanStep === 'front' ? 'Front Side Captured!' : 'Emirates ID Scan Complete'}
+                </div>
+                {idScanStep === 'front' && (
+                  <div style={{color:'rgba(255,255,255,0.6)',fontSize:12}}>Preparing back side scan...</div>
+                )}
+              </div>
+            )}
+
+            {/* Error */}
+            {idScanStatus === 'error' && (
+              <div style={{width:'100%',height:'100%',background:'rgba(0,0,0,0.7)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12}}>
+                <div style={{width:56,height:56,borderRadius:'50%',background:'#d32f2f',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+                <div style={{color:'#fff',fontSize:14}}>Could not access camera</div>
+                <button onClick={() => { closeIdScanner(); }} style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',color:'#fff',padding:'8px 20px',borderRadius:4,fontSize:12,cursor:'pointer',marginTop:8}}>Close</button>
+              </div>
+            )}
+
+            {/* Opening */}
+            {idScanStatus === 'opening' && (
+              <div style={{width:'100%',height:'100%',background:'rgba(0,0,0,0.9)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12}}>
+                <div style={{width:40,height:40,border:'3px solid rgba(255,255,255,0.2)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>
+                <div style={{color:'rgba(255,255,255,0.7)',fontSize:13}}>Opening camera...</div>
+              </div>
+            )}
+          </div>
+
+          {/* Hidden canvas for image capture */}
+          <canvas ref={idScanCanvasRef} style={{display:'none'}}/>
+
+          {/* Capture button */}
+          {idScanStatus === 'ready' && (
+            <button onClick={captureIdScan}
+              style={{marginTop:24,width:72,height:72,borderRadius:'50%',border:'4px solid rgba(255,255,255,0.4)',background:'rgba(255,255,255,0.15)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s'}}
+              onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,0.3)'; e.currentTarget.style.transform='scale(1.05)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.15)'; e.currentTarget.style.transform='scale(1)'; }}>
+              <div style={{width:52,height:52,borderRadius:'50%',background:'#fff'}}/>
+            </button>
+          )}
+
+          {/* Instructions + Skip button for back side */}
+          {idScanStatus === 'ready' && (
+            <div style={{marginTop:16,textAlign:'center',maxWidth:320}}>
+              <div style={{color:'rgba(255,255,255,0.5)',fontSize:11}}>
+                {idScanStep === 'front'
+                  ? 'Hold the FRONT of the Emirates ID (with photo) flat and well-lit.'
+                  : 'Now show the BACK side (with employer info and MRZ code).'}
+              </div>
+              {idScanStep === 'back' && (
+                <button onClick={skipBackSide}
+                  style={{marginTop:10,background:'none',border:'1px solid rgba(255,255,255,0.2)',color:'rgba(255,255,255,0.5)',padding:'6px 16px',borderRadius:4,fontSize:11,cursor:'pointer'}}>
+                  Skip back side
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
