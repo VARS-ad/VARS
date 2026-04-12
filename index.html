@@ -8384,10 +8384,12 @@ const SecurityApp = ({ onLogout }) => {
   const [secUnitFocused, setSecUnitFocused] = useState(false);
   const [showIdScanner, setShowIdScanner] = useState(false);
   const [idScanStatus, setIdScanStatus] = useState(''); // '' | 'opening' | 'ready' | 'capturing' | 'processing' | 'done' | 'error'
+  const [idScanGuide, setIdScanGuide] = useState({ msg: '', color: '', icon: '' }); // real-time scanning guidance
   const idScanVideoRef = React.useRef(null);
   const idScanCanvasRef = React.useRef(null);
   const idScanStreamRef = React.useRef(null);
-  const idScanWorkerRef = React.useRef(null); // persistent Tesseract worker — created once, reused
+  const idScanWorkerRef = React.useRef(null);
+  const idScanGuideInterval = React.useRef(null);
   const [newVisitorData, setNewVisitorData] = useState({
     visitorType: 'Resident Guest',
     entryType: 'Walk-in',
@@ -8469,17 +8471,74 @@ const SecurityApp = ({ onLogout }) => {
       idScanStreamRef.current.getTracks().forEach(t => t.stop());
       idScanStreamRef.current = null;
     }
+    if (idScanGuideInterval.current) { clearInterval(idScanGuideInterval.current); idScanGuideInterval.current = null; }
+  };
+
+  // Analyze video frame quality and give real-time guidance
+  const analyzeFrameQuality = () => {
+    const video = idScanVideoRef.current;
+    if (!video || video.videoWidth === 0) return;
+    const c = document.createElement('canvas');
+    const size = 120; // small sample for speed
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    // Sample the center of the frame (where the card should be)
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const sx = vw * 0.2, sy = vh * 0.15, sw = vw * 0.6, sh = vh * 0.7;
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, size, size);
+    const imgData = ctx.getImageData(0, 0, size, size);
+    const d = imgData.data;
+    // 1. Brightness — average luminance
+    let totalBright = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      totalBright += d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+    }
+    const avgBright = totalBright / (size * size);
+    // 2. Contrast / sharpness — variance of luminance (higher = more detail = sharper)
+    let variance = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      variance += (lum - avgBright) * (lum - avgBright);
+    }
+    variance /= (size * size);
+    // 3. Edge density — Sobel-like horizontal edge count (detects text/detail)
+    let edges = 0;
+    for (let y = 1; y < size - 1; y++) {
+      for (let x = 1; x < size - 1; x++) {
+        const idx = (y * size + x) * 4;
+        const left = d[idx - 4] * 0.299 + d[idx - 3] * 0.587 + d[idx - 2] * 0.114;
+        const right = d[idx + 4] * 0.299 + d[idx + 5] * 0.587 + d[idx + 6] * 0.114;
+        if (Math.abs(right - left) > 30) edges++;
+      }
+    }
+    const edgeDensity = edges / (size * size);
+
+    // Determine guidance
+    if (avgBright < 60) {
+      setIdScanGuide({ msg: 'Too dark — move to better lighting', color: '#ff6b6b', icon: '\u2600' });
+    } else if (avgBright > 220) {
+      setIdScanGuide({ msg: 'Too bright — reduce glare or move away from light', color: '#ff6b6b', icon: '\u2600' });
+    } else if (variance < 800) {
+      setIdScanGuide({ msg: 'Move closer — card should fill the frame', color: '#ffa726', icon: '\u2195' });
+    } else if (edgeDensity < 0.03) {
+      setIdScanGuide({ msg: 'No text detected — position the ID card in frame', color: '#ffa726', icon: '\u2610' });
+    } else if (variance < 1500) {
+      setIdScanGuide({ msg: 'A bit closer — make the text larger and clearer', color: '#ffa726', icon: '\u2195' });
+    } else if (edgeDensity < 0.06) {
+      setIdScanGuide({ msg: 'Hold steady — image looks slightly blurry', color: '#ffa726', icon: '\u270B' });
+    } else {
+      setIdScanGuide({ msg: 'Looking good — tap capture now!', color: '#66bb6a', icon: '\u2714' });
+    }
   };
 
   const openIdScanner = async () => {
     setShowIdScanner(true);
     setIdScanStatus('opening');
+    setIdScanGuide({ msg: '', color: '', icon: '' });
     try {
-      // Start camera AND pre-load Tesseract worker in parallel for speed
       const camPromise = navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
       });
-      // Pre-warm Tesseract worker if not already loaded
       if (!idScanWorkerRef.current) {
         Tesseract.createWorker('eng').then(w => { idScanWorkerRef.current = w; }).catch(() => {});
       }
@@ -8490,6 +8549,8 @@ const SecurityApp = ({ onLogout }) => {
         idScanVideoRef.current.play();
       }
       setIdScanStatus('ready');
+      // Start real-time quality analysis every 800ms
+      idScanGuideInterval.current = setInterval(analyzeFrameQuality, 800);
     } catch (err) {
       console.error('Camera access denied:', err);
       setIdScanStatus('error');
@@ -11292,9 +11353,10 @@ const SecurityApp = ({ onLogout }) => {
             {/* Viewfinder overlay — card outline guide */}
             {(idScanStatus === 'ready' || idScanStatus === 'capturing') && (
               <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
-                <div style={{width:'90%',height:'85%',border:'2px dashed rgba(255,255,255,0.5)',borderRadius:10,position:'relative'}}>
-                  <div style={{position:'absolute',top:-24,left:'50%',transform:'translateX(-50)',background:'rgba(0,0,0,0.7)',padding:'5px 14px',borderRadius:4,fontSize:11,color:'rgba(255,255,255,0.9)',whiteSpace:'nowrap',fontWeight:500}}>
-                    Align ID card within this frame
+                <div style={{width:'90%',height:'85%',border: idScanGuide.color === '#66bb6a' ? '2px solid rgba(102,187,106,0.7)' : '2px dashed rgba(255,255,255,0.5)',borderRadius:10,position:'relative',transition:'border .3s'}}>
+                  <div style={{position:'absolute',top:-28,left:'50%',transform:'translateX(-50)',background: idScanGuide.msg ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.7)',padding:'5px 14px',borderRadius:20,fontSize:11,whiteSpace:'nowrap',fontWeight:500,display:'flex',alignItems:'center',gap:6,color: idScanGuide.color || 'rgba(255,255,255,0.9)',transition:'all .3s'}}>
+                    {idScanGuide.icon && <span>{idScanGuide.icon}</span>}
+                    {idScanGuide.msg || 'Align ID card within this frame'}
                   </div>
                   {/* Corner markers */}
                   {[[0,0,'borderTop','borderLeft'],[1,0,'borderTop','borderRight'],[0,1,'borderBottom','borderLeft'],[1,1,'borderBottom','borderRight']].map(([x,y,bv,bh], i) => (
@@ -11349,10 +11411,10 @@ const SecurityApp = ({ onLogout }) => {
           {/* Capture button */}
           {idScanStatus === 'ready' && (
             <button onClick={captureIdScan}
-              style={{marginTop:24,width:72,height:72,borderRadius:'50%',border:'4px solid rgba(255,255,255,0.4)',background:'rgba(255,255,255,0.15)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s'}}
+              style={{marginTop:24,width:72,height:72,borderRadius:'50%',border: idScanGuide.color === '#66bb6a' ? '4px solid rgba(102,187,106,0.8)' : '4px solid rgba(255,255,255,0.4)',background:'rgba(255,255,255,0.15)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .3s'}}
               onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,0.3)'; e.currentTarget.style.transform='scale(1.05)'; }}
               onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.15)'; e.currentTarget.style.transform='scale(1)'; }}>
-              <div style={{width:52,height:52,borderRadius:'50%',background:'#fff'}}/>
+              <div style={{width:52,height:52,borderRadius:'50%',background: idScanGuide.color === '#66bb6a' ? '#66bb6a' : '#fff',transition:'background .3s'}}/>
             </button>
           )}
 
