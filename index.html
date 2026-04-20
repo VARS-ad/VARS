@@ -4897,19 +4897,6 @@ const TopBar = ({ onCreateClick, onMenuToggle, onLogout, onSearchSelect }) => {
       </div>
       <div className="topbar-right">
         <LanguageSwitcher compact/>
-        <div className="dropdown">
-          <button className="btn-create" onClick={()=>setShowCreate(!showCreate)}>
-            {t('top.create')} <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          {showCreate && (
-            <div className="dropdown-menu">
-              <div className="dropdown-item" onClick={()=>{setShowCreate(false);onCreateClick&&onCreateClick('visitor')}}>{t('pm.createNewVisitor')}</div>
-              <div className="dropdown-item" onClick={()=>{setShowCreate(false);onCreateClick&&onCreateClick('announcement')}}>{t('pm.createNewAnnouncement')}</div>
-              <div className="dropdown-item" onClick={()=>{setShowCreate(false);onCreateClick&&onCreateClick('service')}}>{t('pm.createServiceRequest')}</div>
-              <div className="dropdown-item" onClick={()=>{setShowCreate(false);onCreateClick&&onCreateClick('guard')}}>{t('pm.createAddGuard')}</div>
-            </div>
-          )}
-        </div>
         <div style={{position:'relative'}}>
           <div className="topbar-icon" style={{borderRadius:'50%',width:34,height:34,cursor:'pointer',position:'relative'}} onClick={() => setShowNotifications(!showNotifications)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
@@ -6349,6 +6336,11 @@ const ServiceRequestsPage = () => {
   const [showSRFilter, setShowSRFilter] = useState(false);
   const [srFilters, setSRFilters] = useState({ status:'All', type:'All', resident:'All', flat:'All' });
   const [editSR, setEditSR] = useState(null);
+  const [showSRExport, setShowSRExport] = useState(false);
+  const [srExportCfg, setSRExportCfg] = useState({
+    format: 'xlsx', dateFrom: '', dateTo: '',
+    types: [], statuses: [], resident: ''
+  });
 
   // Enrich SR data with SLA
   const srWithSLA = data.serviceRequests.map(r => ({
@@ -6742,7 +6734,7 @@ const ServiceRequestsPage = () => {
           <div className="card">
             <div className="card-header">
               <h3>{t('pm.allServiceRequests')}</h3>
-              <button className="btn btn-sm" onClick={handleExportSR} style={{display:'flex',alignItems:'center',gap:4}}>
+              <button className="btn btn-sm" onClick={()=>setShowSRExport(true)} style={{display:'flex',alignItems:'center',gap:4}}>
                 <Icon name="download" size={12}/> {t('pm.exportBtn')}
               </button>
             </div>
@@ -6831,6 +6823,237 @@ const ServiceRequestsPage = () => {
       )}
 
       {/* New Request Modal */}
+      {showSRExport && (() => {
+        // Build month-index for date filtering
+        const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+        const srToTimestamp = (r) => {
+          if (!r.date) return 0;
+          const parts = r.date.trim().split(' ');
+          if (parts.length !== 2 || months[parts[1]] === undefined) return 0;
+          return new Date(2026, months[parts[1]], parseInt(parts[0],10)).getTime();
+        };
+        const fromTs = srExportCfg.dateFrom ? new Date(srExportCfg.dateFrom).getTime() : null;
+        const toTs   = srExportCfg.dateTo   ? new Date(srExportCfg.dateTo).getTime() + 86400000 : null;
+        const allTypes    = Array.from(new Set(srWithSLA.map(r => r.type).filter(Boolean))).sort();
+        const allStatuses = Array.from(new Set(srWithSLA.map(r => r.status).filter(Boolean))).sort();
+        const matched = srWithSLA.filter(r => {
+          const ts = srToTimestamp(r);
+          if (fromTs !== null && ts && ts < fromTs) return false;
+          if (toTs !== null && ts && ts > toTs)     return false;
+          if (srExportCfg.types.length > 0    && !srExportCfg.types.includes(r.type))       return false;
+          if (srExportCfg.statuses.length > 0 && !srExportCfg.statuses.includes(r.status))  return false;
+          if (srExportCfg.resident) {
+            const q = srExportCfg.resident.toLowerCase();
+            if (!(r.resident || '').toLowerCase().includes(q) && !(r.flat || '').toLowerCase().includes(q)) return false;
+          }
+          return true;
+        });
+        const cols = [
+          { header:'ID',       key:'id' },
+          { header:'Type',     key:'type' },
+          { header:'Flat',     key:'flat' },
+          { header:'Resident', key:'resident' },
+          { header:'Date',     key:'date' },
+          { header:'Time',     key:'time' },
+          { header:'Status',   key:'status' },
+          { header:'SLA',      key:'sla' },
+        ];
+        const toggle = (key, value) => {
+          setSRExportCfg(prev => {
+            const arr = prev[key] || [];
+            return { ...prev, [key]: arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value] };
+          });
+        };
+        const doExport = () => {
+          if (matched.length === 0) { showToast('No matching service requests'); return; }
+          const fmt = srExportCfg.format;
+          const stamp = new Date().toISOString().slice(0,10);
+          const filename = `VARS_ServiceRequests_${stamp}`;
+          if (fmt === 'xlsx') {
+            try {
+              const wb = XLSX.utils.book_new();
+              const meta = [
+                ['VARS — Service Requests Export'],
+                ['Generated', new Date().toLocaleString()],
+                ['Date Range', (srExportCfg.dateFrom || 'All') + ' → ' + (srExportCfg.dateTo || 'All')],
+                ['Service Types', srExportCfg.types.length ? srExportCfg.types.join(', ') : 'All'],
+                ['Statuses', srExportCfg.statuses.length ? srExportCfg.statuses.join(', ') : 'All'],
+                ['Resident / Flat search', srExportCfg.resident || '—'],
+                ['Total Rows', matched.length],
+                [],
+                cols.map(c => c.header),
+                ...matched.map(r => cols.map(c => r[c.key] !== undefined ? r[c.key] : '')),
+              ];
+              const ws = XLSX.utils.aoa_to_sheet(meta);
+              ws['!cols'] = cols.map(() => ({ wch: 18 }));
+              XLSX.utils.book_append_sheet(wb, ws, 'Service Requests');
+              XLSX.writeFile(wb, filename + '.xlsx');
+              showToast(matched.length + ' rows exported to Excel');
+            } catch (err) { showToast('Excel export failed: ' + (err.message || 'unknown')); }
+          } else if (fmt === 'csv') {
+            try {
+              const rows = [cols.map(c => c.header).join(',')];
+              matched.forEach(r => {
+                rows.push(cols.map(c => '"' + String(r[c.key] !== undefined ? r[c.key] : '').replace(/"/g,'""') + '"').join(','));
+              });
+              const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = filename + '.csv'; a.click();
+              setTimeout(()=>URL.revokeObjectURL(url), 1000);
+              showToast(matched.length + ' rows exported to CSV');
+            } catch (err) { showToast('CSV export failed: ' + (err.message || 'unknown')); }
+          } else if (fmt === 'pdf') {
+            try {
+              const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+              if (!jsPDFCtor) { showToast('PDF library failed to load'); return; }
+              const doc = new jsPDFCtor({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+              const sandy = [146,137,137];
+              const pageW = doc.internal.pageSize.getWidth();
+              const cx = pageW / 2;
+              doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(...sandy);
+              doc.text('VARS — Service Requests Export', cx, 40, { align: 'center' });
+              doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(120,120,120);
+              doc.text('Generated ' + new Date().toLocaleString(), cx, 55, { align: 'center' });
+              const filterTxt = [
+                'Date: ' + (srExportCfg.dateFrom || 'All') + ' → ' + (srExportCfg.dateTo || 'All'),
+                'Types: ' + (srExportCfg.types.length ? srExportCfg.types.join(', ') : 'All'),
+                'Statuses: ' + (srExportCfg.statuses.length ? srExportCfg.statuses.join(', ') : 'All'),
+                'Search: ' + (srExportCfg.resident || '—'),
+                'Rows: ' + matched.length,
+              ].join('   ·   ');
+              doc.setFontSize(8); doc.setTextColor(100,100,100);
+              doc.text(filterTxt, cx, 70, { align: 'center', maxWidth: pageW - 60 });
+              doc.autoTable({
+                startY: 90,
+                head: [cols.map(c => c.header)],
+                body: matched.map(r => cols.map(c => r[c.key] !== undefined ? String(r[c.key]) : '')),
+                styles: { fontSize: 8, cellPadding: 4, halign: 'center', lineColor: [232,227,222], lineWidth: 0.3 },
+                headStyles: { fillColor: sandy, textColor: 255, halign: 'center', fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [250,247,242] },
+                margin: { left: 30, right: 30 },
+              });
+              doc.save(filename + '.pdf');
+              showToast(matched.length + ' rows exported to PDF');
+            } catch (err) { showToast('PDF export failed: ' + (err.message || 'unknown')); }
+          }
+          setShowSRExport(false);
+        };
+        const Chip = ({ active, onClick, children }) => (
+          <span onClick={onClick} style={{
+            display:'inline-flex', alignItems:'center', padding:'4px 10px', borderRadius:14,
+            fontSize:11, fontWeight:600, cursor:'pointer', userSelect:'none',
+            border: active ? '1px solid #928989' : '1px solid #e0d8d0',
+            background: active ? '#928989' : '#fff',
+            color: active ? '#fff' : '#1a1a1a', transition:'all 0.15s'
+          }}>{children}</span>
+        );
+        return (
+          <div className="modal-overlay" onClick={()=>setShowSRExport(false)}>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:640}}>
+              <div className="modal-header">
+                <div>
+                  <h2>Export Service Requests</h2>
+                  <div style={{fontSize:12,color:'#8a7f76',marginTop:4}}>Choose format and filters before downloading</div>
+                </div>
+                <button className="modal-close" onClick={()=>setShowSRExport(false)}>×</button>
+              </div>
+
+              {/* Format */}
+              <div className="form-group">
+                <label>Format</label>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                  {[
+                    { key:'xlsx', label:'Excel', sub:'.xlsx · multi-sheet' },
+                    { key:'pdf',  label:'PDF',   sub:'Landscape · A4' },
+                    { key:'csv',  label:'CSV',   sub:'Comma-separated' },
+                  ].map(f => {
+                    const active = srExportCfg.format === f.key;
+                    return (
+                      <div key={f.key} onClick={()=>setSRExportCfg(p=>({...p,format:f.key}))}
+                        style={{
+                          padding:'10px 12px',textAlign:'center',borderRadius:8,cursor:'pointer',
+                          border: active ? '2px solid #928989' : '1px solid #e0d8d0',
+                          background: active ? '#928989' : '#faf7f4',
+                          color: active ? '#fff' : '#1a1a1a',
+                          transition:'all 0.15s'
+                        }}>
+                        <div style={{fontSize:13,fontWeight:700}}>{f.label}</div>
+                        <div style={{fontSize:10,color: active ? '#ede8e4' : '#8a7f76',marginTop:2}}>{f.sub}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Date Range */}
+              <div className="grid-2">
+                <div className="form-group">
+                  <label>Date From</label>
+                  <input type="date" className="form-input" value={srExportCfg.dateFrom}
+                    onChange={e=>setSRExportCfg(p=>({...p,dateFrom:e.target.value}))}/>
+                </div>
+                <div className="form-group">
+                  <label>Date To</label>
+                  <input type="date" className="form-input" value={srExportCfg.dateTo}
+                    onChange={e=>setSRExportCfg(p=>({...p,dateTo:e.target.value}))}/>
+                </div>
+              </div>
+
+              {/* Service Types */}
+              <div className="form-group">
+                <label>Service Type {srExportCfg.types.length > 0 && <span style={{color:'#a89a92',fontWeight:400}}>({srExportCfg.types.length} selected)</span>}</label>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                  {allTypes.length === 0 ? <span style={{fontSize:11,color:'#a89a92'}}>No types found</span> :
+                    allTypes.map(typ => (
+                      <Chip key={typ} active={srExportCfg.types.includes(typ)} onClick={()=>toggle('types', typ)}>{typ}</Chip>
+                    ))
+                  }
+                </div>
+                <div style={{fontSize:10,color:'#a89a92',marginTop:4}}>Leave empty to include all types</div>
+              </div>
+
+              {/* Status */}
+              <div className="form-group">
+                <label>Status {srExportCfg.statuses.length > 0 && <span style={{color:'#a89a92',fontWeight:400}}>({srExportCfg.statuses.length} selected)</span>}</label>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                  {allStatuses.length === 0 ? <span style={{fontSize:11,color:'#a89a92'}}>No statuses found</span> :
+                    allStatuses.map(st => (
+                      <Chip key={st} active={srExportCfg.statuses.includes(st)} onClick={()=>toggle('statuses', st)}>{st}</Chip>
+                    ))
+                  }
+                </div>
+                <div style={{fontSize:10,color:'#a89a92',marginTop:4}}>Leave empty to include all statuses</div>
+              </div>
+
+              {/* Resident name / flat */}
+              <div className="form-group">
+                <label>Resident Name or Flat</label>
+                <input className="form-input" placeholder="e.g. Ahmed or A-1204"
+                  value={srExportCfg.resident}
+                  onChange={e=>setSRExportCfg(p=>({...p,resident:e.target.value}))}/>
+              </div>
+
+              {/* Live count */}
+              <div style={{
+                background:'#faf7f4',border:'1px solid #ebe7e3',borderRadius:8,padding:'10px 12px',
+                display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10
+              }}>
+                <div style={{fontSize:11,color:'#6b5d55'}}>Matched rows</div>
+                <div style={{fontSize:18,fontWeight:700,color: matched.length > 0 ? '#928989' : '#c0392b'}}>{matched.length}</div>
+              </div>
+
+              <div className="grid-2" style={{marginTop:6}}>
+                <button className="btn btn-primary" onClick={doExport} disabled={matched.length === 0}
+                  style={matched.length === 0 ? {opacity:0.5,cursor:'not-allowed'} : {}}>
+                  <Icon name="download" size={12}/> Export {srExportCfg.format.toUpperCase()}
+                </button>
+                <button className="btn" onClick={()=>setShowSRExport(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {showNewRequest && (
         <div className="modal-overlay" onClick={()=>setShowNewRequest(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}>
@@ -8300,6 +8523,16 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
   const [bulkImportRows, setBulkImportRows] = useState([]);
   const [bulkImportDocs, setBulkImportDocs] = useState([]);
   const [bulkImportDragOver, setBulkImportDragOver] = useState(false);
+  // Add Property state
+  const [showAddPropChoice, setShowAddPropChoice] = useState(false);
+  const [showAddPropManual, setShowAddPropManual] = useState(false);
+  const [newProp, setNewProp] = useState({
+    certificateNo:'', zone:'', sector:'', plotNo:'', buildingNo:'', floorNo:'', unitNo:'',
+    useType:'Residential', mortgageStatus:'None', projectName:'',
+    ownerNo:1, ownerName:'', ownerIdNo:'', ownerNationality:'',
+    rightHoldType:'Freehold', shareAcquisition:'Purchase', buyingShares:100,
+  });
+  const [propDocs, setPropDocs] = useState([]);
   const [newRes, setNewRes] = useState({
     name:'', flat:'', floor:'', contact:'', coResidents:1, policy:'Standard', tower:'',
     tenure:'lease', contractNo:'',
@@ -8496,7 +8729,7 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
         <div><h1>{t('pm.propertiesResidents')}</h1><div className="subtitle">{data.towers.length} properties · {data.towers.reduce((a,t)=>a+t.totalFlats,0).toLocaleString()} flats · {data.towers.reduce((a,t)=>a+t.occupied,0).toLocaleString()} occupied</div></div>
         <div className="btn-group">
           <button className="btn btn-primary" onClick={()=>setShowAddChoice(true)}><Icon name="user" size={12}/> {t('pm.addResidentBtn')}</button>
-          <button className="btn btn-primary" onClick={()=>{setIoFormat(null);setImportFile(null);setShowImport('import-property');}}><Icon name="properties" size={12}/> + Add Property</button>
+          <button className="btn btn-primary" onClick={()=>setShowAddPropChoice(true)}><Icon name="properties" size={12}/> + Add Property</button>
           <button className="btn" onClick={()=>setShowImport('action')}><Icon name="upload" size={12}/> Import / Export Database</button>
         </div>
       </div>
@@ -8774,6 +9007,383 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
           </div>
         </div>
       )}
+
+      {showAddPropChoice && (
+        <div className="modal-overlay" onClick={()=>setShowAddPropChoice(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}>
+            <div className="modal-header">
+              <div>
+                <h2>Add Property</h2>
+                <div style={{fontSize:12,color:'#8a7f76',marginTop:4}}>Choose how you'd like to add properties to the database</div>
+              </div>
+              <button className="modal-close" onClick={()=>setShowAddPropChoice(false)}>×</button>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:8}}>
+              <div onClick={()=>{setShowAddPropChoice(false);setShowAddPropManual(true);}}
+                style={{
+                  border:'1px solid #e0d8d0', borderRadius:10, padding:18, cursor:'pointer',
+                  background:'#faf7f4', transition:'all 0.15s',
+                  display:'flex', flexDirection:'column', gap:10
+                }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='#928989';e.currentTarget.style.background='#fff';}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='#e0d8d0';e.currentTarget.style.background='#faf7f4';}}
+              >
+                <div style={{width:40,height:40,borderRadius:8,background:'#928989',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                </div>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#1a1a1a',marginBottom:4}}>Manual Entry</div>
+                  <div style={{fontSize:11,color:'#8a7f76',lineHeight:1.5}}>Enter the unit details one by one. Best for adding a single property/unit with documents.</div>
+                </div>
+                <div style={{fontSize:10,color:'#a89a92',marginTop:'auto',display:'flex',alignItems:'center',gap:4}}>
+                  <span>Continue</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </div>
+              <div onClick={()=>{setShowAddPropChoice(false);setIoFormat(null);setImportFile(null);setShowImport('import-property');}}
+                style={{
+                  border:'1px solid #e0d8d0', borderRadius:10, padding:18, cursor:'pointer',
+                  background:'#faf7f4', transition:'all 0.15s',
+                  display:'flex', flexDirection:'column', gap:10
+                }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='#928989';e.currentTarget.style.background='#fff';}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='#e0d8d0';e.currentTarget.style.background='#faf7f4';}}
+              >
+                <div style={{width:40,height:40,borderRadius:8,background:'#928989',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#1a1a1a',marginBottom:4}}>Import Property Database</div>
+                  <div style={{fontSize:11,color:'#8a7f76',lineHeight:1.5}}>Bulk-upload an Excel, CSV, or SQL file with all the columns. Download template included.</div>
+                </div>
+                <div style={{fontSize:10,color:'#a89a92',marginTop:'auto',display:'flex',alignItems:'center',gap:4}}>
+                  <span>Continue</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              </div>
+            </div>
+            <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
+              <button className="btn" onClick={()=>setShowAddPropChoice(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddPropManual && (() => {
+        const handleAddPropertyManual = () => {
+          if (!newProp.buildingNo && !newProp.projectName) { showToast('Please enter Building No or Project Name'); return; }
+          if (!newProp.unitNo) { showToast('Please enter Unit No'); return; }
+          const unit = {
+            certificateNo: newProp.certificateNo || '',
+            zone: newProp.zone || '',
+            sector: newProp.sector || '',
+            plotNo: newProp.plotNo || '',
+            buildingNo: newProp.buildingNo || '',
+            floorNo: newProp.floorNo || '',
+            unitNo: newProp.unitNo || '',
+            useType: newProp.useType || 'Residential',
+            mortgageStatus: newProp.mortgageStatus || 'None',
+            projectName: newProp.projectName || '',
+            ownerNo: parseInt(newProp.ownerNo) || 1,
+            ownerName: newProp.ownerName || '',
+            ownerIdNo: newProp.ownerIdNo || '',
+            ownerNationality: newProp.ownerNationality || '',
+            rightHoldType: newProp.rightHoldType || 'Freehold',
+            shareAcquisition: newProp.shareAcquisition || 'Purchase',
+            buyingShares: parseFloat(newProp.buyingShares) || 100,
+            documents: propDocs,
+          };
+          // Find existing tower by buildingNo + projectName, otherwise create
+          const towerKey = (newProp.buildingNo || '') + '||' + (newProp.projectName || '');
+          let towers = [...(data.towers || [])];
+          let towerIdx = towers.findIndex(tw =>
+            ((tw.units && tw.units.some(u => (u.buildingNo || '') === newProp.buildingNo && (u.projectName || '') === newProp.projectName))
+            || tw.name === (newProp.projectName || ('Building ' + newProp.buildingNo)))
+          );
+          if (towerIdx >= 0) {
+            const t = towers[towerIdx];
+            const newUnits = [...(t.units || []), unit];
+            const uniqueIds = new Set(newUnits.map(u => u.unitNo));
+            towers[towerIdx] = {
+              ...t,
+              totalFlats: uniqueIds.size,
+              occupied: newUnits.filter(u => u.ownerName).length,
+              units: newUnits,
+            };
+          } else {
+            towers = [{
+              name: newProp.projectName || ('Building ' + (newProp.buildingNo || '')),
+              location: [newProp.zone, newProp.sector].filter(Boolean).join(' · '),
+              totalFlats: 1,
+              occupied: newProp.ownerName ? 1 : 0,
+              units: [unit],
+            }, ...towers];
+          }
+          setData(prev => ({ ...prev, towers }));
+          showToast('Property unit ' + (newProp.unitNo || '') + ' added');
+          setNewProp({
+            certificateNo:'', zone:'', sector:'', plotNo:'', buildingNo:'', floorNo:'', unitNo:'',
+            useType:'Residential', mortgageStatus:'None', projectName:'',
+            ownerNo:1, ownerName:'', ownerIdNo:'', ownerNationality:'',
+            rightHoldType:'Freehold', shareAcquisition:'Purchase', buyingShares:100,
+          });
+          setPropDocs([]);
+          setShowAddPropManual(false);
+        };
+        const handlePropDocAttach = (files, categoryKey) => {
+          const arr = Array.from(files);
+          const readers = arr.map(file => new Promise(resolve => {
+            const r = new FileReader();
+            r.onload = ev => resolve({
+              name: file.name,
+              size: (file.size/1024/1024).toFixed(1)+' MB',
+              type: (file.name.split('.').pop()||'').toLowerCase(),
+              dataUrl: ev.target.result,
+              category: categoryKey,
+            });
+            r.readAsDataURL(file);
+          }));
+          Promise.all(readers).then(docs => setPropDocs(prev => [...prev, ...docs]));
+        };
+        const docCategories = [
+          { key: 'titleDeed',  label: 'Title Deed' },
+          { key: 'siteplan',   label: 'Building / Site Plan' },
+          { key: 'unitLayout', label: 'Unit Layout' },
+          { key: 'photos',     label: 'Photos of the Unit' },
+          { key: 'noc',        label: 'NOC / Approvals' },
+          { key: 'other',      label: 'Other Documents' },
+        ];
+        return (
+          <div className="modal-overlay" onClick={()=>setShowAddPropManual(false)}>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:720}}>
+              <div className="modal-header">
+                <div>
+                  <h2>Add New Property</h2>
+                  <div style={{fontSize:12,color:'#8a7f76',marginTop:4}}>Enter the unit's property details and owner information</div>
+                </div>
+                <button className="modal-close" onClick={()=>setShowAddPropManual(false)}>×</button>
+              </div>
+
+              {/* Property Details Section */}
+              <div style={{
+                border:'1px solid #ebe7e3', borderRadius:10, padding:14, marginBottom:14,
+                background:'#faf7f4'
+              }}>
+                <div style={{
+                  display:'flex', alignItems:'center', justifyContent:'space-between',
+                  marginBottom:10, paddingBottom:8, borderBottom:'1px solid #ebe7e3'
+                }}>
+                  <div style={{fontSize:12, fontWeight:700, color:'#1a1a1a', letterSpacing:0.5, textTransform:'uppercase'}}>
+                    Property Details
+                  </div>
+                  <div style={{fontSize:11, color:'#8a7f76', direction:'rtl'}}>تفاصيل العقار</div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Certificate No <span style={{color:'#a89a92',fontWeight:400}}>/ رقم الشهادة</span></label>
+                    <input className="form-input" placeholder="e.g. ABU-2024-001234"
+                      value={newProp.certificateNo}
+                      onChange={e=>setNewProp(p=>({...p,certificateNo:e.target.value}))}/>
+                  </div>
+                  <div className="form-group">
+                    <label>Zone <span style={{color:'#a89a92',fontWeight:400}}>/ المنطقة</span></label>
+                    <input className="form-input" placeholder="e.g. Al Reem"
+                      value={newProp.zone}
+                      onChange={e=>setNewProp(p=>({...p,zone:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Sector <span style={{color:'#a89a92',fontWeight:400}}>/ القطاع</span></label>
+                    <input className="form-input" placeholder="e.g. SE-12"
+                      value={newProp.sector}
+                      onChange={e=>setNewProp(p=>({...p,sector:e.target.value}))}/>
+                  </div>
+                  <div className="form-group">
+                    <label>Plot No <span style={{color:'#a89a92',fontWeight:400}}>/ رقم القطعة</span></label>
+                    <input className="form-input" placeholder="e.g. 4521"
+                      value={newProp.plotNo}
+                      onChange={e=>setNewProp(p=>({...p,plotNo:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Building No <span style={{color:'#a89a92',fontWeight:400}}>/ رقم المبنى</span></label>
+                    <input className="form-input" placeholder="e.g. Tower A"
+                      value={newProp.buildingNo}
+                      onChange={e=>setNewProp(p=>({...p,buildingNo:e.target.value}))}/>
+                  </div>
+                  <div className="form-group">
+                    <label>Project Name <span style={{color:'#a89a92',fontWeight:400}}>/ اسم المشروع</span></label>
+                    <input className="form-input" placeholder="e.g. The Pinnacle Residences"
+                      value={newProp.projectName}
+                      onChange={e=>setNewProp(p=>({...p,projectName:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Floor No <span style={{color:'#a89a92',fontWeight:400}}>/ رقم الطابق</span></label>
+                    <input className="form-input" placeholder="e.g. 12"
+                      value={newProp.floorNo}
+                      onChange={e=>setNewProp(p=>({...p,floorNo:e.target.value}))}/>
+                  </div>
+                  <div className="form-group">
+                    <label>Unit No * <span style={{color:'#a89a92',fontWeight:400}}>/ رقم الوحدة</span></label>
+                    <input className="form-input" placeholder="e.g. A-1204"
+                      value={newProp.unitNo}
+                      onChange={e=>setNewProp(p=>({...p,unitNo:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Use Type <span style={{color:'#a89a92',fontWeight:400}}>/ نوع الاستخدام</span></label>
+                    <select className="form-input"
+                      value={newProp.useType}
+                      onChange={e=>setNewProp(p=>({...p,useType:e.target.value}))}>
+                      <option value="Residential">Residential</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Mixed Use">Mixed Use</option>
+                      <option value="Industrial">Industrial</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Mortgage Status <span style={{color:'#a89a92',fontWeight:400}}>/ حالة الرهن</span></label>
+                    <select className="form-input"
+                      value={newProp.mortgageStatus}
+                      onChange={e=>setNewProp(p=>({...p,mortgageStatus:e.target.value}))}>
+                      <option value="None">None</option>
+                      <option value="Mortgaged">Mortgaged</option>
+                      <option value="Released">Released</option>
+                      <option value="Pending Release">Pending Release</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Owner Details Section */}
+              <div style={{
+                border:'1px solid #ebe7e3', borderRadius:10, padding:14, marginBottom:14,
+                background:'#faf7f4'
+              }}>
+                <div style={{
+                  display:'flex', alignItems:'center', justifyContent:'space-between',
+                  marginBottom:10, paddingBottom:8, borderBottom:'1px solid #ebe7e3'
+                }}>
+                  <div style={{fontSize:12, fontWeight:700, color:'#1a1a1a', letterSpacing:0.5, textTransform:'uppercase'}}>
+                    Owner Details
+                  </div>
+                  <div style={{fontSize:11, color:'#8a7f76', direction:'rtl'}}>تفاصيل المالك</div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Owner # <span style={{color:'#a89a92',fontWeight:400}}>/ رقم المالك</span></label>
+                    <input className="form-input" type="number" min="1" placeholder="1"
+                      value={newProp.ownerNo}
+                      onChange={e=>setNewProp(p=>({...p,ownerNo:e.target.value}))}/>
+                  </div>
+                  <div className="form-group">
+                    <label>Owner Name <span style={{color:'#a89a92',fontWeight:400}}>/ اسم المالك</span></label>
+                    <input className="form-input" placeholder="e.g. Mr. Ahmed Al-Sayed"
+                      value={newProp.ownerName}
+                      onChange={e=>setNewProp(p=>({...p,ownerName:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>EID / License / Passport No <span style={{color:'#a89a92',fontWeight:400}}>/ رقم الهوية</span></label>
+                    <input className="form-input" placeholder="e.g. 784-1985-1234567-1"
+                      value={newProp.ownerIdNo}
+                      onChange={e=>setNewProp(p=>({...p,ownerIdNo:e.target.value}))}/>
+                  </div>
+                  <div className="form-group">
+                    <label>Nationality / Source <span style={{color:'#a89a92',fontWeight:400}}>/ الجنسية</span></label>
+                    <input className="form-input" placeholder="e.g. United Arab Emirates"
+                      value={newProp.ownerNationality}
+                      onChange={e=>setNewProp(p=>({...p,ownerNationality:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Right Hold Type <span style={{color:'#a89a92',fontWeight:400}}>/ نوع الحق</span></label>
+                    <select className="form-input"
+                      value={newProp.rightHoldType}
+                      onChange={e=>setNewProp(p=>({...p,rightHoldType:e.target.value}))}>
+                      <option value="Freehold">Freehold</option>
+                      <option value="Leasehold">Leasehold</option>
+                      <option value="Usufruct">Usufruct</option>
+                      <option value="Musataha">Musataha</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Share & Acquisition <span style={{color:'#a89a92',fontWeight:400}}>/ الحصة والحيازة</span></label>
+                    <select className="form-input"
+                      value={newProp.shareAcquisition}
+                      onChange={e=>setNewProp(p=>({...p,shareAcquisition:e.target.value}))}>
+                      <option value="Purchase">Purchase</option>
+                      <option value="Gift">Gift</option>
+                      <option value="Inheritance">Inheritance</option>
+                      <option value="Transfer">Transfer</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Buying Shares % <span style={{color:'#a89a92',fontWeight:400}}>/ نسبة الشراء</span></label>
+                  <input className="form-input" type="number" min="0" max="100" step="0.01"
+                    placeholder="100"
+                    value={newProp.buyingShares}
+                    onChange={e=>setNewProp(p=>({...p,buyingShares:e.target.value}))}/>
+                </div>
+              </div>
+
+              {/* Documents Section */}
+              <div className="form-group">
+                <label>Documents</label>
+                {docCategories.map(cat => (
+                  <div key={cat.key} style={{marginBottom:12}}>
+                    <div style={{fontSize:11,fontWeight:600,color:'#6b5d55',marginBottom:4,textTransform:'uppercase',letterSpacing:0.5}}>{cat.label}</div>
+                    <input type="file" id={`propDoc-${cat.key}`} multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style={{display:'none'}}
+                      onChange={e => {
+                        if (e.target.files.length > 0) handlePropDocAttach(e.target.files, cat.key);
+                        e.target.value = '';
+                      }} />
+                    <div onClick={() => document.getElementById(`propDoc-${cat.key}`).click()}
+                      onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#928989'; }}
+                      onDragLeave={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#d0cac3'; }}
+                      onDrop={e => {
+                        e.preventDefault(); e.currentTarget.style.borderColor = '#d0cac3';
+                        if (e.dataTransfer.files.length > 0) handlePropDocAttach(e.dataTransfer.files, cat.key);
+                      }}
+                      style={{padding:12,border:'2px dashed #d0cac3',borderRadius:8,textAlign:'center',cursor:'pointer',background:'#faf7f4',transition:'all 0.15s'}}>
+                      <Icon name="upload" size={16}/>
+                      <div style={{fontSize:11,marginTop:4}}>Drop files here or <span style={{fontWeight:600,textDecoration:'underline'}}>Browse Files</span></div>
+                      <div style={{fontSize:10,color:'#a89a92',marginTop:2}}>PDF, JPG, PNG up to 10MB</div>
+                    </div>
+                    {propDocs.filter(d => d.category === cat.key).length > 0 && (
+                      <div style={{marginTop:6}}>
+                        {propDocs.map((doc, idx) => doc.category === cat.key ? (
+                          <div key={idx} style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:11,padding:'6px 8px',background:'#fff',borderRadius:6,marginBottom:3,border:'1px solid #ebe7e3'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                              <span style={{background:'#ede8e4',padding:'2px 6px',borderRadius:3,fontSize:9,fontWeight:600,textTransform:'uppercase',color:'#6b5d55'}}>{doc.type}</span>
+                              <span style={{fontWeight:500}}>{doc.name}</span>
+                              <span style={{color:'#888',fontSize:9}}>{doc.size}</span>
+                            </div>
+                            <button onClick={e => { e.stopPropagation(); setPropDocs(prev => prev.filter((_,i) => i !== idx)); }} style={{background:'none',border:'none',cursor:'pointer',color:'#888',fontSize:14}}>×</button>
+                          </div>
+                        ) : null)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid-2" style={{marginTop:8}}>
+                <button className="btn btn-primary" onClick={handleAddPropertyManual}>Add Property</button>
+                <button className="btn" onClick={()=>setShowAddPropManual(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {showBulkImport && (() => {
         const BULK_COLUMNS = [
@@ -10075,8 +10685,8 @@ const EscalationsPage = () => {
   const criticalCount = unresolved.filter(e => e.severity === 'Critical').length;
 
   return (
-    <div>
-      <div className="page-header">
+    <div style={{width:'100%',maxWidth:'none'}}>
+      <div className="page-header" style={{width:'100%'}}>
         <div><h1>{t('pm.escalationsTitle')}</h1><div className="subtitle">{unresolved.length} {t('pm.unresolvedHeading').toLowerCase()} · {criticalCount} {t('pm.criticalLabel')} · {t('pm.slaTrackerLabel')}</div></div>
         <button className="btn btn-primary" onClick={() => setShowNewEscalation(true)}>{t('pm.newEscalationBtn')}</button>
       </div>
