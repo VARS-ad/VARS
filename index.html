@@ -5341,7 +5341,7 @@ const OverviewPage = ({ setPage }) => {
             <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>{t('pm.srRequireAction')}</div>
             <div style={{fontSize:11,color:'#a89a92',marginBottom:12}}>{t('pm.srRequireActionDesc')}</div>
             <table className="data-table" style={{fontSize:12}}>
-              <thead><tr><th>{t('pm.th.srId')}</th><th>{t('pm.th.type')}</th><th>{t('pm.th.unit')}</th><th>{t('pm.th.resident')}</th><th>{t('pm.th.date')}</th><th>{t('pm.th.status')}</th><th>{t('pm.th.action')}</th></tr></thead>
+              <thead><tr><th>{t('pm.th.srId')}</th><th>{t('pm.th.type')}</th><th>{t('pm.th.unit')}</th><th>{t('pm.th.resident')}</th><th>{t('pm.th.date')}</th><th>{t('pm.th.status')}</th></tr></thead>
               <tbody>
                 {srAction.map(sr => (
                   <tr key={sr.id}>
@@ -5351,11 +5351,6 @@ const OverviewPage = ({ setPage }) => {
                     <td>{sr.resident}</td>
                     <td>{sr.days}</td>
                     <td><StatusBadge status={sr.status}/></td>
-                    <td>
-                      <button className="btn btn-sm" style={{fontSize:11,padding:'4px 10px',borderRadius:4}}>
-                        {sr.action}
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -8543,6 +8538,7 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
   const [showExportDB, setShowExportDB] = useState(false);
   const [exportDBCfg, setExportDBCfg] = useState({
     format: 'xlsx',
+    project: 'all',   // all, or a tower/project name e.g. "The Pinnacle Residences"
     useTypes: [],     // Residential, Commercial, Mixed, Industrial
     flatSearch: '',
     residentType: 'all', // all, owner, lease, vacant
@@ -10193,97 +10189,179 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
       })()}
 
       {showExportDB && (() => {
-        const allUnits = (data.towers || []).flatMap(tw => (tw.units || []).map(u => ({ ...u, tower: tw.name, towerProject: tw.projectName || '' })));
-        const matchedUnits = allUnits.filter(u => {
-          if (exportDBCfg.useTypes.length > 0 && !exportDBCfg.useTypes.includes(u.useType || 'Residential')) return false;
-          if (exportDBCfg.flatSearch && !(u.unitNo || '').toLowerCase().includes(exportDBCfg.flatSearch.toLowerCase())) return false;
-          const matchedRes = (data.residents || []).find(r => r.flat === u.unitNo);
-          if (exportDBCfg.residentType === 'owner' && (!matchedRes || matchedRes.tenure !== 'own')) return false;
-          if (exportDBCfg.residentType === 'lease' && (!matchedRes || matchedRes.tenure !== 'lease')) return false;
-          if (exportDBCfg.residentType === 'vacant' && matchedRes) return false;
-          if (exportDBCfg.unitStatus === 'owned' && u.rightHoldType !== 'Freehold') return false;
-          if (exportDBCfg.unitStatus === 'leased' && u.rightHoldType !== 'Leasehold') return false;
-          return true;
-        });
-        const matchedResidents = (data.residents || []).filter(r => matchedUnits.some(u => u.unitNo === r.flat));
-        const buildExportRows = () => matchedUnits.map(u => {
-          const res = (data.residents || []).find(r => r.flat === u.unitNo);
+        // ===== Build combined resident + property database view =====
+        const allResidents = data.residents || [];
+        const allUnits = (data.towers || []).flatMap(tw => (tw.units || []).map(u => ({
+          ...u,
+          tower: tw.name,
+          towerProject: tw.projectName || tw.name || '',
+        })));
+        const unitByFlat = {};
+        allUnits.forEach(u => { if (u.unitNo) unitByFlat[u.unitNo] = u; });
+        // Project list = unique tower/project names
+        const projectList = Array.from(new Set([
+          ...((data.towers || []).map(t => t.name)),
+          ...allUnits.map(u => u.towerProject).filter(Boolean),
+        ])).filter(Boolean).sort();
+        const defaultProject = (data.towers && data.towers[0] && data.towers[0].name) || 'The Pinnacle Residences';
+        // Infer tower from flat prefix (e.g. "A-1204" -> "Tower A")
+        const inferTower = (flat) => {
+          const u = unitByFlat[flat];
+          if (u && u.tower) return u.tower;
+          const prefix = (flat || '').split('-')[0];
+          return prefix && prefix.length <= 2 ? `Tower ${prefix}` : (prefix || '');
+        };
+        const inferProject = (flat) => {
+          const u = unitByFlat[flat];
+          if (u) return u.towerProject || u.tower || defaultProject;
+          return defaultProject;
+        };
+        // One row per resident (owner OR lease), plus vacant units
+        const residentRows = allResidents.map(r => {
+          const u = unitByFlat[r.flat] || {};
+          const tenure = r.tenure || (u.rightHoldType === 'Freehold' ? 'own' : 'lease');
           return {
-            tower: u.tower || '',
-            project: u.towerProject || '',
-            unitNo: u.unitNo || '',
-            floorNo: u.floorNo || '',
+            project: u.towerProject || u.tower || inferProject(r.flat),
+            tower: u.tower || inferTower(r.flat),
+            unitNo: r.flat || u.unitNo || '',
+            floorNo: r.floor || u.floorNo || '',
             useType: u.useType || 'Residential',
             certificateNo: u.certificateNo || '',
-            mortgageStatus: u.mortgageStatus || 'None',
-            rightHoldType: u.rightHoldType || '',
-            ownerName: u.ownerName || '',
-            ownerNationality: u.ownerNationality || '',
-            residentName: res ? res.name : '',
-            residentTenure: res ? res.tenure : 'vacant',
-            residentContact: res ? res.contact : '',
-            residentStatus: res ? res.status : '—',
+            mortgageStatus: u.mortgageStatus || '',
+            rightHoldType: u.rightHoldType || (tenure === 'own' ? 'Freehold' : 'Leasehold'),
+            ownerName: u.ownerName || (tenure === 'own' ? r.name : ''),
+            ownerIdNo: u.ownerIdNo || r.ownerIdNo || '',
+            ownerNationality: u.ownerNationality || r.ownerNationality || '',
+            shareAcquisition: u.shareAcquisition || r.shareAcquisition || '',
+            buyingShares: (u.buyingShares != null ? u.buyingShares : (r.buyingShares != null ? r.buyingShares : '')),
+            residentName: r.name || '',
+            residentTenure: tenure === 'own' ? 'Owner' : 'Lease',
+            residentContact: r.contact || '',
+            coResidents: r.coResidents != null ? r.coResidents : '',
+            residentStatus: r.status || '',
+            contractNo: r.contractNo || '',
+            accessPolicy: r.policy || '',
+            moveInDate: r.moveInDate || '',
+            paymentStatus: tenure === 'own' ? (r.paymentStatus || '') : '',
           };
         });
+        const resFlats = new Set(allResidents.map(r => r.flat));
+        const vacantRows = allUnits.filter(u => u.unitNo && !resFlats.has(u.unitNo)).map(u => ({
+          project: u.towerProject || u.tower || defaultProject,
+          tower: u.tower || '',
+          unitNo: u.unitNo || '',
+          floorNo: u.floorNo || '',
+          useType: u.useType || 'Residential',
+          certificateNo: u.certificateNo || '',
+          mortgageStatus: u.mortgageStatus || '',
+          rightHoldType: u.rightHoldType || '',
+          ownerName: u.ownerName || '',
+          ownerIdNo: u.ownerIdNo || '',
+          ownerNationality: u.ownerNationality || '',
+          shareAcquisition: u.shareAcquisition || '',
+          buyingShares: u.buyingShares != null ? u.buyingShares : '',
+          residentName: '—',
+          residentTenure: 'Vacant',
+          residentContact: '',
+          coResidents: '',
+          residentStatus: 'Vacant',
+          contractNo: '',
+          accessPolicy: '',
+          moveInDate: '',
+          paymentStatus: '',
+        }));
+        const allRows = [...residentRows, ...vacantRows];
+        // ===== Apply filters =====
+        const matchedRows = allRows.filter(r => {
+          if (exportDBCfg.project !== 'all' && r.project !== exportDBCfg.project && r.tower !== exportDBCfg.project) return false;
+          if (exportDBCfg.useTypes.length > 0 && !exportDBCfg.useTypes.includes(r.useType || 'Residential')) return false;
+          if (exportDBCfg.flatSearch && !(r.unitNo || '').toLowerCase().includes(exportDBCfg.flatSearch.toLowerCase())) return false;
+          if (exportDBCfg.residentType === 'owner' && r.residentTenure !== 'Owner') return false;
+          if (exportDBCfg.residentType === 'lease' && r.residentTenure !== 'Lease') return false;
+          if (exportDBCfg.residentType === 'vacant' && r.residentTenure !== 'Vacant') return false;
+          if (exportDBCfg.unitStatus === 'owned' && r.rightHoldType !== 'Freehold') return false;
+          if (exportDBCfg.unitStatus === 'leased' && r.rightHoldType !== 'Leasehold') return false;
+          return true;
+        });
+        const matchedResidentsCount = matchedRows.filter(r => r.residentTenure !== 'Vacant').length;
+        const matchedVacantCount = matchedRows.filter(r => r.residentTenure === 'Vacant').length;
         const TOGGLE_USE_TYPES = ['Residential', 'Commercial', 'Mixed', 'Industrial'];
         const toggleUseType = (key) => setExportDBCfg(p => ({...p, useTypes: p.useTypes.includes(key) ? p.useTypes.filter(t=>t!==key) : [...p.useTypes, key]}));
+        // Comprehensive headers combining Add Property + Add Resident fields
+        const headers = [
+          'Project','Tower','Unit No','Floor','Use Type',
+          'Certificate No','Mortgage','Right Hold',
+          'Owner Name','Owner ID','Nationality','Share Acq.','Shares %',
+          'Resident Name','Tenure','Contact','Co-Residents','Status',
+          'Contract/Deed No','Access Policy','Move-In Date','Payment Status'
+        ];
+        const rowToArray = (r) => [
+          r.project, r.tower, r.unitNo, r.floorNo, r.useType,
+          r.certificateNo, r.mortgageStatus, r.rightHoldType,
+          r.ownerName, r.ownerIdNo, r.ownerNationality, r.shareAcquisition, r.buyingShares,
+          r.residentName, r.residentTenure, r.residentContact, r.coResidents, r.residentStatus,
+          r.contractNo, r.accessPolicy, r.moveInDate, r.paymentStatus,
+        ];
+        const fileSuffix = exportDBCfg.project === 'all' ? 'All_Projects' : exportDBCfg.project.replace(/[^A-Za-z0-9]+/g,'_');
         const exportNow = () => {
-          const rows = buildExportRows();
-          if (rows.length === 0) { showToast('No properties match the selected filters'); return; }
-          const headers = ['Tower','Project','Unit No','Floor','Use Type','Certificate No','Mortgage','Right Hold','Owner','Nationality','Resident','Tenure','Contact','Status'];
+          if (matchedRows.length === 0) { showToast('No residents or units match the selected filters'); return; }
           try {
             if (exportDBCfg.format === 'xlsx') {
-              const aoa = [headers, ...rows.map(r => [r.tower,r.project,r.unitNo,r.floorNo,r.useType,r.certificateNo,r.mortgageStatus,r.rightHoldType,r.ownerName,r.ownerNationality,r.residentName,r.residentTenure,r.residentContact,r.residentStatus])];
+              const aoa = [headers, ...matchedRows.map(rowToArray)];
               const ws = XLSX.utils.aoa_to_sheet(aoa);
               ws['!cols'] = headers.map(() => ({wch:18}));
               const wb = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(wb, ws, 'Properties');
-              XLSX.writeFile(wb, `VARS_Properties_Export.xlsx`);
-              showToast(rows.length + ' properties exported as Excel');
+              XLSX.utils.book_append_sheet(wb, ws, 'Residents');
+              XLSX.writeFile(wb, `VARS_Residents_${fileSuffix}.xlsx`);
+              showToast(matchedRows.length + ' records exported as Excel');
             } else if (exportDBCfg.format === 'csv') {
-              const escape = v => `"${String(v).replace(/"/g,'""')}"`;
-              const csv = [headers.map(escape).join(','), ...rows.map(r => [r.tower,r.project,r.unitNo,r.floorNo,r.useType,r.certificateNo,r.mortgageStatus,r.rightHoldType,r.ownerName,r.ownerNationality,r.residentName,r.residentTenure,r.residentContact,r.residentStatus].map(escape).join(','))].join('\n');
+              const escape = v => `"${String(v == null ? '' : v).replace(/"/g,'""')}"`;
+              const csv = [headers.map(escape).join(','), ...matchedRows.map(r => rowToArray(r).map(escape).join(','))].join('\n');
               const blob = new Blob([csv], {type:'text/csv'});
               const url = URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url; a.download = 'VARS_Properties_Export.csv';
+              const a = document.createElement('a'); a.href = url; a.download = `VARS_Residents_${fileSuffix}.csv`;
               document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-              showToast(rows.length + ' properties exported as CSV');
+              showToast(matchedRows.length + ' records exported as CSV');
             } else if (exportDBCfg.format === 'pdf') {
               const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
               if (!jsPDFCtor) { showToast('PDF library failed to load'); return; }
               const doc = new jsPDFCtor({ orientation:'landscape' });
               doc.setFontSize(14); doc.setTextColor(146,137,137);
-              doc.text('VARS Property Database Export', 14, 16);
+              const titleProj = exportDBCfg.project === 'all' ? 'All Projects' : exportDBCfg.project;
+              doc.text(`VARS Residents Database — ${titleProj}`, 14, 16);
               doc.setFontSize(9); doc.setTextColor(60,60,60);
-              doc.text(`Generated: ${new Date().toLocaleString()} · ${rows.length} properties`, 14, 22);
+              doc.text(`Generated: ${new Date().toLocaleString()} · ${matchedRows.length} records (${matchedResidentsCount} residents · ${matchedVacantCount} vacant)`, 14, 22);
+              // Condensed column set for PDF (to fit landscape)
+              const pdfHeaders = ['Project','Tower','Unit','Floor','Use','Right Hold','Owner','Resident','Tenure','Contact','Status'];
               doc.autoTable({
                 startY: 28,
-                head: [headers],
-                body: rows.map(r => [r.tower,r.unitNo,r.floorNo,r.useType,r.mortgageStatus,r.rightHoldType,r.ownerName,r.residentName,r.residentTenure,r.residentStatus]),
+                head: [pdfHeaders],
+                body: matchedRows.map(r => [r.project, r.tower, r.unitNo, r.floorNo, r.useType, r.rightHoldType, r.ownerName, r.residentName, r.residentTenure, r.residentContact, r.residentStatus]),
                 headStyles:{fillColor:[146,137,137],textColor:255,fontSize:8},
                 alternateRowStyles:{fillColor:[250,247,244]},
                 styles:{fontSize:7,cellPadding:2},
               });
-              doc.save('VARS_Properties_Export.pdf');
-              showToast(rows.length + ' properties exported as PDF');
+              doc.save(`VARS_Residents_${fileSuffix}.pdf`);
+              showToast(matchedRows.length + ' records exported as PDF');
             } else if (exportDBCfg.format === 'docx') {
-              let html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>VARS Properties Export</title></head><body style="font-family:Arial,sans-serif;">`;
-              html += `<h1 style="color:#928989;">VARS Property Database Export</h1>`;
-              html += `<p style="color:#666;font-size:11px;">Generated: ${new Date().toLocaleString()} · ${rows.length} properties</p>`;
+              const titleProj = exportDBCfg.project === 'all' ? 'All Projects' : exportDBCfg.project;
+              let html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>VARS Residents Export</title></head><body style="font-family:Arial,sans-serif;">`;
+              html += `<h1 style="color:#928989;">VARS Residents Database — ${titleProj}</h1>`;
+              html += `<p style="color:#666;font-size:11px;">Generated: ${new Date().toLocaleString()} · ${matchedRows.length} records (${matchedResidentsCount} residents · ${matchedVacantCount} vacant)</p>`;
               html += `<table style="border-collapse:collapse;width:100%;font-size:10px;"><thead><tr style="background:#928989;color:#fff;">`;
               headers.forEach(h => html += `<th style="padding:6px;text-align:left;">${h}</th>`);
               html += `</tr></thead><tbody>`;
-              rows.forEach((r,i) => {
+              matchedRows.forEach((r,i) => {
                 html += `<tr style="background:${i%2?'#faf7f4':'#fff'};">`;
-                [r.tower,r.project,r.unitNo,r.floorNo,r.useType,r.certificateNo,r.mortgageStatus,r.rightHoldType,r.ownerName,r.ownerNationality,r.residentName,r.residentTenure,r.residentContact,r.residentStatus].forEach(c => html += `<td style="padding:5px;border-bottom:1px solid #ebe7e3;">${c||''}</td>`);
+                rowToArray(r).forEach(c => html += `<td style="padding:5px;border-bottom:1px solid #ebe7e3;">${c==null?'':c}</td>`);
                 html += `</tr>`;
               });
               html += `</tbody></table></body></html>`;
               const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
               const url = URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url; a.download = 'VARS_Properties_Export.doc';
+              const a = document.createElement('a'); a.href = url; a.download = `VARS_Residents_${fileSuffix}.doc`;
               document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-              showToast(rows.length + ' properties exported as Word');
+              showToast(matchedRows.length + ' records exported as Word');
             }
             setShowExportDB(false);
           } catch (err) {
@@ -10292,13 +10370,23 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
         };
         return (
           <div className="modal-overlay" onClick={()=>setShowExportDB(false)}>
-            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:680}}>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:720}}>
               <div className="modal-header">
                 <div>
-                  <h2>Export Database</h2>
-                  <div style={{fontSize:12,color:'#8a7f76',marginTop:4}}>Choose format and apply filters before exporting</div>
+                  <h2>Export Residents by Property</h2>
+                  <div style={{fontSize:12,color:'#8a7f76',marginTop:4}}>Combined view — owner, lease, and vacant records with full property details</div>
                 </div>
                 <button className="modal-close" onClick={()=>setShowExportDB(false)}>×</button>
+              </div>
+
+              {/* Project Filter — prominent */}
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:11,fontWeight:700,color:'#6b5d55',marginBottom:8,textTransform:'uppercase',letterSpacing:0.4}}>Property / Project</div>
+                <select value={exportDBCfg.project} onChange={e=>setExportDBCfg(p=>({...p,project:e.target.value}))}
+                  style={{width:'100%',padding:'10px 12px',border:'1px solid #d0cac3',borderRadius:8,fontSize:13,background:'#faf7f4',cursor:'pointer',fontWeight:500}}>
+                  <option value="all">All Properties ({projectList.length} projects)</option>
+                  {projectList.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
               </div>
 
               {/* Format choice */}
@@ -10329,9 +10417,9 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
                 </div>
               </div>
 
-              {/* Filters */}
+              {/* Additional filters */}
               <div style={{padding:12,background:'#faf7f4',borderRadius:8,border:'1px solid #ebe7e3',marginBottom:14}}>
-                <div style={{fontSize:11,fontWeight:700,color:'#6b5d55',marginBottom:10,textTransform:'uppercase',letterSpacing:0.4}}>Filters</div>
+                <div style={{fontSize:11,fontWeight:700,color:'#6b5d55',marginBottom:10,textTransform:'uppercase',letterSpacing:0.4}}>Additional Filters</div>
 
                 {/* Use Type */}
                 <div style={{marginBottom:12}}>
@@ -10368,8 +10456,8 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
                     <select value={exportDBCfg.residentType} onChange={e=>setExportDBCfg(p=>({...p,residentType:e.target.value}))}
                       style={{width:'100%',padding:'8px 10px',border:'1px solid #d0cac3',borderRadius:6,fontSize:12,background:'#fff',cursor:'pointer'}}>
                       <option value="all">All Residents</option>
-                      <option value="owner">Owner</option>
-                      <option value="lease">Lease</option>
+                      <option value="owner">Owners Only</option>
+                      <option value="lease">Lease Only</option>
                       <option value="vacant">Vacant Units Only</option>
                     </select>
                   </div>
@@ -10389,15 +10477,15 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:'#fff',border:'1px solid #ebe7e3',borderRadius:8,marginBottom:14}}>
                 <div style={{fontSize:11,color:'#8a7f76'}}>Matched</div>
                 <div style={{fontSize:14,fontWeight:700,color:'#1a1a1a'}}>
-                  {matchedUnits.length} unit{matchedUnits.length!==1?'s':''} · {matchedResidents.length} resident{matchedResidents.length!==1?'s':''}
+                  {matchedRows.length} record{matchedRows.length!==1?'s':''} · {matchedResidentsCount} resident{matchedResidentsCount!==1?'s':''} · {matchedVacantCount} vacant
                 </div>
               </div>
 
               <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
                 <button className="btn" onClick={()=>setShowExportDB(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={exportNow} disabled={matchedUnits.length === 0}
-                  style={matchedUnits.length === 0 ? {opacity:0.5,cursor:'not-allowed'} : {}}>
-                  <Icon name="download" size={12}/> Export {matchedUnits.length > 0 ? `${matchedUnits.length} as ${exportDBCfg.format.toUpperCase()}` : ''}
+                <button className="btn btn-primary" onClick={exportNow} disabled={matchedRows.length === 0}
+                  style={matchedRows.length === 0 ? {opacity:0.5,cursor:'not-allowed'} : {}}>
+                  <Icon name="download" size={12}/> Export {matchedRows.length > 0 ? `${matchedRows.length} as ${exportDBCfg.format.toUpperCase()}` : ''}
                 </button>
               </div>
             </div>
@@ -13879,6 +13967,14 @@ const ResidentApp = ({ onLogout }) => {
   const [serviceBooking, setServiceBooking] = useState({ type:'', location:'', date:'', time:'', duration:'1 hour', guests:1 });
   const [editingAmenityId, setEditingAmenityId] = useState(null); // null = new booking, id = editing existing
   const [showAmenityDetail, setShowAmenityDetail] = useState(null); // holds amenity booking object for detail/edit/delete
+  // Payment gateway modal state
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payStep, setPayStep] = useState('method'); // 'method' | 'details' | 'processing'
+  const [payMethod, setPayMethod] = useState(''); // 'apple' | 'card' | 'bank'
+  const [payForm, setPayForm] = useState({
+    cardNumber: '', cardName: '', cardExpiry: '', cardCvv: '',
+    bankIban: '', bankName: '', bankAccountName: '', bankSwift: '',
+  });
   const prevVisitorStatesRef = React.useRef({});
 
   // Track visitor status changes for live notifications
@@ -14413,7 +14509,7 @@ const ResidentApp = ({ onLogout }) => {
               <div style={{fontSize:32,fontWeight:700,color:'#1a1a1a',marginBottom:4}}>AED 3,200</div>
               <div style={{fontSize:12,color:'#a89a92',marginBottom:14}}>{t('res.dueBy')} {monthShort(3)} 10, 2026</div>
               <div style={{display:'flex',gap:12}}>
-                <button onClick={() => showToast('Payment gateway coming soon')} style={{padding:'8px 18px',border:'1px solid #928989',borderRadius:4,background:'#fff',color:'#1a1a1a',fontSize:12,fontWeight:600,cursor:'pointer'}}>{t('res.payNow')}</button>
+                <button onClick={() => { setPayStep('method'); setPayMethod(''); setShowPayModal(true); }} style={{padding:'8px 18px',border:'1px solid #928989',borderRadius:4,background:'#fff',color:'#1a1a1a',fontSize:12,fontWeight:600,cursor:'pointer'}}>{t('res.payNow')}</button>
                 <button onClick={() => showToast('Detailed breakdown coming soon')} style={{padding:'8px 18px',border:'none',borderRadius:4,background:'none',color:'#a89a92',fontSize:12,fontWeight:500,cursor:'pointer'}}>{t('res.checkDetails')}</button>
               </div>
             </div>
@@ -15813,6 +15909,273 @@ const ResidentApp = ({ onLogout }) => {
               </div>
               <div style={{marginTop:16,fontSize:12,color:'#1a1a1a',textDecoration:'underline',cursor:'pointer'}}>Call Guard</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Gateway Modal */}
+      {showPayModal && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,.55)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={() => setShowPayModal(false)}>
+          <div style={{background:'#fff',borderRadius:14,maxWidth:420,width:'100%',boxShadow:'0 12px 40px rgba(0,0,0,.25)',overflow:'hidden'}} onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{padding:'18px 20px',borderBottom:'1px solid #ebe7e3',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#faf7f4'}}>
+              <div>
+                <div style={{fontSize:11,color:'#8a7f76',textTransform:'uppercase',letterSpacing:0.6,fontWeight:600}}>Secure Payment</div>
+                <div style={{fontSize:16,fontWeight:700,color:'#1a1a1a',marginTop:2}}>AED 3,200.00</div>
+              </div>
+              <button onClick={() => setShowPayModal(false)} style={{background:'none',border:'none',fontSize:22,cursor:'pointer',color:'#a89a92',lineHeight:1}}>×</button>
+            </div>
+
+            {/* Step 1: Choose method */}
+            {payStep === 'method' && (
+              <div style={{padding:20}}>
+                <div style={{fontSize:13,color:'#6b5d55',marginBottom:14,fontWeight:500}}>Select payment method</div>
+                {[
+                  { key:'apple', label:'Apple Pay', sub:'Face ID · Touch ID', icon:(
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="#1a1a1a"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                  )},
+                  { key:'card', label:'Credit / Debit Card', sub:'Visa · Mastercard · Amex', icon:(
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
+                  )},
+                  { key:'bank', label:'Bank Account', sub:'Direct bank transfer · IBAN', icon:(
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="1.6"><path d="M3 10l9-6 9 6"/><line x1="5" y1="10" x2="5" y2="19"/><line x1="10" y1="10" x2="10" y2="19"/><line x1="14" y1="10" x2="14" y2="19"/><line x1="19" y1="10" x2="19" y2="19"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+                  )},
+                ].map(opt => {
+                  const active = payMethod === opt.key;
+                  return (
+                    <div key={opt.key} onClick={() => setPayMethod(opt.key)}
+                      style={{
+                        display:'flex',alignItems:'center',gap:12,padding:'14px 14px',
+                        border: active ? '2px solid #928989' : '1px solid #ebe7e3',
+                        borderRadius:10, marginBottom:10, cursor:'pointer',
+                        background: active ? '#faf7f4' : '#fff', transition:'all 0.15s'
+                      }}>
+                      <div style={{width:40,height:40,borderRadius:8,background:'#f5f2ef',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{opt.icon}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{opt.label}</div>
+                        <div style={{fontSize:11,color:'#8a7f76',marginTop:2}}>{opt.sub}</div>
+                      </div>
+                      <div style={{width:18,height:18,borderRadius:'50%',border: active ? '5px solid #928989' : '2px solid #d0cac3',background:'#fff'}}/>
+                    </div>
+                  );
+                })}
+                <button onClick={() => { if (!payMethod) return; setPayStep('details'); }}
+                  disabled={!payMethod}
+                  style={{
+                    width:'100%',padding:'13px',marginTop:8,
+                    border:'none',borderRadius:8,
+                    background: payMethod ? '#1a1a1a' : '#d0cac3',
+                    color:'#fff',fontSize:14,fontWeight:600,
+                    cursor: payMethod ? 'pointer' : 'not-allowed'
+                  }}>Continue</button>
+                <div style={{fontSize:10,color:'#a89a92',textAlign:'center',marginTop:12,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                  Your payment is encrypted and secure
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Enter details */}
+            {payStep === 'details' && payMethod === 'apple' && (
+              <div style={{padding:20}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18,cursor:'pointer',fontSize:12,color:'#8a7f76'}} onClick={() => setPayStep('method')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                  Back to methods
+                </div>
+                <div style={{background:'#000',borderRadius:12,padding:24,textAlign:'center',color:'#fff',marginBottom:16}}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="#fff" style={{marginBottom:12}}><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                  <div style={{fontSize:13,opacity:0.7,marginBottom:4}}>Pay with</div>
+                  <div style={{fontSize:22,fontWeight:700,letterSpacing:0.3}}>Apple Pay</div>
+                  <div style={{fontSize:12,opacity:0.6,marginTop:10}}>Double-click the side button, then use Face ID to authorize this payment.</div>
+                </div>
+                <div style={{background:'#faf7f4',borderRadius:10,padding:14,marginBottom:14,fontSize:12}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                    <span style={{color:'#8a7f76'}}>Merchant</span>
+                    <strong>VARS Property · Pinnacle Residences</strong>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                    <span style={{color:'#8a7f76'}}>Card</span>
+                    <strong>Wallet card · •••• 4821</strong>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between'}}>
+                    <span style={{color:'#8a7f76'}}>Total</span>
+                    <strong>AED 3,200.00</strong>
+                  </div>
+                </div>
+                <button onClick={() => setPayStep('processing')}
+                  style={{width:'100%',padding:'13px',border:'none',borderRadius:8,background:'#1a1a1a',color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                  Pay with Apple Pay
+                </button>
+              </div>
+            )}
+
+            {payStep === 'details' && payMethod === 'card' && (
+              <div style={{padding:20}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,cursor:'pointer',fontSize:12,color:'#8a7f76'}} onClick={() => setPayStep('method')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                  Back to methods
+                </div>
+                {/* Card preview */}
+                <div style={{background:'linear-gradient(135deg,#1a1a1a 0%,#3a3a3a 100%)',borderRadius:12,padding:18,color:'#fff',marginBottom:16,minHeight:130,position:'relative'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                    <div style={{fontSize:11,opacity:0.7}}>CREDIT CARD</div>
+                    <div style={{fontSize:14,fontWeight:700,fontStyle:'italic'}}>VISA</div>
+                  </div>
+                  <div style={{fontSize:18,letterSpacing:3,marginTop:18,fontFamily:'monospace'}}>
+                    {(payForm.cardNumber || '•••• •••• •••• ••••').padEnd(19,'•').slice(0,19)}
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginTop:16,fontSize:10}}>
+                    <div><div style={{opacity:0.6}}>CARD HOLDER</div><div style={{marginTop:2,fontWeight:600,textTransform:'uppercase'}}>{payForm.cardName || 'YOUR NAME'}</div></div>
+                    <div><div style={{opacity:0.6}}>EXPIRES</div><div style={{marginTop:2,fontWeight:600}}>{payForm.cardExpiry || 'MM/YY'}</div></div>
+                  </div>
+                </div>
+                {/* Form */}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,color:'#6b5d55',fontWeight:600,display:'block',marginBottom:4}}>Card Number</label>
+                  <input type="text" maxLength={19} placeholder="1234 5678 9012 3456"
+                    value={payForm.cardNumber}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/\D/g,'').slice(0,16);
+                      const formatted = raw.replace(/(\d{4})(?=\d)/g,'$1 ');
+                      setPayForm(p => ({...p, cardNumber: formatted}));
+                    }}
+                    style={{width:'100%',padding:'10px 12px',border:'1px solid #d0cac3',borderRadius:7,fontSize:13,fontFamily:'monospace',background:'#faf7f4'}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,color:'#6b5d55',fontWeight:600,display:'block',marginBottom:4}}>Cardholder Name</label>
+                  <input type="text" placeholder="Full name as on card"
+                    value={payForm.cardName}
+                    onChange={e => setPayForm(p => ({...p, cardName: e.target.value}))}
+                    style={{width:'100%',padding:'10px 12px',border:'1px solid #d0cac3',borderRadius:7,fontSize:13,background:'#faf7f4'}}/>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+                  <div>
+                    <label style={{fontSize:11,color:'#6b5d55',fontWeight:600,display:'block',marginBottom:4}}>Expiry (MM/YY)</label>
+                    <input type="text" maxLength={5} placeholder="12/28"
+                      value={payForm.cardExpiry}
+                      onChange={e => {
+                        let v = e.target.value.replace(/\D/g,'').slice(0,4);
+                        if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2);
+                        setPayForm(p => ({...p, cardExpiry: v}));
+                      }}
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #d0cac3',borderRadius:7,fontSize:13,fontFamily:'monospace',background:'#faf7f4'}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,color:'#6b5d55',fontWeight:600,display:'block',marginBottom:4}}>CVV</label>
+                    <input type="password" maxLength={4} placeholder="•••"
+                      value={payForm.cardCvv}
+                      onChange={e => setPayForm(p => ({...p, cardCvv: e.target.value.replace(/\D/g,'').slice(0,4)}))}
+                      style={{width:'100%',padding:'10px 12px',border:'1px solid #d0cac3',borderRadius:7,fontSize:13,fontFamily:'monospace',background:'#faf7f4'}}/>
+                  </div>
+                </div>
+                <button onClick={() => setPayStep('processing')}
+                  style={{width:'100%',padding:'13px',border:'none',borderRadius:8,background:'#1a1a1a',color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>
+                  Pay AED 3,200.00
+                </button>
+                <div style={{fontSize:10,color:'#a89a92',textAlign:'center',marginTop:10,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                  PCI DSS compliant · 256-bit TLS encryption
+                </div>
+              </div>
+            )}
+
+            {payStep === 'details' && payMethod === 'bank' && (
+              <div style={{padding:20}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,cursor:'pointer',fontSize:12,color:'#8a7f76'}} onClick={() => setPayStep('method')}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                  Back to methods
+                </div>
+                <div style={{background:'#faf7f4',borderRadius:10,padding:14,marginBottom:16,fontSize:12,color:'#6b5d55'}}>
+                  <div style={{fontWeight:600,color:'#1a1a1a',marginBottom:4}}>Direct Bank Transfer</div>
+                  Enter your bank account details below. The amount will be debited from your account via SWIFT within 1–2 business days.
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,color:'#6b5d55',fontWeight:600,display:'block',marginBottom:4}}>Bank Name</label>
+                  <select value={payForm.bankName}
+                    onChange={e => setPayForm(p => ({...p, bankName: e.target.value}))}
+                    style={{width:'100%',padding:'10px 12px',border:'1px solid #d0cac3',borderRadius:7,fontSize:13,background:'#faf7f4',cursor:'pointer'}}>
+                    <option value="">Select your bank</option>
+                    <option value="WIO Bank">WIO Bank</option>
+                    <option value="Emirates NBD">Emirates NBD</option>
+                    <option value="ADCB">Abu Dhabi Commercial Bank</option>
+                    <option value="FAB">First Abu Dhabi Bank</option>
+                    <option value="Mashreq">Mashreq Bank</option>
+                    <option value="ADIB">Abu Dhabi Islamic Bank</option>
+                    <option value="HSBC">HSBC UAE</option>
+                    <option value="Standard Chartered">Standard Chartered UAE</option>
+                  </select>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,color:'#6b5d55',fontWeight:600,display:'block',marginBottom:4}}>Account Holder Name</label>
+                  <input type="text" placeholder="Full name on account"
+                    value={payForm.bankAccountName}
+                    onChange={e => setPayForm(p => ({...p, bankAccountName: e.target.value}))}
+                    style={{width:'100%',padding:'10px 12px',border:'1px solid #d0cac3',borderRadius:7,fontSize:13,background:'#faf7f4'}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,color:'#6b5d55',fontWeight:600,display:'block',marginBottom:4}}>IBAN</label>
+                  <input type="text" maxLength={27} placeholder="AE07 0331 2345 6789 0123 456"
+                    value={payForm.bankIban}
+                    onChange={e => {
+                      let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,23);
+                      v = v.replace(/(.{4})(?=.)/g,'$1 ');
+                      setPayForm(p => ({...p, bankIban: v}));
+                    }}
+                    style={{width:'100%',padding:'10px 12px',border:'1px solid #d0cac3',borderRadius:7,fontSize:13,fontFamily:'monospace',background:'#faf7f4'}}/>
+                </div>
+                <div style={{marginBottom:16}}>
+                  <label style={{fontSize:11,color:'#6b5d55',fontWeight:600,display:'block',marginBottom:4}}>SWIFT / BIC Code</label>
+                  <input type="text" maxLength={11} placeholder="WIOBAEAD"
+                    value={payForm.bankSwift}
+                    onChange={e => setPayForm(p => ({...p, bankSwift: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,11)}))}
+                    style={{width:'100%',padding:'10px 12px',border:'1px solid #d0cac3',borderRadius:7,fontSize:13,fontFamily:'monospace',background:'#faf7f4'}}/>
+                </div>
+                <button onClick={() => setPayStep('processing')}
+                  style={{width:'100%',padding:'13px',border:'none',borderRadius:8,background:'#1a1a1a',color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>
+                  Authorize Transfer · AED 3,200.00
+                </button>
+                <div style={{fontSize:10,color:'#a89a92',textAlign:'center',marginTop:10}}>
+                  You will receive an SMS OTP on your registered mobile to confirm
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Under Development */}
+            {payStep === 'processing' && (
+              <div style={{padding:'36px 24px',textAlign:'center'}}>
+                <div style={{width:68,height:68,borderRadius:'50%',background:'#faf7f4',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px'}}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#928989" strokeWidth="1.8">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                </div>
+                <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a',marginBottom:8}}>Under Development</div>
+                <div style={{fontSize:13,color:'#6b5d55',lineHeight:1.6,marginBottom:24,maxWidth:300,margin:'0 auto 24px'}}>
+                  The payment gateway integration is currently being finalized with our banking partners.
+                  Your payment details have not been charged. Please check back soon.
+                </div>
+                <div style={{background:'#faf7f4',borderRadius:10,padding:14,marginBottom:20,fontSize:12,textAlign:'left'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                    <span style={{color:'#8a7f76'}}>Method</span>
+                    <strong>{payMethod === 'apple' ? 'Apple Pay' : payMethod === 'card' ? 'Credit / Debit Card' : 'Bank Transfer'}</strong>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                    <span style={{color:'#8a7f76'}}>Amount</span>
+                    <strong>AED 3,200.00</strong>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between'}}>
+                    <span style={{color:'#8a7f76'}}>Status</span>
+                    <span style={{color:'#c0392b',fontWeight:600}}>Not processed</span>
+                  </div>
+                </div>
+                <button onClick={() => { setShowPayModal(false); setPayStep('method'); setPayMethod(''); }}
+                  style={{width:'100%',padding:'13px',border:'1px solid #928989',borderRadius:8,background:'#fff',color:'#1a1a1a',fontSize:14,fontWeight:600,cursor:'pointer'}}>
+                  Close
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
