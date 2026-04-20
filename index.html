@@ -8533,6 +8533,12 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
     rightHoldType:'Freehold', shareAcquisition:'Purchase', buyingShares:100,
   });
   const [propDocs, setPropDocs] = useState([]);
+  // Property Bulk Import state
+  const [showBulkImportProp, setShowBulkImportProp] = useState(false);
+  const [bulkImportPropFile, setBulkImportPropFile] = useState(null);
+  const [bulkImportPropRows, setBulkImportPropRows] = useState([]);
+  const [bulkImportPropDocs, setBulkImportPropDocs] = useState([]);
+  const [bulkImportPropDragOver, setBulkImportPropDragOver] = useState(false);
   const [newRes, setNewRes] = useState({
     name:'', flat:'', floor:'', contact:'', coResidents:1, policy:'Standard', tower:'',
     tenure:'lease', contractNo:'',
@@ -9040,7 +9046,7 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>
                 </div>
               </div>
-              <div onClick={()=>{setShowAddPropChoice(false);setIoFormat(null);setImportFile(null);setShowImport('import-property');}}
+              <div onClick={()=>{setShowAddPropChoice(false);setShowBulkImportProp(true);}}
                 style={{
                   border:'1px solid #e0d8d0', borderRadius:10, padding:18, cursor:'pointer',
                   background:'#faf7f4', transition:'all 0.15s',
@@ -9758,6 +9764,417 @@ const PropertiesPage = ({ searchSelectedItem, clearSearchSelection }) => {
                   <button className="btn btn-primary" onClick={confirmBulkImport} disabled={bulkImportRows.length === 0}
                     style={bulkImportRows.length === 0 ? {opacity:0.5,cursor:'not-allowed'} : {}}>
                     Import {bulkImportRows.length > 0 ? `${bulkImportRows.length} Resident${bulkImportRows.length!==1?'s':''}` : 'Residents'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {showBulkImportProp && (() => {
+        const PROP_BULK_COLUMNS = [
+          { key:'certificateNo',    header:'Certificate No' },
+          { key:'projectName',      header:'Project Name' },
+          { key:'buildingNo',       header:'Building No / Tower' },
+          { key:'zone',             header:'Zone' },
+          { key:'sector',           header:'Sector' },
+          { key:'plotNo',           header:'Plot No' },
+          { key:'floorNo',          header:'Floor No' },
+          { key:'unitNo',           header:'Unit No' },
+          { key:'useType',          header:'Use Type' },
+          { key:'mortgageStatus',   header:'Mortgage Status' },
+          { key:'ownerNo',          header:'Owner #' },
+          { key:'ownerName',        header:'Owner Name' },
+          { key:'ownerIdNo',        header:'EID / License / Passport' },
+          { key:'ownerNationality', header:'Nationality' },
+          { key:'rightHoldType',    header:'Right Hold Type' },
+          { key:'shareAcquisition', header:'Share & Acquisition' },
+          { key:'buyingShares',     header:'Buying Shares %' },
+        ];
+        const propSampleRows = [
+          { certificateNo:'CRT-2025-0001', projectName:'Pinnacle Residences', buildingNo:'Tower A', zone:'Z-12', sector:'S-04', plotNo:'P-117', floorNo:'12', unitNo:'A-1204', useType:'Residential', mortgageStatus:'None', ownerNo:1, ownerName:'Mr. Ahmed Al-Sayed', ownerIdNo:'784-1985-1234567-1', ownerNationality:'United Arab Emirates', rightHoldType:'Freehold', shareAcquisition:'Purchase', buyingShares:100 },
+          { certificateNo:'CRT-2025-0002', projectName:'Pinnacle Residences', buildingNo:'Tower B', zone:'Z-12', sector:'S-04', plotNo:'P-117', floorNo:'5', unitNo:'B-0506', useType:'Residential', mortgageStatus:'Active', ownerNo:1, ownerName:'Ms. Fatima Al-Naqbi', ownerIdNo:'784-1990-7654321-2', ownerNationality:'United Arab Emirates', rightHoldType:'Leasehold', shareAcquisition:'Purchase', buyingShares:75 },
+          { certificateNo:'CRT-2025-0003', projectName:'Marina Heights', buildingNo:'Tower C', zone:'Z-08', sector:'S-02', plotNo:'P-225', floorNo:'3', unitNo:'C-0308', useType:'Mixed', mortgageStatus:'None', ownerNo:1, ownerName:'Mr. Hassan Al-Shehhi', ownerIdNo:'784-1978-9988776-3', ownerNationality:'United Arab Emirates', rightHoldType:'Freehold', shareAcquisition:'Inheritance', buyingShares:50 },
+        ];
+        const downloadPropTemplate = () => {
+          try {
+            const wb = XLSX.utils.book_new();
+            const instructions = [
+              ['VARS Property Management — Property Import Template'],
+              [''],
+              ['HOW TO USE:'],
+              ['1. Fill in the "Properties" sheet using the column headers (do not rename headers).'],
+              ['2. Mandatory fields: Building No / Tower, Unit No.'],
+              ['3. Use Type must be one of: Residential, Commercial, Mixed, Industrial.'],
+              ['4. Mortgage Status must be one of: None, Active, Released.'],
+              ['5. Right Hold Type must be one of: Freehold, Leasehold, Usufruct, Musataha.'],
+              ['6. Share & Acquisition must be one of: Purchase, Gift, Inheritance, Transfer.'],
+              ['7. Buying Shares must be a number 0–100 (representing %).'],
+              ['8. Save as .xlsx and upload back into VARS. Documents are uploaded separately.'],
+              [''],
+              ['COLUMN REFERENCE:'],
+              ...PROP_BULK_COLUMNS.map(c => [c.header, c.key]),
+            ];
+            const wsInstr = XLSX.utils.aoa_to_sheet(instructions);
+            wsInstr['!cols'] = [{ wch: 50 }, { wch: 35 }];
+            XLSX.utils.book_append_sheet(wb, wsInstr, 'Instructions');
+            const headers = PROP_BULK_COLUMNS.map(c => c.header);
+            const dataRows = propSampleRows.map(r => PROP_BULK_COLUMNS.map(c => r[c.key] !== undefined ? r[c.key] : ''));
+            const aoa = [headers, ...dataRows];
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            ws['!cols'] = PROP_BULK_COLUMNS.map(() => ({ wch: 22 }));
+            XLSX.utils.book_append_sheet(wb, ws, 'Properties');
+            XLSX.writeFile(wb, 'VARS_Properties_Import_Template.xlsx');
+            showToast('Template downloaded');
+          } catch (err) {
+            showToast('Template generation failed: ' + (err.message || 'unknown'));
+          }
+        };
+        const parsePropBulkFile = (file) => {
+          if (!file) return;
+          const ext = (file.name.split('.').pop() || '').toLowerCase();
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              let rows = [];
+              if (ext === 'csv') {
+                const text = e.target.result;
+                const lines = text.split(/\r?\n/).filter(l => l.trim());
+                if (lines.length < 2) { showToast('File has no data rows'); return; }
+                const parseCsvLine = (line) => {
+                  const out = []; let cur = ''; let inQ = false;
+                  for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    if (ch === '"') { inQ = !inQ; continue; }
+                    if (ch === ',' && !inQ) { out.push(cur); cur = ''; continue; }
+                    cur += ch;
+                  }
+                  out.push(cur); return out.map(s => s.trim());
+                };
+                const headers = parseCsvLine(lines[0]);
+                for (let i = 1; i < lines.length; i++) {
+                  const vals = parseCsvLine(lines[i]);
+                  const obj = {};
+                  headers.forEach((h, idx) => {
+                    const col = PROP_BULK_COLUMNS.find(c => c.header.toLowerCase() === h.toLowerCase() || c.key.toLowerCase() === h.toLowerCase());
+                    if (col) obj[col.key] = vals[idx] || '';
+                  });
+                  if (obj.unitNo && (obj.buildingNo || obj.projectName)) rows.push(obj);
+                }
+              } else if (ext === 'xlsx' || ext === 'xls') {
+                const wb = XLSX.read(e.target.result, { type: 'binary' });
+                const sheetName = wb.SheetNames.find(n => n.toLowerCase() === 'properties') || wb.SheetNames[0];
+                const ws = wb.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(ws, { defval: '' });
+                jsonData.forEach(row => {
+                  const obj = {};
+                  PROP_BULK_COLUMNS.forEach(c => {
+                    const val = row[c.header] !== undefined ? row[c.header] : row[c.key];
+                    if (val !== undefined) obj[c.key] = typeof val === 'string' ? val.trim() : val;
+                  });
+                  if (obj.unitNo && (obj.buildingNo || obj.projectName)) rows.push(obj);
+                });
+              } else if (ext === 'pdf') {
+                showToast('PDF parsing is approximate — please verify the preview');
+                const bytes = new Uint8Array(e.target.result);
+                let text = '';
+                for (let i = 0; i < bytes.length; i++) text += String.fromCharCode(bytes[i]);
+                const matches = text.match(/\(([^)]+)\)\s*Tj/g) || [];
+                const tokens = matches.map(m => m.replace(/^\(/, '').replace(/\)\s*Tj$/, ''));
+                for (let i = 0; i < tokens.length; i++) {
+                  const t = tokens[i];
+                  const unitMatch = t && /^[A-Z]-\d{3,4}$/.test(t.trim());
+                  if (unitMatch) {
+                    rows.push({ unitNo: t.trim(), buildingNo: tokens[i-1] || '', ownerName: tokens[i+1] || '' });
+                  }
+                }
+              } else {
+                showToast('Unsupported file type. Use .xlsx, .xls, .csv, or .pdf');
+                return;
+              }
+              if (rows.length === 0) { showToast('No valid rows found. Check mandatory Building No + Unit No columns.'); return; }
+              setBulkImportPropRows(rows);
+              showToast(rows.length + ' properties parsed — review below');
+            } catch (err) {
+              showToast('Parsing failed: ' + (err.message || 'invalid file'));
+            }
+          };
+          if (ext === 'csv') reader.readAsText(file);
+          else if (ext === 'pdf') reader.readAsArrayBuffer(file);
+          else reader.readAsBinaryString(file);
+        };
+        const handlePropBulkDocAttach = (files, categoryKey) => {
+          const arr = Array.from(files);
+          const readers = arr.map(file => new Promise(resolve => {
+            const r = new FileReader();
+            r.onload = ev => resolve({
+              name: file.name,
+              size: (file.size/1024/1024).toFixed(1)+' MB',
+              type: (file.name.split('.').pop()||'').toLowerCase(),
+              dataUrl: ev.target.result,
+              category: categoryKey,
+            });
+            r.readAsDataURL(file);
+          }));
+          Promise.all(readers).then(docs => setBulkImportPropDocs(prev => [...prev, ...docs]));
+        };
+        const confirmPropBulkImport = () => {
+          if (bulkImportPropRows.length === 0) { showToast('Upload and parse a file first'); return; }
+          // Group rows by tower (buildingNo + projectName)
+          const towerMap = {};
+          bulkImportPropRows.forEach(r => {
+            const towerKey = (r.buildingNo || '') + '||' + (r.projectName || '');
+            if (!towerMap[towerKey]) {
+              towerMap[towerKey] = {
+                buildingNo: r.buildingNo || '',
+                projectName: r.projectName || '',
+                units: [],
+              };
+            }
+            towerMap[towerKey].units.push({
+              certificateNo: r.certificateNo || '',
+              zone: r.zone || '',
+              sector: r.sector || '',
+              plotNo: r.plotNo || '',
+              floorNo: r.floorNo || '',
+              unitNo: r.unitNo || '',
+              useType: r.useType || 'Residential',
+              mortgageStatus: r.mortgageStatus || 'None',
+              ownerNo: parseInt(r.ownerNo) || 1,
+              ownerName: r.ownerName || '',
+              ownerIdNo: r.ownerIdNo || '',
+              ownerNationality: r.ownerNationality || '',
+              rightHoldType: r.rightHoldType || 'Freehold',
+              shareAcquisition: r.shareAcquisition || 'Purchase',
+              buyingShares: parseFloat(r.buyingShares) || 100,
+              documents: bulkImportPropDocs,
+            });
+          });
+          let towers = [...(data.towers || [])];
+          let createdTowers = 0;
+          let mergedTowers = 0;
+          let totalUnits = 0;
+          Object.values(towerMap).forEach(tw => {
+            const idx = towers.findIndex(t =>
+              (t.buildingNo === tw.buildingNo && t.projectName === tw.projectName) ||
+              t.name === tw.buildingNo
+            );
+            if (idx >= 0) {
+              towers[idx] = {
+                ...towers[idx],
+                units: [...(towers[idx].units || []), ...tw.units],
+                totalFlats: (towers[idx].totalFlats || 0) + tw.units.length,
+              };
+              mergedTowers++;
+            } else {
+              towers.push({
+                name: tw.buildingNo || tw.projectName || 'New Tower',
+                buildingNo: tw.buildingNo,
+                projectName: tw.projectName,
+                location: tw.projectName || '',
+                totalFlats: tw.units.length,
+                occupied: 0,
+                units: tw.units,
+              });
+              createdTowers++;
+            }
+            totalUnits += tw.units.length;
+          });
+          setData(prev => ({ ...prev, towers }));
+          showToast(`${totalUnits} unit${totalUnits!==1?'s':''} imported · ${createdTowers} new tower${createdTowers!==1?'s':''} · ${mergedTowers} merged`);
+          setShowBulkImportProp(false);
+          setBulkImportPropFile(null);
+          setBulkImportPropRows([]);
+          setBulkImportPropDocs([]);
+        };
+        const propDocCategories = [
+          { key: 'titleDeed',  label: 'Title Deeds' },
+          { key: 'sitePlan',   label: 'Building / Site Plans' },
+          { key: 'unitLayout', label: 'Unit Layouts' },
+          { key: 'photos',     label: 'Photos of Units' },
+          { key: 'noc',        label: 'NOC / Approvals' },
+          { key: 'other',      label: 'Other Documents' },
+        ];
+        return (
+          <div className="modal-overlay" onClick={()=>setShowBulkImportProp(false)}>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:820}}>
+              <div className="modal-header">
+                <div>
+                  <h2>Import Property Database</h2>
+                  <div style={{fontSize:12,color:'#8a7f76',marginTop:4}}>Bulk-upload properties via Excel, CSV, or PDF, then attach building-wide documents</div>
+                </div>
+                <button className="modal-close" onClick={()=>setShowBulkImportProp(false)}>×</button>
+              </div>
+
+              {/* Step 1: Template */}
+              <div style={{border:'1px solid #ebe7e3',borderRadius:10,padding:14,background:'#faf7f4',marginBottom:14}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:'#1a1a1a',letterSpacing:0.5,textTransform:'uppercase',marginBottom:4}}>
+                      Step 1 · Download the Excel Template
+                    </div>
+                    <div style={{fontSize:11,color:'#8a7f76',lineHeight:1.5}}>
+                      Use the VARS-approved template. It contains the exact column headers, validation rules, and 3 sample rows covering different ownership scenarios.
+                    </div>
+                  </div>
+                  <button className="btn btn-primary" onClick={downloadPropTemplate} style={{whiteSpace:'nowrap'}}>
+                    <Icon name="download" size={12}/> Download Template
+                  </button>
+                </div>
+                <div style={{marginTop:10,padding:10,background:'#fff',border:'1px solid #ebe7e3',borderRadius:8,overflow:'auto'}}>
+                  <div style={{fontSize:10,fontWeight:600,color:'#6b5d55',marginBottom:6,textTransform:'uppercase',letterSpacing:0.4}}>Template Preview (columns)</div>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:10}}>
+                    <thead>
+                      <tr style={{background:'#928989',color:'#fff'}}>
+                        {PROP_BULK_COLUMNS.map(c => (
+                          <th key={c.key} style={{padding:'6px 8px',textAlign:'left',whiteSpace:'nowrap',fontWeight:600}}>{c.header}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {propSampleRows.map((r,i) => (
+                        <tr key={i} style={{background: i%2 ? '#faf7f4' : '#fff'}}>
+                          {PROP_BULK_COLUMNS.map(c => (
+                            <td key={c.key} style={{padding:'5px 8px',borderBottom:'1px solid #ebe7e3',whiteSpace:'nowrap',color:'#1a1a1a'}}>{r[c.key] !== undefined && r[c.key] !== '' ? r[c.key] : '—'}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Step 2: Upload */}
+              <div style={{border:'1px solid #ebe7e3',borderRadius:10,padding:14,background:'#fff',marginBottom:14}}>
+                <div style={{fontSize:12,fontWeight:700,color:'#1a1a1a',letterSpacing:0.5,textTransform:'uppercase',marginBottom:10}}>
+                  Step 2 · Upload Your File
+                </div>
+                <input type="file" id="bulkImportPropInput" accept=".xlsx,.xls,.csv,.pdf" style={{display:'none'}}
+                  onChange={e => {
+                    if (e.target.files[0]) {
+                      setBulkImportPropFile(e.target.files[0]);
+                      parsePropBulkFile(e.target.files[0]);
+                    }
+                    e.target.value = '';
+                  }} />
+                <div onClick={() => document.getElementById('bulkImportPropInput').click()}
+                  onDragOver={e => { e.preventDefault(); setBulkImportPropDragOver(true); }}
+                  onDragLeave={e => { e.preventDefault(); setBulkImportPropDragOver(false); }}
+                  onDrop={e => {
+                    e.preventDefault(); setBulkImportPropDragOver(false);
+                    if (e.dataTransfer.files[0]) {
+                      setBulkImportPropFile(e.dataTransfer.files[0]);
+                      parsePropBulkFile(e.dataTransfer.files[0]);
+                    }
+                  }}
+                  style={{
+                    padding:20, border: bulkImportPropDragOver ? '2px dashed #928989' : '2px dashed #d0cac3',
+                    borderRadius:10, textAlign:'center', cursor:'pointer',
+                    background: bulkImportPropDragOver ? '#faf7f4' : '#fbfaf8', transition:'all 0.15s'
+                  }}>
+                  <Icon name="upload" size={22}/>
+                  <div style={{fontSize:13,fontWeight:600,marginTop:6}}>
+                    {bulkImportPropFile ? bulkImportPropFile.name : 'Drop Excel / CSV / PDF here or click to browse'}
+                  </div>
+                  <div style={{fontSize:10,color:'#a89a92',marginTop:4}}>Supported: .xlsx, .xls, .csv, .pdf (up to 10MB)</div>
+                </div>
+                {bulkImportPropRows.length > 0 && (
+                  <div style={{marginTop:12,padding:10,background:'#faf7f4',borderRadius:8,border:'1px solid #ebe7e3'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                      <div style={{fontSize:11,fontWeight:700,color:'#1a1a1a',textTransform:'uppercase',letterSpacing:0.4}}>
+                        Parsed {bulkImportPropRows.length} propert{bulkImportPropRows.length !== 1 ? 'ies' : 'y'}
+                      </div>
+                      <button onClick={()=>{setBulkImportPropRows([]);setBulkImportPropFile(null);}}
+                        style={{background:'none',border:'1px solid #d0cac3',borderRadius:6,padding:'4px 10px',fontSize:10,cursor:'pointer',color:'#6b5d55'}}>
+                        Clear
+                      </button>
+                    </div>
+                    <div style={{maxHeight:180,overflow:'auto',background:'#fff',borderRadius:6,border:'1px solid #ebe7e3'}}>
+                      <table style={{width:'100%',borderCollapse:'collapse',fontSize:10}}>
+                        <thead>
+                          <tr style={{background:'#928989',color:'#fff',position:'sticky',top:0}}>
+                            <th style={{padding:'6px 8px',textAlign:'left'}}>#</th>
+                            <th style={{padding:'6px 8px',textAlign:'left'}}>Building</th>
+                            <th style={{padding:'6px 8px',textAlign:'left'}}>Unit</th>
+                            <th style={{padding:'6px 8px',textAlign:'left'}}>Floor</th>
+                            <th style={{padding:'6px 8px',textAlign:'left'}}>Use Type</th>
+                            <th style={{padding:'6px 8px',textAlign:'left'}}>Owner</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bulkImportPropRows.map((r,i) => (
+                            <tr key={i} style={{background: i%2 ? '#faf7f4' : '#fff'}}>
+                              <td style={{padding:'4px 8px',color:'#8a7f76'}}>{i+1}</td>
+                              <td style={{padding:'4px 8px',fontWeight:500}}>{r.buildingNo || '—'}</td>
+                              <td style={{padding:'4px 8px'}}>{r.unitNo}</td>
+                              <td style={{padding:'4px 8px'}}>{r.floorNo || '—'}</td>
+                              <td style={{padding:'4px 8px'}}>{r.useType || 'Residential'}</td>
+                              <td style={{padding:'4px 8px'}}>{r.ownerName || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Step 3: Documents */}
+              <div style={{border:'1px solid #ebe7e3',borderRadius:10,padding:14,background:'#fff',marginBottom:14}}>
+                <div style={{fontSize:12,fontWeight:700,color:'#1a1a1a',letterSpacing:0.5,textTransform:'uppercase',marginBottom:4}}>
+                  Step 3 · Attach Supporting Documents
+                </div>
+                <div style={{fontSize:11,color:'#8a7f76',marginBottom:12,lineHeight:1.5}}>
+                  Bulk-import files don't carry attached documents. Upload them here and they'll be associated with every property in this import batch.
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  {propDocCategories.map(cat => (
+                    <div key={cat.key}>
+                      <div style={{fontSize:11,fontWeight:600,color:'#6b5d55',marginBottom:4,textTransform:'uppercase',letterSpacing:0.4}}>{cat.label}</div>
+                      <input type="file" id={`bulkPropDoc-${cat.key}`} multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style={{display:'none'}}
+                        onChange={e => { if (e.target.files.length > 0) handlePropBulkDocAttach(e.target.files, cat.key); e.target.value=''; }} />
+                      <div onClick={() => document.getElementById(`bulkPropDoc-${cat.key}`).click()}
+                        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#928989'; }}
+                        onDragLeave={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#d0cac3'; }}
+                        onDrop={e => {
+                          e.preventDefault(); e.currentTarget.style.borderColor = '#d0cac3';
+                          if (e.dataTransfer.files.length > 0) handlePropBulkDocAttach(e.dataTransfer.files, cat.key);
+                        }}
+                        style={{padding:10,border:'2px dashed #d0cac3',borderRadius:8,textAlign:'center',cursor:'pointer',background:'#faf7f4',transition:'all 0.15s'}}>
+                        <Icon name="upload" size={14}/>
+                        <div style={{fontSize:10,marginTop:4}}>Drop or <span style={{fontWeight:600,textDecoration:'underline'}}>Browse</span></div>
+                      </div>
+                      {bulkImportPropDocs.filter(d => d.category === cat.key).length > 0 && (
+                        <div style={{marginTop:6}}>
+                          {bulkImportPropDocs.map((doc, idx) => doc.category === cat.key ? (
+                            <div key={idx} style={{display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:10,padding:'5px 8px',background:'#fff',borderRadius:5,marginBottom:3,border:'1px solid #ebe7e3'}}>
+                              <div style={{display:'flex',alignItems:'center',gap:5,overflow:'hidden'}}>
+                                <span style={{background:'#ede8e4',padding:'1px 5px',borderRadius:3,fontSize:8,fontWeight:700,textTransform:'uppercase',color:'#6b5d55'}}>{doc.type}</span>
+                                <span style={{fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{doc.name}</span>
+                              </div>
+                              <button onClick={e => { e.stopPropagation(); setBulkImportPropDocs(prev => prev.filter((_,i) => i !== idx)); }} style={{background:'none',border:'none',cursor:'pointer',color:'#888',fontSize:13}}>×</button>
+                            </div>
+                          ) : null)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer actions */}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,paddingTop:6,borderTop:'1px solid #ebe7e3'}}>
+                <div style={{fontSize:11,color:'#8a7f76'}}>
+                  {bulkImportPropRows.length > 0
+                    ? `${bulkImportPropRows.length} propert${bulkImportPropRows.length!==1?'ies':'y'} ready · ${bulkImportPropDocs.length} document${bulkImportPropDocs.length!==1?'s':''} attached`
+                    : 'Upload a file to continue'}
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button className="btn" onClick={()=>{setShowBulkImportProp(false);setBulkImportPropFile(null);setBulkImportPropRows([]);setBulkImportPropDocs([]);}}>Cancel</button>
+                  <button className="btn btn-primary" onClick={confirmPropBulkImport} disabled={bulkImportPropRows.length === 0}
+                    style={bulkImportPropRows.length === 0 ? {opacity:0.5,cursor:'not-allowed'} : {}}>
+                    Import {bulkImportPropRows.length > 0 ? `${bulkImportPropRows.length} Propert${bulkImportPropRows.length!==1?'ies':'y'}` : 'Properties'}
                   </button>
                 </div>
               </div>
@@ -10843,11 +11260,40 @@ const EscalationsPage = () => {
 
 // ==================== REPORTS PAGE ====================
 const ReportsPage = () => {
-  const { data, t } = useApp();
-  const slaData = [{m:t('pm.monthOct'),v:84},{m:t('pm.monthNov'),v:88},{m:t('pm.monthDec'),v:82},{m:t('pm.monthJan'),v:79},{m:t('pm.monthFeb'),v:83},{m:t('pm.monthMar'),v:80},{m:t('pm.monthApr'),v:76},{m:t('pm.monthMay'),v:73},{m:t('pm.monthJun'),v:78}];
+  const { data, t, showToast } = useApp();
+  const ALL_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [dateFrom, setDateFrom] = useState('Jan');
+  const [dateTo, setDateTo] = useState('Jun');
+  const [filterTower, setFilterTower] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [showExportReport, setShowExportReport] = useState(false);
+  const [exportFormat, setExportFormat] = useState('pdf');
+
+  // Master dataset (would come from backend; here it's seeded for the dashboard)
+  const fullData = {
+    Jan: { sla:79, revenue:{ serviceCharge:285000, maintenance:142000, penalty:18500 }, paid:380000, outstanding:65500, securityHours:1820, srCount:64, visitors:1240 },
+    Feb: { sla:83, revenue:{ serviceCharge:290000, maintenance:138000, penalty:14200 }, paid:395000, outstanding:47200, securityHours:1740, srCount:58, visitors:1180 },
+    Mar: { sla:80, revenue:{ serviceCharge:298000, maintenance:155000, penalty:21800 }, paid:430000, outstanding:44800, securityHours:1880, srCount:71, visitors:1320 },
+    Apr: { sla:76, revenue:{ serviceCharge:305000, maintenance:148000, penalty:19400 }, paid:445000, outstanding:27400, securityHours:1820, srCount:82, visitors:1410 },
+    May: { sla:73, revenue:{ serviceCharge:312000, maintenance:162000, penalty:24600 }, paid:472000, outstanding:26600, securityHours:1900, srCount:89, visitors:1520 },
+    Jun: { sla:78, revenue:{ serviceCharge:318000, maintenance:158000, penalty:17200 }, paid:478000, outstanding:15200, securityHours:1860, srCount:76, visitors:1480 },
+    Jul: { sla:81, revenue:{ serviceCharge:322000, maintenance:165000, penalty:19800 }, paid:494000, outstanding:12800, securityHours:1880, srCount:74, visitors:1510 },
+    Aug: { sla:82, revenue:{ serviceCharge:328000, maintenance:170000, penalty:18200 }, paid:502000, outstanding:14200, securityHours:1920, srCount:78, visitors:1560 },
+    Sep: { sla:84, revenue:{ serviceCharge:335000, maintenance:168000, penalty:16500 }, paid:511000, outstanding:8500, securityHours:1860, srCount:69, visitors:1480 },
+    Oct: { sla:84, revenue:{ serviceCharge:340000, maintenance:175000, penalty:21000 }, paid:520000, outstanding:16000, securityHours:1900, srCount:81, visitors:1580 },
+    Nov: { sla:88, revenue:{ serviceCharge:345000, maintenance:178000, penalty:14800 }, paid:530000, outstanding:7800, securityHours:1880, srCount:67, visitors:1500 },
+    Dec: { sla:82, revenue:{ serviceCharge:350000, maintenance:182000, penalty:17500 }, paid:542000, outstanding:7500, securityHours:1920, srCount:72, visitors:1540 },
+  };
+  const fromIdx = ALL_MONTHS.indexOf(dateFrom);
+  const toIdx = ALL_MONTHS.indexOf(dateTo);
+  const monthsInRange = fromIdx <= toIdx ? ALL_MONTHS.slice(fromIdx, toIdx+1) : ALL_MONTHS.slice(fromIdx).concat(ALL_MONTHS.slice(0, toIdx+1));
+  const rangedData = monthsInRange.map(m => ({ m, ...fullData[m] }));
+
+  // ====== Existing dashboards ======
+  const slaData = rangedData.map(d => ({ m:d.m, v:d.sla }));
   const slaMax = 100; const slaMin = 60;
   const slaPoints = slaData.map((d,i) => {
-    const x = 40 + i * (520 / (slaData.length - 1));
+    const x = 40 + i * (520 / Math.max(1, slaData.length - 1));
     const y = 20 + ((slaMax - d.v) / (slaMax - slaMin)) * 160;
     return `${x},${y}`;
   }).join(' ');
@@ -10860,16 +11306,8 @@ const ReportsPage = () => {
     {type:t('pm.typePestControl'),avg:'6.2h',max:'14.1h',sla:68,color:'#1a1a1a'}
   ];
 
-  const finData = [
-    {m:t('pm.monthJan'),collected:40,overdue:15,pending:10},
-    {m:t('pm.monthFeb'),collected:35,overdue:20,pending:12},
-    {m:t('pm.monthMar'),collected:50,overdue:18,pending:8},
-    {m:t('pm.monthApr'),collected:55,overdue:12,pending:15},
-    {m:t('pm.monthMay'),collected:65,overdue:10,pending:12},
-    {m:t('pm.monthJun'),collected:60,overdue:14,pending:10},
-    {m:t('pm.monthJul'),collected:70,overdue:8,pending:14}
-  ];
-  const finMax = 95;
+  const finData = rangedData.map(d => ({ m:d.m, collected:Math.round(d.paid/10000), overdue:Math.round(d.outstanding/10000*0.6), pending:Math.round(d.outstanding/10000*0.4) }));
+  const finMax = Math.max(...finData.map(f => f.collected + f.overdue + f.pending), 1);
 
   const occPoints = [60,62,58,65,63,68,70,72,75,78,80,82,85,88,90,92,94,93,91,94];
   const occMax = 100; const occMin = 50;
@@ -10879,14 +11317,205 @@ const ReportsPage = () => {
     return `${x},${y}`;
   }).join(' ');
 
+  // ====== NEW dashboards ======
+  // 1. Total Revenue + Breakdown
+  const revenueTotal = rangedData.reduce((a,d) => a + d.revenue.serviceCharge + d.revenue.maintenance + d.revenue.penalty, 0);
+  const serviceChargeTotal = rangedData.reduce((a,d) => a + d.revenue.serviceCharge, 0);
+  const maintenanceTotal = rangedData.reduce((a,d) => a + d.revenue.maintenance, 0);
+  const penaltyTotal = rangedData.reduce((a,d) => a + d.revenue.penalty, 0);
+  const revenueMax = Math.max(...rangedData.map(d => d.revenue.serviceCharge + d.revenue.maintenance + d.revenue.penalty), 1);
+
+  // 2. Paid vs Outstanding
+  const paidTotal = rangedData.reduce((a,d) => a + d.paid, 0);
+  const outstandingTotal = rangedData.reduce((a,d) => a + d.outstanding, 0);
+  const collectionRate = paidTotal + outstandingTotal > 0 ? Math.round((paidTotal / (paidTotal + outstandingTotal)) * 100) : 0;
+
+  // 3. Security Hours per Month
+  const securityMax = Math.max(...rangedData.map(d => d.securityHours), 1);
+  const securityTotal = rangedData.reduce((a,d) => a + d.securityHours, 0);
+  const securityAvg = Math.round(securityTotal / Math.max(1, rangedData.length));
+
+  // 4. Service Requests + Visitors
+  const srMax = Math.max(...rangedData.map(d => d.srCount), 1);
+  const visitorsMax = Math.max(...rangedData.map(d => d.visitors), 1);
+  const srTotal = rangedData.reduce((a,d) => a + d.srCount, 0);
+  const visitorsTotal = rangedData.reduce((a,d) => a + d.visitors, 0);
+
+  // ====== Building / Occupancy summary ======
+  const totalUnits = (data.towers || []).reduce((a,t) => a + (t.totalFlats || 0), 0);
+  const occupiedUnits = (data.towers || []).reduce((a,t) => a + (t.occupied || 0), 0);
+  const buildingOccRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+
+  const fmt = n => '$' + (n/1000).toFixed(0) + 'k';
+  const fmtFull = n => '$' + n.toLocaleString();
+
+  // ====== Export Report ======
+  const generateReport = () => {
+    const reportTitle = `VARS Property — Reports & KPIs (${dateFrom}–${dateTo})`;
+    const summary = [
+      ['Date Range', `${dateFrom} – ${dateTo}`],
+      ['Tower Filter', filterTower === 'all' ? 'All Towers' : filterTower],
+      ['Category Filter', filterCategory === 'all' ? 'All Categories' : filterCategory],
+      ['Total Revenue', fmtFull(revenueTotal)],
+      ['Service Charge', fmtFull(serviceChargeTotal)],
+      ['Maintenance', fmtFull(maintenanceTotal)],
+      ['Penalty', fmtFull(penaltyTotal)],
+      ['Amount Paid', fmtFull(paidTotal)],
+      ['Outstanding', fmtFull(outstandingTotal)],
+      ['Collection Rate', collectionRate + '%'],
+      ['Total Security Hours', securityTotal.toLocaleString()],
+      ['Avg Security Hours / Month', securityAvg.toLocaleString()],
+      ['Total Service Requests', srTotal.toLocaleString()],
+      ['Total Visitors', visitorsTotal.toLocaleString()],
+      ['Total Units', totalUnits.toLocaleString()],
+      ['Occupied Units', occupiedUnits.toLocaleString()],
+      ['Building Occupancy', buildingOccRate + '%'],
+    ];
+    try {
+      if (exportFormat === 'pdf') {
+        const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (!jsPDFCtor) { showToast('PDF library failed to load'); return; }
+        const doc = new jsPDFCtor();
+        doc.setFontSize(16); doc.setTextColor(146,137,137);
+        doc.text(reportTitle, 14, 18);
+        doc.setFontSize(10); doc.setTextColor(60,60,60);
+        doc.text('Generated: ' + new Date().toLocaleString(), 14, 25);
+        doc.autoTable({
+          startY: 32,
+          head: [['Metric', 'Value']],
+          body: summary,
+          headStyles: { fillColor: [146,137,137], textColor: 255 },
+          alternateRowStyles: { fillColor: [250,247,244] },
+          styles: { fontSize: 10, cellPadding: 3 },
+        });
+        doc.addPage();
+        doc.setFontSize(14); doc.setTextColor(146,137,137);
+        doc.text('Monthly Breakdown', 14, 18);
+        doc.autoTable({
+          startY: 24,
+          head: [['Month','Revenue','Service Chg','Maintenance','Penalty','Paid','Outstanding','Sec Hrs','SRs','Visitors']],
+          body: rangedData.map(d => [
+            d.m,
+            fmt(d.revenue.serviceCharge + d.revenue.maintenance + d.revenue.penalty),
+            fmt(d.revenue.serviceCharge),
+            fmt(d.revenue.maintenance),
+            fmt(d.revenue.penalty),
+            fmt(d.paid),
+            fmt(d.outstanding),
+            d.securityHours.toLocaleString(),
+            d.srCount,
+            d.visitors.toLocaleString(),
+          ]),
+          headStyles: { fillColor: [146,137,137], textColor: 255 },
+          alternateRowStyles: { fillColor: [250,247,244] },
+          styles: { fontSize: 8, cellPadding: 2 },
+        });
+        doc.save(`VARS_Reports_${dateFrom}-${dateTo}.pdf`);
+        showToast('PDF report exported');
+      } else if (exportFormat === 'xlsx') {
+        const wb = XLSX.utils.book_new();
+        const wsSum = XLSX.utils.aoa_to_sheet([['Metric','Value'], ...summary]);
+        wsSum['!cols'] = [{wch:30},{wch:25}];
+        XLSX.utils.book_append_sheet(wb, wsSum, 'Summary');
+        const monthly = [['Month','Revenue','Service Charge','Maintenance','Penalty','Paid','Outstanding','Security Hours','Service Requests','Visitors']];
+        rangedData.forEach(d => monthly.push([
+          d.m,
+          d.revenue.serviceCharge + d.revenue.maintenance + d.revenue.penalty,
+          d.revenue.serviceCharge, d.revenue.maintenance, d.revenue.penalty,
+          d.paid, d.outstanding, d.securityHours, d.srCount, d.visitors
+        ]));
+        const wsMonth = XLSX.utils.aoa_to_sheet(monthly);
+        wsMonth['!cols'] = monthly[0].map(() => ({wch:16}));
+        XLSX.utils.book_append_sheet(wb, wsMonth, 'Monthly Breakdown');
+        XLSX.writeFile(wb, `VARS_Reports_${dateFrom}-${dateTo}.xlsx`);
+        showToast('Excel report exported');
+      } else if (exportFormat === 'docx') {
+        // Build a simple HTML-based .doc file (Word can open it natively)
+        let html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>`;
+        html += `<head><meta charset='utf-8'><title>${reportTitle}</title></head><body style="font-family:Arial,sans-serif;">`;
+        html += `<h1 style="color:#928989;">${reportTitle}</h1>`;
+        html += `<p style="color:#666;font-size:11px;">Generated: ${new Date().toLocaleString()}</p>`;
+        html += `<h2 style="color:#928989;border-bottom:2px solid #928989;padding-bottom:4px;">Summary</h2>`;
+        html += `<table style="border-collapse:collapse;width:100%;font-size:12px;"><thead><tr style="background:#928989;color:#fff;"><th style="padding:8px;text-align:left;">Metric</th><th style="padding:8px;text-align:left;">Value</th></tr></thead><tbody>`;
+        summary.forEach((row,i) => {
+          html += `<tr style="background:${i%2?'#faf7f4':'#fff'};"><td style="padding:6px;border-bottom:1px solid #ebe7e3;">${row[0]}</td><td style="padding:6px;border-bottom:1px solid #ebe7e3;">${row[1]}</td></tr>`;
+        });
+        html += `</tbody></table>`;
+        html += `<h2 style="color:#928989;border-bottom:2px solid #928989;padding-bottom:4px;margin-top:24px;">Monthly Breakdown</h2>`;
+        html += `<table style="border-collapse:collapse;width:100%;font-size:11px;"><thead><tr style="background:#928989;color:#fff;">`;
+        ['Month','Revenue','Service Chg','Maintenance','Penalty','Paid','Outstanding','Sec Hrs','SRs','Visitors'].forEach(h => {
+          html += `<th style="padding:6px;text-align:left;">${h}</th>`;
+        });
+        html += `</tr></thead><tbody>`;
+        rangedData.forEach((d,i) => {
+          html += `<tr style="background:${i%2?'#faf7f4':'#fff'};">`;
+          [d.m, fmt(d.revenue.serviceCharge + d.revenue.maintenance + d.revenue.penalty), fmt(d.revenue.serviceCharge), fmt(d.revenue.maintenance), fmt(d.revenue.penalty), fmt(d.paid), fmt(d.outstanding), d.securityHours.toLocaleString(), d.srCount, d.visitors.toLocaleString()].forEach(c => {
+            html += `<td style="padding:5px;border-bottom:1px solid #ebe7e3;">${c}</td>`;
+          });
+          html += `</tr>`;
+        });
+        html += `</tbody></table></body></html>`;
+        const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `VARS_Reports_${dateFrom}-${dateTo}.doc`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Word report exported');
+      }
+      setShowExportReport(false);
+    } catch (err) {
+      showToast('Export failed: ' + (err.message || 'unknown'));
+    }
+  };
+
+  const towerOptions = ['all', ...((data.towers || []).map(t => t.name))];
+
   return (
     <div>
       <div className="page-header">
         <div><h1>{t('pm.reportsTitle')}</h1><div className="subtitle">{t('pm.reportsSubtitle')}</div></div>
-        <div className="btn-group"><button className="btn"><Icon name="download" size={14}/> {t('pm.exportBtn')}</button><button className="btn btn-primary" onClick={()=>{
-          exportToExcel([{metric:'SLA Compliance',value:'78%'},{metric:'Avg Resolution',value:'4.1h'},{metric:'Occupancy',value:'94%'},{metric:'Vacant Units',value:'18/300'},{metric:'Renewals',value:41}],
-          [{header:'Metric',key:'metric'},{header:'Value',key:'value'}], 'VARS_Reports_KPI');
-        }}><Icon name="download" size={14}/> {t('pm.exportCsvBtn')}</button></div>
+        <div className="btn-group">
+          <button className="btn btn-primary" onClick={()=>setShowExportReport(true)}><Icon name="download" size={14}/> Export Report</button>
+        </div>
+      </div>
+
+      {/* Date Range + Filters */}
+      <div className="card" style={{padding:14,marginBottom:16,background:'#faf7f4',border:'1px solid #ebe7e3'}}>
+        <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+          <div style={{fontSize:11,fontWeight:700,color:'#1a1a1a',textTransform:'uppercase',letterSpacing:0.5,paddingRight:6,borderRight:'1px solid #d0cac3'}}>Date Range</div>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontSize:11,color:'#6b5d55'}}>From</span>
+            <select value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{padding:'6px 10px',border:'1px solid #d0cac3',borderRadius:6,fontSize:12,background:'#fff',cursor:'pointer'}}>
+              {ALL_MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <span style={{fontSize:11,color:'#6b5d55'}}>To</span>
+            <select value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{padding:'6px 10px',border:'1px solid #d0cac3',borderRadius:6,fontSize:12,background:'#fff',cursor:'pointer'}}>
+              {ALL_MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontSize:11,color:'#6b5d55'}}>Tower</span>
+            <select value={filterTower} onChange={e=>setFilterTower(e.target.value)} style={{padding:'6px 10px',border:'1px solid #d0cac3',borderRadius:6,fontSize:12,background:'#fff',cursor:'pointer'}}>
+              <option value="all">All Towers</option>
+              {towerOptions.filter(t => t !== 'all').map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontSize:11,color:'#6b5d55'}}>Category</span>
+            <select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)} style={{padding:'6px 10px',border:'1px solid #d0cac3',borderRadius:6,fontSize:12,background:'#fff',cursor:'pointer'}}>
+              <option value="all">All Categories</option>
+              <option value="financial">Financial</option>
+              <option value="operations">Operations</option>
+              <option value="security">Security</option>
+              <option value="occupancy">Occupancy</option>
+            </select>
+          </div>
+          <div style={{marginLeft:'auto',fontSize:11,color:'#8a7f76'}}>
+            Showing <strong style={{color:'#1a1a1a'}}>{rangedData.length}</strong> month{rangedData.length!==1?'s':''} of data
+          </div>
+        </div>
       </div>
 
       <div className="grid-2">
@@ -10996,6 +11625,310 @@ const ReportsPage = () => {
           <p style={{fontSize:13,color:'#a89a92',lineHeight:1.6}}>{t('pm.aiInsight4')}</p>
         </div>
       </div>
+
+      {/* ====== NEW DASHBOARD 5 + 6: REVENUE BREAKDOWN + PAID vs OUTSTANDING ====== */}
+      <div className="grid-2">
+        <div className="card">
+          <div className="card-header">
+            <h3>Revenue Breakdown</h3>
+            <span style={{fontSize:12,color:'#a89a92',cursor:'pointer'}}>{t('pm.viewAll')}</span>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:10,marginBottom:14}}>
+            <div style={{background:'#faf7f4',padding:10,borderRadius:8,border:'1px solid #ebe7e3'}}>
+              <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:0.4}}>Total Revenue</div>
+              <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a',marginTop:2}}>{fmt(revenueTotal)}</div>
+            </div>
+            <div style={{background:'#faf7f4',padding:10,borderRadius:8,border:'1px solid #ebe7e3'}}>
+              <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:0.4}}>Service Charge</div>
+              <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a',marginTop:2}}>{fmt(serviceChargeTotal)}</div>
+            </div>
+            <div style={{background:'#faf7f4',padding:10,borderRadius:8,border:'1px solid #ebe7e3'}}>
+              <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:0.4}}>Maintenance</div>
+              <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a',marginTop:2}}>{fmt(maintenanceTotal)}</div>
+            </div>
+            <div style={{background:'#faf7f4',padding:10,borderRadius:8,border:'1px solid #ebe7e3'}}>
+              <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:0.4}}>Penalty</div>
+              <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a',marginTop:2}}>{fmt(penaltyTotal)}</div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:14,marginBottom:8,fontSize:11,color:'#a89a92'}}>
+            <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:'#928989',display:'inline-block'}}/> Service Charge</span>
+            <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:'#a89a92',display:'inline-block'}}/> Maintenance</span>
+            <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:'#d0cac3',display:'inline-block'}}/> Penalty</span>
+          </div>
+          <div style={{display:'flex',alignItems:'flex-end',gap:8,height:140,padding:'0 4px'}}>
+            {rangedData.map((d,i) => {
+              const total = d.revenue.serviceCharge + d.revenue.maintenance + d.revenue.penalty;
+              const h = (total/revenueMax)*120;
+              return (
+                <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+                  <div style={{width:'100%',maxWidth:34,height:h,borderRadius:'4px 4px 0 0',overflow:'hidden',display:'flex',flexDirection:'column-reverse'}}>
+                    <div style={{height:`${(d.revenue.serviceCharge/total)*100}%`,background:'#928989'}}/>
+                    <div style={{height:`${(d.revenue.maintenance/total)*100}%`,background:'#a89a92'}}/>
+                    <div style={{height:`${(d.revenue.penalty/total)*100}%`,background:'#d0cac3'}}/>
+                  </div>
+                  <span style={{fontSize:10,color:'#a89a92'}}>{d.m}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <h3>Paid vs Outstanding</h3>
+            <span style={{fontSize:12,color:'#a89a92',cursor:'pointer'}}>{t('pm.viewAll')}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:24}}>
+            {/* Donut */}
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              {(() => {
+                const total = paidTotal + outstandingTotal;
+                const paidPct = total > 0 ? (paidTotal/total) : 0;
+                const cx=80, cy=80, r=60;
+                const circ = 2*Math.PI*r;
+                const paidLen = circ * paidPct;
+                return (
+                  <>
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="#ede8e4" strokeWidth="22"/>
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="#928989" strokeWidth="22"
+                      strokeDasharray={`${paidLen} ${circ}`} transform={`rotate(-90 ${cx} ${cy})`}/>
+                    <text x={cx} y={cy-4} textAnchor="middle" fontSize="22" fontWeight="700" fill="#1a1a1a">{collectionRate}%</text>
+                    <text x={cx} y={cy+14} textAnchor="middle" fontSize="10" fill="#8a7f76">Collected</text>
+                  </>
+                );
+              })()}
+            </svg>
+            <div style={{flex:1}}>
+              <div style={{padding:10,background:'#faf7f4',borderRadius:8,border:'1px solid #ebe7e3',marginBottom:8}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{width:10,height:10,borderRadius:2,background:'#928989'}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:0.4}}>Amount Paid</div>
+                    <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a'}}>{fmt(paidTotal)}</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{padding:10,background:'#faf7f4',borderRadius:8,border:'1px solid #ebe7e3',marginBottom:8}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{width:10,height:10,borderRadius:2,background:'#ede8e4'}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:0.4}}>Outstanding</div>
+                    <div style={{fontSize:18,fontWeight:700,color:'#1a1a1a'}}>{fmt(outstandingTotal)}</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{fontSize:11,color:'#8a7f76',marginTop:4}}>
+                Total billed: <strong style={{color:'#1a1a1a'}}>{fmt(paidTotal + outstandingTotal)}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{marginTop:0}}>
+        <div className="card" style={{background:'#faf8f6',border:'none'}}>
+          <h4 style={{marginBottom:8}}>{t('pm.aiInsightTitle')}</h4>
+          <p style={{fontSize:13,color:'#a89a92',lineHeight:1.6}}>
+            Service Charge accounts for <strong style={{color:'#1a1a1a'}}>{Math.round((serviceChargeTotal/revenueTotal)*100)}%</strong> of total revenue,
+            with Maintenance contributing <strong style={{color:'#1a1a1a'}}>{Math.round((maintenanceTotal/revenueTotal)*100)}%</strong>.
+            Penalty income is trending <strong style={{color:'#1a1a1a'}}>downward</strong> month-over-month — a positive signal that resident compliance is improving.
+          </p>
+        </div>
+        <div className="card" style={{background:'#faf8f6',border:'none'}}>
+          <h4 style={{marginBottom:8}}>{t('pm.aiInsightTitle')}</h4>
+          <p style={{fontSize:13,color:'#a89a92',lineHeight:1.6}}>
+            Collection rate of <strong style={{color:'#1a1a1a'}}>{collectionRate}%</strong> is {collectionRate >= 90 ? 'above' : 'below'} the industry benchmark of 90%.
+            Outstanding balance of <strong style={{color:'#1a1a1a'}}>{fmt(outstandingTotal)}</strong> is {collectionRate >= 90 ? 'within acceptable thresholds' : 'a priority for collections — recommend escalating to legal review for accounts > 60 days overdue'}.
+          </p>
+        </div>
+      </div>
+
+      {/* ====== NEW DASHBOARD 7 + 8: SECURITY SHIFTS + SERVICE REQUESTS / VISITORS ====== */}
+      <div className="grid-2">
+        <div className="card">
+          <div className="card-header">
+            <h3>Security Shifts (Hours / Month)</h3>
+            <span style={{fontSize:12,color:'#a89a92',cursor:'pointer'}}>{t('pm.viewAll')}</span>
+          </div>
+          <div className="grid-2" style={{gap:12,marginBottom:14}}>
+            <div>
+              <div style={{fontSize:11,color:'#a89a92'}}>Total Hours</div>
+              <div style={{fontSize:22,fontWeight:700}}>{securityTotal.toLocaleString()}</div>
+              <div style={{fontSize:11,color:'#a89a92'}}>{rangedData.length} month{rangedData.length!==1?'s':''}</div>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:'#a89a92'}}>Avg / Month</div>
+              <div style={{fontSize:22,fontWeight:700}}>{securityAvg.toLocaleString()}</div>
+              <div style={{fontSize:11,color:'#a89a92'}}>≈ {Math.round(securityAvg/30)} hrs/day</div>
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'flex-end',gap:8,height:140,padding:'0 4px'}}>
+            {rangedData.map((d,i) => (
+              <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+                <div style={{position:'relative',width:'100%',maxWidth:34,height:`${(d.securityHours/securityMax)*120}px`,background:'linear-gradient(180deg, #928989 0%, #a89a92 100%)',borderRadius:'4px 4px 0 0'}}>
+                  <span style={{position:'absolute',top:-16,left:'50%',transform:'translateX(-50%)',fontSize:9,color:'#6b5d55',fontWeight:600}}>{(d.securityHours/1000).toFixed(1)}k</span>
+                </div>
+                <span style={{fontSize:10,color:'#a89a92'}}>{d.m}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <h3>Service Requests & Visitors</h3>
+            <span style={{fontSize:12,color:'#a89a92',cursor:'pointer'}}>{t('pm.viewAll')}</span>
+          </div>
+          <div className="grid-2" style={{gap:12,marginBottom:14}}>
+            <div style={{padding:10,background:'#faf7f4',borderRadius:8,border:'1px solid #ebe7e3'}}>
+              <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:0.4}}>Service Requests</div>
+              <div style={{fontSize:22,fontWeight:700,color:'#1a1a1a'}}>{srTotal.toLocaleString()}</div>
+              <div style={{fontSize:11,color:'#a89a92'}}>~{Math.round(srTotal/Math.max(1,rangedData.length))}/mo</div>
+            </div>
+            <div style={{padding:10,background:'#faf7f4',borderRadius:8,border:'1px solid #ebe7e3'}}>
+              <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:0.4}}>Visitors</div>
+              <div style={{fontSize:22,fontWeight:700,color:'#1a1a1a'}}>{visitorsTotal.toLocaleString()}</div>
+              <div style={{fontSize:11,color:'#a89a92'}}>~{Math.round(visitorsTotal/Math.max(1,rangedData.length)).toLocaleString()}/mo</div>
+            </div>
+          </div>
+          <svg viewBox="0 0 580 160" style={{width:'100%',height:140}}>
+            {[0,1,2,3,4].map(i => (
+              <line key={i} x1="40" y1={20+i*30} x2="560" y2={20+i*30} stroke="#f0ece8" strokeWidth="1"/>
+            ))}
+            {/* SR line */}
+            <polyline fill="none" stroke="#928989" strokeWidth="2"
+              points={rangedData.map((d,i) => {
+                const x = 40 + i * (520 / Math.max(1, rangedData.length - 1));
+                const y = 20 + (1 - d.srCount/srMax) * 120;
+                return `${x},${y}`;
+              }).join(' ')}/>
+            {rangedData.map((d,i) => {
+              const x = 40 + i * (520 / Math.max(1, rangedData.length - 1));
+              const y = 20 + (1 - d.srCount/srMax) * 120;
+              return <circle key={'s'+i} cx={x} cy={y} r="3" fill="#928989"/>;
+            })}
+            {/* Visitors line (scaled to fit) */}
+            <polyline fill="none" stroke="#a89a92" strokeWidth="2" strokeDasharray="4,3"
+              points={rangedData.map((d,i) => {
+                const x = 40 + i * (520 / Math.max(1, rangedData.length - 1));
+                const y = 20 + (1 - d.visitors/visitorsMax) * 120;
+                return `${x},${y}`;
+              }).join(' ')}/>
+            {rangedData.map((d,i) => {
+              const x = 40 + i * (520 / Math.max(1, rangedData.length - 1));
+              const y = 20 + (1 - d.visitors/visitorsMax) * 120;
+              return <circle key={'v'+i} cx={x} cy={y} r="3" fill="#a89a92"/>;
+            })}
+            {rangedData.map((d,i) => {
+              const x = 40 + i * (520 / Math.max(1, rangedData.length - 1));
+              return <text key={'l'+i} x={x} y={155} textAnchor="middle" fontSize="9" fill="#a89a92">{d.m}</text>;
+            })}
+          </svg>
+          <div style={{display:'flex',gap:14,marginTop:8,fontSize:11,color:'#a89a92',justifyContent:'center'}}>
+            <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:14,height:2,background:'#928989',display:'inline-block'}}/> Service Requests</span>
+            <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:14,height:2,background:'#a89a92',display:'inline-block',borderTop:'2px dashed'}}/> Visitors (scaled)</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{marginTop:0}}>
+        <div className="card" style={{background:'#faf8f6',border:'none'}}>
+          <h4 style={{marginBottom:8}}>{t('pm.aiInsightTitle')}</h4>
+          <p style={{fontSize:13,color:'#a89a92',lineHeight:1.6}}>
+            Security coverage averages <strong style={{color:'#1a1a1a'}}>{securityAvg.toLocaleString()}</strong> hours/month
+            (~{Math.round(securityAvg/720*100)}% of full 24/7 coverage requirement). Peak month: <strong style={{color:'#1a1a1a'}}>{rangedData.reduce((a,d) => d.securityHours > a.securityHours ? d : a, rangedData[0])?.m || '—'}</strong>.
+            Recommend reviewing shift overlap during peak visitor months to optimize labor cost.
+          </p>
+        </div>
+        <div className="card" style={{background:'#faf8f6',border:'none'}}>
+          <h4 style={{marginBottom:8}}>{t('pm.aiInsightTitle')}</h4>
+          <p style={{fontSize:13,color:'#a89a92',lineHeight:1.6}}>
+            Service request volume of <strong style={{color:'#1a1a1a'}}>{srTotal}</strong> across {rangedData.length} months
+            correlates with visitor traffic of <strong style={{color:'#1a1a1a'}}>{visitorsTotal.toLocaleString()}</strong>.
+            Building occupancy currently at <strong style={{color:'#1a1a1a'}}>{buildingOccRate}%</strong> ({occupiedUnits} of {totalUnits} units).
+            High SR volume in peak months suggests proactive maintenance scheduling could reduce reactive workload.
+          </p>
+        </div>
+      </div>
+
+      {/* ====== EXPORT REPORT MODAL ====== */}
+      {showExportReport && (
+        <div className="modal-overlay" onClick={()=>setShowExportReport(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}>
+            <div className="modal-header">
+              <div>
+                <h2>Export Report</h2>
+                <div style={{fontSize:12,color:'#8a7f76',marginTop:4}}>Choose format and review filters before generating</div>
+              </div>
+              <button className="modal-close" onClick={()=>setShowExportReport(false)}>×</button>
+            </div>
+
+            {/* Format choice */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#6b5d55',marginBottom:8,textTransform:'uppercase',letterSpacing:0.4}}>Format</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                {[
+                  { key:'pdf', label:'PDF', sub:'Print-ready document' },
+                  { key:'docx', label:'Word', sub:'Editable .doc file' },
+                  { key:'xlsx', label:'Excel', sub:'Multi-sheet workbook' },
+                ].map(opt => {
+                  const active = exportFormat === opt.key;
+                  return (
+                    <div key={opt.key} onClick={()=>setExportFormat(opt.key)}
+                      style={{
+                        padding:12, border: active ? '2px solid #928989' : '1px solid #e0d8d0',
+                        borderRadius:8, cursor:'pointer',
+                        background: active ? '#928989' : '#faf7f4',
+                        color: active ? '#fff' : '#1a1a1a',
+                        textAlign:'center', transition:'all 0.15s'
+                      }}>
+                      <div style={{fontSize:13,fontWeight:700}}>{opt.label}</div>
+                      <div style={{fontSize:10,color: active ? '#ede8e4' : '#8a7f76',marginTop:2}}>{opt.sub}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Filter summary */}
+            <div style={{padding:12,background:'#faf7f4',borderRadius:8,border:'1px solid #ebe7e3',marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#6b5d55',marginBottom:8,textTransform:'uppercase',letterSpacing:0.4}}>Report Will Include</div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'4px 0'}}>
+                <span style={{color:'#6b5d55'}}>Date Range</span>
+                <strong>{dateFrom} – {dateTo} ({rangedData.length} month{rangedData.length!==1?'s':''})</strong>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'4px 0'}}>
+                <span style={{color:'#6b5d55'}}>Tower</span>
+                <strong>{filterTower === 'all' ? 'All Towers' : filterTower}</strong>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'4px 0'}}>
+                <span style={{color:'#6b5d55'}}>Category</span>
+                <strong>{filterCategory === 'all' ? 'All Categories' : filterCategory.charAt(0).toUpperCase()+filterCategory.slice(1)}</strong>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'4px 0'}}>
+                <span style={{color:'#6b5d55'}}>Total Revenue</span>
+                <strong>{fmt(revenueTotal)}</strong>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'4px 0'}}>
+                <span style={{color:'#6b5d55'}}>Service Requests</span>
+                <strong>{srTotal.toLocaleString()}</strong>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'4px 0'}}>
+                <span style={{color:'#6b5d55'}}>Visitors</span>
+                <strong>{visitorsTotal.toLocaleString()}</strong>
+              </div>
+            </div>
+
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+              <button className="btn" onClick={()=>setShowExportReport(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={generateReport}>
+                <Icon name="download" size={12}/> Generate {exportFormat.toUpperCase()}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
