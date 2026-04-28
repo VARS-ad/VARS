@@ -21269,15 +21269,20 @@ try {
   }
 } catch(e) { console.log('Supabase init error:', e.message); }
 
-const DATA_VERSION = 'v64';
+const DATA_VERSION = 'v65';
 const loadPersistedData = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      // If data version changed, use fresh serviceRequests + escalations from code
+      // If data version changed, refresh seed SRs but PRESERVE user-created ones
+      // (resident-submitted SRs use a Date.now() timestamp ID, e.g. 'SR-1730000000000',
+      //  which is much longer than the seed pattern 'SR-3001' / 'SR-1080'. We use the
+      //  set of seed IDs as the boundary — anything not in the seed is user-created.)
       if (parsed._dataVersion !== DATA_VERSION) {
-        parsed.serviceRequests = initialData.serviceRequests;
+        const seedIds = new Set((initialData.serviceRequests || []).map(s => s.id));
+        const userCreatedSRs = (parsed.serviceRequests || []).filter(s => !seedIds.has(s.id));
+        parsed.serviceRequests = [...(initialData.serviceRequests || []), ...userCreatedSRs];
         parsed.escalations = initialData.escalations;
         parsed._dataVersion = DATA_VERSION;
         parsed._forceCloudPush = true; // signal to push fresh data to Supabase
@@ -22987,6 +22992,7 @@ const FmSupervisorApp = ({ user, onSwitchRole, onSignOut }) => {
       'On hold': allWOs.filter(isOnHold),
       'Completed': allWOs.filter(isCompleted)
     };
+    const newCount = lists['New'].length;
     const counts = Object.fromEntries(Object.entries(lists).map(([k,v]) => [k, v.length]));
     let list = lists[queueFilter] || allWOs;
 
@@ -22999,6 +23005,20 @@ const FmSupervisorApp = ({ user, onSwitchRole, onSignOut }) => {
 
     return (
       <div style={{padding:'12px 16px',paddingBottom:80}}>
+        {/* Inbox banner — surfaces resident-submitted unassigned requests */}
+        {newCount > 0 && queueFilter !== 'New' && (
+          <div onClick={() => setQueueFilter('New')} style={{background:'linear-gradient(135deg,#fff8e8,#fdf0d0)',border:'1px solid #e8d5a5',borderRadius:12,padding:'12px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:'#fdf0d0',border:'2px solid #e8d5a5',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7a6040" strokeWidth="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600,color:'#7a6040'}}>{newCount} new {newCount === 1 ? 'request' : 'requests'} awaiting assignment</div>
+              <div style={{fontSize:11,color:'#7a6040',marginTop:1,opacity:0.85}}>Tap to review and assign technicians</div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7a6040" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        )}
+
         {/* Search */}
         <div style={{position:'relative',marginBottom:12}}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="2" style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
@@ -23878,8 +23898,16 @@ const App = () => {
             const mergedPending = mergeById(localData.pendingApprovals || [], cloudData.pendingApprovals || [], 'id');
             const mergedResidents = mergeById(localData.residents || [], cloudData.residents || [], 'id');
             const mergedTowers = mergeById(localData.towers || [], cloudData.towers || [], 'name');
-            // If data version changed, use fresh local SR/escalations instead of stale cloud
-            const mergedSR = dataVersionChanged ? (initialData.serviceRequests || []) : mergeById(localData.serviceRequests || [], cloudData.serviceRequests || [], 'id');
+            // If data version changed, refresh seed SRs but PRESERVE both user-created
+            // and any in-flight cloud SRs that aren't part of the seed.
+            const mergedSR = dataVersionChanged
+              ? (() => {
+                  const seedIds = new Set((initialData.serviceRequests || []).map(s => s.id));
+                  const userLocal = (localData.serviceRequests || []).filter(s => !seedIds.has(s.id));
+                  const userCloud = (cloudData.serviceRequests || []).filter(s => !seedIds.has(s.id));
+                  return mergeById([...(initialData.serviceRequests || []), ...userLocal], userCloud, 'id');
+                })()
+              : mergeById(localData.serviceRequests || [], cloudData.serviceRequests || [], 'id');
             const mergedDismissedNotifs = [...new Set([...(localData.dismissedNotifIds || []), ...(cloudData.dismissedNotifIds || [])])];
             const mergedDismissedSecNotifs = [...new Set([...(localData.dismissedSecNotifIds || []), ...(cloudData.dismissedSecNotifIds || [])])];
             const merged = { ...initialData, ...cloudData, visitors: mergedVisitors, entryLog: mergedEntryLog, amenityBookings: mergedAmenities, pendingApprovals: mergedPending, residents: mergedResidents, towers: mergedTowers, serviceRequests: mergedSR, dismissedNotifIds: mergedDismissedNotifs, dismissedSecNotifIds: mergedDismissedSecNotifs, _dataVersion: DATA_VERSION };
