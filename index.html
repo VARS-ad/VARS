@@ -933,6 +933,30 @@ const initialData = {
     { id: 'SR-1099', type: 'Plumbing',     flat: 'C-1001', resident: 'Mr. Yusuf Al-Breiki',     date: '20 Apr', time: '09:30', status: 'Scheduled', notes: 'Guest bathroom faucet dripping' },
   ],
   amenityBookings: [],
+  // === FM Executor — Technicians, Supervisors and category templates ===
+  fmUsers: [
+    { id: 'TECH-001', name: 'Ahmed Khan',     role: 'technician', specialty: 'HVAC / AC',           zone: 'Tower B',         shiftStart: '07:00', shiftEnd: '19:00', status: 'on-shift',  initials: 'AK', phone: '+971 50 111 2233' },
+    { id: 'TECH-002', name: 'Mahmoud Ali',    role: 'technician', specialty: 'Plumbing',            zone: 'Tower A & B',     shiftStart: '07:00', shiftEnd: '19:00', status: 'on-shift',  initials: 'MA', phone: '+971 50 222 3344' },
+    { id: 'TECH-003', name: 'Rashid Mansoor', role: 'technician', specialty: 'Electrical',          zone: 'Tower C',         shiftStart: '08:00', shiftEnd: '20:00', status: 'on-break',  initials: 'RM', phone: '+971 50 333 4455' },
+    { id: 'TECH-004', name: 'Vikram Pillai',  role: 'technician', specialty: 'Handyman / General',  zone: 'All Towers',      shiftStart: '06:00', shiftEnd: '18:00', status: 'idle',      initials: 'VP', phone: '+971 50 444 5566' },
+    { id: 'TECH-005', name: 'Hassan Karim',   role: 'technician', specialty: 'Pest Control',        zone: 'Tower A & D',     shiftStart: '08:00', shiftEnd: '17:00', status: 'on-shift',  initials: 'HK', phone: '+971 50 555 6677' },
+    { id: 'SUP-001',  name: 'Omar Al-Hosani', role: 'supervisor', specialty: 'Operations Lead',     zone: 'All Properties',  shiftStart: '08:00', shiftEnd: '20:00', status: 'on-shift',  initials: 'OH', phone: '+971 50 666 7788' }
+  ],
+  fmCategoryTemplates: {
+    'AC Repair':     { defaultMinutes: 60, slaMinutes: 240,   checklist: ['Inspect outdoor unit and compressor','Check refrigerant level and pressure','Clean or replace filter','Verify thermostat readings','Run cooling test cycle','Document final temperature'] },
+    'Plumbing':      { defaultMinutes: 45, slaMinutes: 240,   checklist: ['Inspect leak source','Shut off water supply','Replace cartridge / gasket / pipe','Re-pressurise system','Check for residual leaks','Clean work area'] },
+    'Electrical':    { defaultMinutes: 50, slaMinutes: 240,   checklist: ['Isolate circuit at distribution board','Test voltage at outlet','Inspect wiring and connections','Replace faulty component','Restore power and verify','Document load reading'] },
+    'Pest Control':  { defaultMinutes: 60, slaMinutes: 1440,  checklist: ['Inspect affected area','Identify pest type','Apply approved treatment','Seal entry points','Brief resident on safety period','Schedule follow-up if required'] },
+    'Housekeeping':  { defaultMinutes: 90, slaMinutes: 1440,  checklist: ['Confirm scope with resident','Prepare cleaning kit','Carry out cleaning task','Dispose of waste','Final walkthrough','Resident acknowledgement'] },
+    'Locksmith':     { defaultMinutes: 40, slaMinutes: 120,   checklist: ['Verify resident identity','Inspect lock mechanism','Replace or rekey as needed','Test all keys','Hand over new keys','Update access log'] },
+    'Painter':       { defaultMinutes: 240,slaMinutes: 4320,  checklist: ['Cover floors and furniture','Sand and prime surface','Apply first coat','Allow drying time','Apply second coat','Final inspection'] },
+    'Carpenter':     { defaultMinutes: 90, slaMinutes: 1440,  checklist: ['Measure and inspect','Prepare materials','Carry out repair / install','Sand and finish','Test movement / load','Clean work area'] },
+    'Handyman':      { defaultMinutes: 60, slaMinutes: 1440,  checklist: ['Confirm scope','Gather tools','Carry out task','Test result','Clean work area','Resident acknowledgement'] },
+    'Others':        { defaultMinutes: 60, slaMinutes: 1440,  checklist: ['Assess request','Plan approach','Execute work','Verify result','Clean up'] },
+    'Move-In':       { defaultMinutes: 60, slaMinutes: 1440,  checklist: ['Verify documents','Inspect unit condition','Provide keys / access','Walkthrough with resident','File inspection report'] },
+    'Move-Out':      { defaultMinutes: 90, slaMinutes: 1440,  checklist: ['Joint inspection with resident','Photograph each room','Note damages and deductions','Collect keys','File condition report'] },
+    'Installation':  { defaultMinutes: 90, slaMinutes: 1440,  checklist: ['Confirm appliance specifications','Disconnect existing unit','Install new unit','Test operation','Resident demonstration'] }
+  },
   dismissedNotifIds: [],
   dismissedSecNotifIds: [],
   servicePersonnel: [
@@ -20894,6 +20918,1091 @@ const loadPersistedData = () => {
   return { ...initialData, _dataVersion: DATA_VERSION };
 };
 
+// ==================== FM EXECUTOR APP (Mobile — Supervisor / Technician) ====================
+const FmExecutorApp = ({ onLogout }) => {
+  const { data, setData, showToast } = useApp();
+  const [fmSubRole, setFmSubRoleState] = useState(() => {
+    try { return localStorage.getItem('vars_fm_subrole') || null; } catch(e) { return null; }
+  });
+  const setFmSubRole = (r) => {
+    try { if (r) localStorage.setItem('vars_fm_subrole', r); else localStorage.removeItem('vars_fm_subrole'); } catch(e) {}
+    setFmSubRoleState(r);
+  };
+  const handleSwitchRole = () => setFmSubRole(null);
+  const handleSignOut = () => { setFmSubRole(null); onLogout(); };
+
+  // Identify the active FM user
+  const fmUsers = (data.fmUsers || []);
+  const activeUser = fmSubRole === 'technician'
+    ? (fmUsers.find(u => u.id === 'TECH-001') || fmUsers.find(u => u.role === 'technician') || null)
+    : fmSubRole === 'supervisor'
+    ? (fmUsers.find(u => u.role === 'supervisor') || null)
+    : null;
+
+  if (!fmSubRole) {
+    return <FmRolePicker onPick={setFmSubRole} onSignOut={handleSignOut}/>;
+  }
+  if (fmSubRole === 'technician') {
+    return <FmTechnicianApp user={activeUser} onSwitchRole={handleSwitchRole} onSignOut={handleSignOut}/>;
+  }
+  return <FmSupervisorApp user={activeUser} onSwitchRole={handleSwitchRole} onSignOut={handleSignOut}/>;
+};
+
+// ---- FM Role Picker (mobile) ----
+const FmRolePicker = ({ onPick, onSignOut }) => {
+  return (
+    <div style={{minHeight:'100vh',background:'linear-gradient(180deg,#ece4df 0%,#d8ccc4 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
+      <div style={{maxWidth:380,width:'100%',background:'rgba(255,255,255,0.65)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderRadius:20,padding:'32px 24px',border:'1px solid rgba(255,255,255,0.55)',boxShadow:'0 8px 32px rgba(120,100,90,0.12)'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:12,marginBottom:8}}>
+          <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+            <rect width="100" height="100" rx="6" fill="#928989"/>
+            <path d="M33.3 16.7 L50 16.7 L58.1 25.2 L66.7 33.3 L66.7 83.3 L50 83.3 L33.3 66.7 Z" fill="#fff"/>
+          </svg>
+          <div style={{fontSize:24,fontWeight:600,letterSpacing:'-0.02em',color:'#1a1a1a'}}>VARS</div>
+        </div>
+        <div style={{textAlign:'center',fontSize:11,letterSpacing:'0.18em',textTransform:'uppercase',color:'#8a7f76',marginBottom:28}}>FM Executor</div>
+        <div style={{textAlign:'center',fontSize:13,color:'#6b5d52',marginBottom:24,lineHeight:1.5}}>Choose your role for this shift</div>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <button onClick={() => onPick('technician')} style={{display:'flex',alignItems:'center',gap:14,padding:'18px 16px',borderRadius:14,border:'1px solid #d5cfc8',background:'#fff',cursor:'pointer',textAlign:'left',transition:'all .15s'}}>
+            <div style={{width:44,height:44,borderRadius:12,background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b5d52" strokeWidth="1.6"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:600,color:'#1a1a1a'}}>Technician</div>
+              <div style={{fontSize:11,color:'#8a7f76',marginTop:2}}>Field worker — execute assigned work orders</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c4b8b0" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button onClick={() => onPick('supervisor')} style={{display:'flex',alignItems:'center',gap:14,padding:'18px 16px',borderRadius:14,border:'1px solid #d5cfc8',background:'#fff',cursor:'pointer',textAlign:'left',transition:'all .15s'}}>
+            <div style={{width:44,height:44,borderRadius:12,background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b5d52" strokeWidth="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"/><path d="M16 3l2 2-2 2"/></svg>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:600,color:'#1a1a1a'}}>Supervisor</div>
+              <div style={{fontSize:11,color:'#8a7f76',marginTop:2}}>Manage team, assign work, approve completions</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c4b8b0" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <div onClick={onSignOut} style={{textAlign:'center',marginTop:24,fontSize:12,color:'#8b4a42',cursor:'pointer',fontWeight:500}}>Sign out</div>
+      </div>
+    </div>
+  );
+};
+
+// ---- Shared FM helpers ----
+const FmHelpers = {
+  parseDate: (d) => {
+    if (!d) return '9999-99-99';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    const sp = d.split('/'); if (sp.length === 3) return sp[2]+'-'+sp[1].padStart(2,'0')+'-'+sp[0].padStart(2,'0');
+    const mm = d.match(/^(\d{1,2})\s+([A-Za-z]{3})(?:\s+(\d{4}))?$/);
+    const mMap = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+    if (mm) return (mm[3]||'2026')+'-'+(mMap[mm[2]]||'01')+'-'+mm[1].padStart(2,'0');
+    return '9999-99-99';
+  },
+  priorityFromUrgency: (u) => {
+    const v = (u || '').toLowerCase();
+    if (v === 'emergency') return 'Urgent';
+    if (v === 'urgent') return 'Urgent';
+    if (v.includes('scheduled')) return 'Scheduled';
+    return 'Normal';
+  },
+  prColor: (p) => p === 'Urgent' ? {bg:'#fbeeec',color:'#8b3a30',dot:'#c0392b'} : p === 'Normal' ? {bg:'#fdf6e8',color:'#7a6040',dot:'#b08a4a'} : {bg:'#eef0eb',color:'#5a6b4f',dot:'#5a6b4f'},
+  catIcon: (cat) => {
+    const c = (cat || '').toLowerCase();
+    const path = c.includes('ac') || c.includes('hvac') ? 'M2 12h20M5 7v10M19 7v10M9 7v10M15 7v10'
+      : c.includes('plumb') ? 'M4 22V12M4 12H8M4 12V8H2V6h4V4h2v2h4V4h2v2h2v2h-2v4h4v2h-4v8h-2v-8H8v8H6'
+      : c.includes('electric') ? 'M13 2L3 14h9l-1 8 10-12h-9l1-8z'
+      : c.includes('pest') ? 'M12 2v6m0 0a4 4 0 014 4v8a4 4 0 01-8 0v-8a4 4 0 014-4zM6 14h2m8 0h2'
+      : c.includes('clean') || c.includes('housekeep') ? 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6'
+      : c.includes('locksm') ? 'M12 11V7a4 4 0 118 0v4M5 11h14v10H5V11z'
+      : c.includes('paint') ? 'M5 3h14v6H5zM5 9v3h14V9M9 12v9'
+      : c.includes('carpent') ? 'M2 17l10-10 4 4-10 10H2z M14 7l3-3 4 4-3 3'
+      : 'M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z';
+    return path;
+  },
+  fmStatusColor: (st) => {
+    if (st === 'New' || st === 'Pending Approval') return '#b08a4a';
+    if (st === 'Assigned' || st === 'Scheduled') return '#5a6b4f';
+    if (st === 'In Progress') return '#4a6fa5';
+    if (st === 'On Hold') return '#7a5a30';
+    if (st === 'Pending Review') return '#8b6f3a';
+    if (st === 'Completed' || st === 'Done' || st === 'Confirmed') return '#2d6a4f';
+    if (st === 'Closed') return '#888';
+    if (st === 'Cancelled' || st === 'Reopened') return '#c0392b';
+    return '#5a6b4f';
+  },
+  enrichWorkOrder: (sr) => {
+    // Map a serviceRequest into a work order shape
+    const status = sr.status === 'Pending Approval' ? 'New' : sr.status;
+    return { ...sr, woStatus: status, priority: FmHelpers.priorityFromUrgency(sr.urgency) };
+  }
+};
+
+// ---- FM Technician App (Mobile) ----
+const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
+  const { data, setData, showToast } = useApp();
+  const [page, setPage] = useState('queue'); // queue | detail | execution | closeout | profile | success
+  const [activeWoId, setActiveWoId] = useState(null);
+  const [filterTab, setFilterTab] = useState('All');
+  const [search, setSearch] = useState('');
+  const [shiftStartedAt, setShiftStartedAt] = useState(null);
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdReason, setHoldReason] = useState('Waiting for Part');
+  const [executionTimers, setExecutionTimers] = useState({}); // { woId: startTimestampMs }
+  const [executionChecklist, setExecutionChecklist] = useState({}); // { woId: { stepIdx: true } }
+  const [executionMaterials, setExecutionMaterials] = useState({}); // { woId: [{name, qty, unit}] }
+  const [materialDraft, setMaterialDraft] = useState({name:'', qty:1, unit:'pc'});
+  const [executionNotes, setExecutionNotes] = useState({}); // { woId: 'note text' }
+  const [completionPhotosByWo, setCompletionPhotosByWo] = useState({}); // { woId: [...{tag, dataUrl}] }
+  const [photoTag, setPhotoTag] = useState('After');
+  const [closeoutForm, setCloseoutForm] = useState({workDone:''});
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [now, setNow] = useState(Date.now());
+
+  // Live clock for timer / SLA
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Auto-start shift if not started
+  useEffect(() => {
+    if (!shiftStartedAt) setShiftStartedAt(Date.now());
+  }, []);
+
+  // My queue = service requests assigned to me
+  const myWorkOrders = (data.serviceRequests || [])
+    .filter(s => s.assignedTo === (user && user.id) || (!s.assignedTo && (s.flat || '').startsWith('B-'))) // demo: tech sees flat B-* if unassigned
+    .map(FmHelpers.enrichWorkOrder);
+
+  const tabCounts = {
+    'All': myWorkOrders.length,
+    'New': myWorkOrders.filter(s => s.woStatus === 'New').length,
+    'In Progress': myWorkOrders.filter(s => s.woStatus === 'In Progress').length,
+    'On Hold': myWorkOrders.filter(s => s.woStatus === 'On Hold').length,
+    'Completed': myWorkOrders.filter(s => ['Completed','Closed','Confirmed'].includes(s.woStatus)).length
+  };
+
+  let filteredWOs = myWorkOrders;
+  if (filterTab === 'New') filteredWOs = filteredWOs.filter(s => s.woStatus === 'New' || s.woStatus === 'Assigned' || s.woStatus === 'Scheduled');
+  else if (filterTab === 'In Progress') filteredWOs = filteredWOs.filter(s => s.woStatus === 'In Progress');
+  else if (filterTab === 'On Hold') filteredWOs = filteredWOs.filter(s => s.woStatus === 'On Hold');
+  else if (filterTab === 'Completed') filteredWOs = filteredWOs.filter(s => ['Completed','Closed','Confirmed'].includes(s.woStatus));
+  if (search) {
+    const q = search.toLowerCase();
+    filteredWOs = filteredWOs.filter(s => (s.id||'').toLowerCase().includes(q) || (s.flat||'').toLowerCase().includes(q) || (s.type||'').toLowerCase().includes(q) || (s.location||'').toLowerCase().includes(q));
+  }
+  // Sort: Urgent first, then time elapsed
+  filteredWOs.sort((a,b) => {
+    const pa = a.priority === 'Urgent' ? 0 : a.priority === 'Normal' ? 1 : 2;
+    const pb = b.priority === 'Urgent' ? 0 : b.priority === 'Normal' ? 1 : 2;
+    if (pa !== pb) return pa - pb;
+    return FmHelpers.parseDate(a.date).localeCompare(FmHelpers.parseDate(b.date));
+  });
+
+  const activeWO = (data.serviceRequests || []).find(s => s.id === activeWoId);
+  const fmt = (mins) => {
+    const h = Math.floor(mins/60), m = mins % 60;
+    if (h === 0) return m + 'm';
+    return h + 'h ' + m + 'm';
+  };
+  const fmtElapsed = (ms) => {
+    const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    if (h > 0) return h + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+    return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+  };
+
+  const startWork = (wo) => {
+    setExecutionTimers(prev => ({...prev, [wo.id]: Date.now()}));
+    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {...s, status:'In Progress', startedAt: new Date().toISOString(), assignedTo: user && user.id} : s)}));
+    setPage('execution');
+    showToast('Work started — timer running');
+  };
+
+  const setOnHold = (wo, reason) => {
+    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {...s, status:'On Hold', holdReason: reason} : s)}));
+    setExecutionTimers(prev => { const c = {...prev}; delete c[wo.id]; return c; });
+    showToast('Work order placed on hold — supervisor notified');
+    setShowHoldModal(false);
+    setPage('queue');
+  };
+
+  const escalateWO = (wo) => {
+    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {...s, urgency:'Emergency', escalatedByTech: true, escalatedAt: new Date().toISOString()} : s)}));
+    showToast('Work order escalated to supervisor');
+  };
+
+  const submitCloseOut = (wo) => {
+    const photos = completionPhotosByWo[wo.id] || [];
+    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {
+      ...s,
+      status:'Completed',
+      completedAt: new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}),
+      workDone: closeoutForm.workDone,
+      materialsUsed: executionMaterials[wo.id] || [],
+      completionPhotos: [...(s.completionPhotos || []), ...photos],
+      fmTechnician: { name: user.name, role: user.specialty, phone: user.phone, expectedArrival: s.time || '—' }
+    } : s)}));
+    setCloseoutForm({workDone:''});
+    showToast('Close-out submitted — resident notified');
+    setPage('success');
+  };
+
+  // ---- Renderers ----
+  const renderQueue = () => {
+    const shiftElapsed = shiftStartedAt ? fmtElapsed(now - shiftStartedAt) : '00:00';
+    const completedToday = myWorkOrders.filter(s => ['Completed','Closed','Confirmed'].includes(s.woStatus)).length;
+    const urgentCount = myWorkOrders.filter(s => s.priority === 'Urgent' && !['Completed','Closed','Confirmed'].includes(s.woStatus)).length;
+    return (
+      <div style={{padding:'12px 16px',paddingBottom:80}}>
+        {/* Shift KPI */}
+        <div style={{background:'rgba(255,255,255,0.6)',backdropFilter:'blur(12px)',borderRadius:16,padding:14,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div>
+              <div style={{fontSize:11,color:'#8a7f76',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:2}}>On Shift</div>
+              <div style={{fontSize:18,fontWeight:600,color:'#1a1a1a',fontFeatureSettings:"'tnum' 1"}}>{shiftElapsed}</div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:11,color:'#8a7f76',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:2}}>{user.zone}</div>
+              <div style={{fontSize:11,color:'#5a6b4f',fontWeight:600}}>● Checked-in</div>
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+            <div style={{padding:'8px 10px',background:'#fbeeec',borderRadius:8,textAlign:'center'}}>
+              <div style={{fontSize:18,fontWeight:700,color:'#8b3a30'}}>{urgentCount}</div>
+              <div style={{fontSize:9,color:'#8b3a30',textTransform:'uppercase',letterSpacing:'0.04em',marginTop:2}}>Urgent</div>
+            </div>
+            <div style={{padding:'8px 10px',background:'#eef2f7',borderRadius:8,textAlign:'center'}}>
+              <div style={{fontSize:18,fontWeight:700,color:'#4a6fa5'}}>{tabCounts['In Progress']}</div>
+              <div style={{fontSize:9,color:'#4a6fa5',textTransform:'uppercase',letterSpacing:'0.04em',marginTop:2}}>Active</div>
+            </div>
+            <div style={{padding:'8px 10px',background:'#eef0eb',borderRadius:8,textAlign:'center'}}>
+              <div style={{fontSize:18,fontWeight:700,color:'#2d6a4f'}}>{completedToday}</div>
+              <div style={{fontSize:9,color:'#2d6a4f',textTransform:'uppercase',letterSpacing:'0.04em',marginTop:2}}>Done</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div style={{position:'relative',marginBottom:12}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="2" style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by WO ID, unit, category..." style={{width:'100%',padding:'10px 12px 10px 34px',borderRadius:10,border:'1px solid #d5cfc8',fontSize:13,outline:'none',background:'rgba(255,255,255,0.7)',boxSizing:'border-box'}}/>
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto'}}>
+          {['All','New','In Progress','On Hold','Completed'].map(tab => (
+            <button key={tab} onClick={() => setFilterTab(tab)} style={{padding:'7px 12px',borderRadius:20,border:'1px solid '+(filterTab===tab ? '#928989':'#d5cfc8'),background: filterTab===tab ? '#928989':'#fff',color: filterTab===tab ? '#fff':'#6b5d52',fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
+              {tab} {tabCounts[tab] > 0 && <span style={{opacity:0.8,fontWeight:500,marginLeft:4}}>{tabCounts[tab]}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Work order list */}
+        {filteredWOs.length === 0 ? (
+          <div style={{textAlign:'center',padding:40,color:'#a89a92',fontSize:13}}>No work orders match this filter.</div>
+        ) : filteredWOs.map(wo => {
+          const pc = FmHelpers.prColor(wo.priority);
+          const elapsedMin = Math.floor((Date.now() - new Date(wo.createdAt || (FmHelpers.parseDate(wo.date)+'T'+(wo.time||'00:00')+':00')).getTime()) / 60000);
+          return (
+            <div key={wo.id} onClick={() => { setActiveWoId(wo.id); setPage('detail'); }} style={{background:'rgba(255,255,255,0.7)',backdropFilter:'blur(8px)',borderRadius:14,padding:14,marginBottom:10,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 1px 6px rgba(120,100,90,0.05)',cursor:'pointer'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b5d52" strokeWidth="1.5"><path d={FmHelpers.catIcon(wo.type)}/></svg>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+                    <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{wo.type}</span>
+                    <span style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,background:pc.bg,color:pc.color,textTransform:'uppercase',letterSpacing:'0.04em'}}>{wo.priority}</span>
+                  </div>
+                  <div style={{fontSize:11,color:'#7a6f66',marginBottom:2}}>Unit {wo.flat} · {wo.location || '—'}</div>
+                  <div style={{fontSize:10,color:'#a89a92'}}>{wo.id} · {wo.date} {wo.time || ''}</div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:10,fontWeight:600,color:FmHelpers.fmStatusColor(wo.woStatus)}}>{wo.woStatus}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderDetail = () => {
+    if (!activeWO) return <div style={{padding:20,textAlign:'center',color:'#a89a92'}}>Work order not found.</div>;
+    const wo = FmHelpers.enrichWorkOrder(activeWO);
+    const pc = FmHelpers.prColor(wo.priority);
+    const tpl = (data.fmCategoryTemplates || {})[wo.type] || {defaultMinutes:60, slaMinutes:240, checklist:[]};
+    // Mock unit history — last 5 SRs from same flat
+    const unitHistory = (data.serviceRequests || []).filter(x => x.flat === wo.flat && x.id !== wo.id).slice(0,5);
+    return (
+      <div style={{padding:'12px 16px',paddingBottom:120}}>
+        {/* Back + WO ref */}
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+          <button onClick={() => setPage('queue')} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex',alignItems:'center',gap:4,color:'#6b5d52',fontSize:13,fontWeight:500}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Queue
+          </button>
+          <div style={{marginLeft:'auto',fontSize:11,color:'#a89a92'}}>{wo.id}</div>
+        </div>
+
+        {/* Title card */}
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+            <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:4,background:pc.bg,color:pc.color,textTransform:'uppercase',letterSpacing:'0.04em'}}>{wo.priority}</span>
+            <span style={{fontSize:10,fontWeight:600,color:FmHelpers.fmStatusColor(wo.woStatus)}}>{wo.woStatus}</span>
+          </div>
+          <div style={{fontSize:18,fontWeight:600,color:'#1a1a1a',marginBottom:4}}>{wo.type}</div>
+          <div style={{fontSize:12,color:'#7a6f66'}}>Unit {wo.flat} · {wo.areaType || ''}{wo.areaType && wo.location ? ' — ' : ''}{wo.location || ''}</div>
+          <div style={{fontSize:11,color:'#a89a92',marginTop:4}}>Submitted {wo.date} · {wo.time || '—'}</div>
+        </div>
+
+        {/* Resident description + photos */}
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Resident Request</div>
+          <div style={{fontSize:13,color:'#1a1a1a',lineHeight:1.5,marginBottom:10,whiteSpace:'pre-wrap'}}>{wo.comments || wo.notes || 'No description provided.'}</div>
+          {(wo.attachments || []).length > 0 && (
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:6,marginBottom:10}}>
+              {wo.attachments.map((att, idx) => (
+                <div key={idx} onClick={() => setPhotoPreview(att)} style={{aspectRatio:'1/1',background:'#f5f3f0',borderRadius:8,overflow:'hidden',cursor:'pointer',border:'1px solid #ebe7e3'}}>
+                  {att.type && att.type.startsWith('image/') ? <img src={att.dataUrl} style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{display:'flex',gap:8}}>
+            <a href={'tel:'+(wo.residentPhone||'+97150 1234567')} style={{flex:1,padding:'9px 0',borderRadius:8,border:'1px solid #d5cfc8',background:'#fff',color:'#1a1a1a',fontSize:12,fontWeight:600,textDecoration:'none',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.11 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+              Call resident
+            </a>
+            <button onClick={() => showToast('In-app message coming soon')} style={{flex:1,padding:'9px 0',borderRadius:8,border:'1px solid #d5cfc8',background:'#fff',color:'#1a1a1a',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              Message
+            </button>
+          </div>
+        </div>
+
+        {/* Pre-work plan */}
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>Pre-Work Planning</div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#1a1a1a',padding:'6px 0',borderBottom:'1px solid #f0eae5'}}><span style={{color:'#8a7f76'}}>Estimated time</span><span style={{fontWeight:500}}>{fmt(tpl.defaultMinutes)}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#1a1a1a',padding:'6px 0',borderBottom:'1px solid #f0eae5'}}><span style={{color:'#8a7f76'}}>SLA window</span><span style={{fontWeight:500}}>{fmt(tpl.slaMinutes)}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#1a1a1a',padding:'6px 0'}}><span style={{color:'#8a7f76'}}>Checklist steps</span><span style={{fontWeight:500}}>{tpl.checklist.length}</span></div>
+        </div>
+
+        {/* Unit history */}
+        {unitHistory.length > 0 && (
+          <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+            <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>Unit History — Last {unitHistory.length} requests</div>
+            {unitHistory.map(h => (
+              <div key={h.id} style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'6px 0',borderBottom:'1px solid #f0eae5'}}>
+                <div>
+                  <div style={{fontWeight:500,color:'#1a1a1a'}}>{h.type}</div>
+                  <div style={{fontSize:10,color:'#a89a92'}}>{h.id} · {h.date}</div>
+                </div>
+                <span style={{fontSize:10,fontWeight:600,color:FmHelpers.fmStatusColor(h.status)}}>{h.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Internal note */}
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Internal Note <span style={{color:'#a89a92',fontWeight:400,textTransform:'none'}}>(visible to FM only)</span></div>
+          <textarea value={executionNotes[wo.id] || ''} onChange={e => setExecutionNotes(prev => ({...prev, [wo.id]: e.target.value}))} placeholder="Add internal note..." rows={2} style={{width:'100%',padding:8,border:'1px solid #ebe7e3',borderRadius:6,fontSize:12,resize:'vertical',fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}/>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',display:'flex',gap:8,zIndex:50}}>
+          {wo.woStatus === 'In Progress' ? (
+            <button onClick={() => setPage('execution')} style={{flex:1,padding:14,background:'#4a6fa5',color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>Resume Execution</button>
+          ) : ['Completed','Closed','Confirmed'].includes(wo.woStatus) ? (
+            <div style={{flex:1,padding:14,background:'#eef0eb',color:'#5a6b4f',borderRadius:10,fontSize:12,textAlign:'center',fontWeight:600}}>Work order completed</div>
+          ) : (
+            <>
+              <button onClick={() => startWork(wo)} style={{flex:1,padding:14,background:'#5a6b4f',color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>Start Work</button>
+              <button onClick={() => setShowHoldModal(true)} style={{padding:14,background:'#fff',color:'#7a5a30',border:'1px solid #d5cfc8',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>On Hold</button>
+            </>
+          )}
+        </div>
+
+        {/* Hold modal */}
+        {showHoldModal && (
+          <div onClick={() => setShowHoldModal(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div onClick={e => e.stopPropagation()} style={{background:'#fff',borderRadius:14,padding:20,width:'100%',maxWidth:360}}>
+              <div style={{fontSize:15,fontWeight:600,marginBottom:14}}>Place on hold — reason?</div>
+              {['Waiting for Part','Access Denied','Needs Specialist','Waiting for Resident','Other'].map(r => (
+                <label key={r} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid #f0eae5',cursor:'pointer'}}>
+                  <input type="radio" name="hold-reason" checked={holdReason === r} onChange={() => setHoldReason(r)}/>
+                  <span style={{fontSize:13}}>{r}</span>
+                </label>
+              ))}
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <button onClick={() => setShowHoldModal(false)} style={{flex:1,padding:12,background:'#fff',color:'#6b5d52',border:'1px solid #d5cfc8',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                <button onClick={() => setOnHold(wo, holdReason)} style={{flex:1,padding:12,background:'#7a5a30',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Confirm Hold</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderExecution = () => {
+    if (!activeWO) return null;
+    const wo = activeWO;
+    const tpl = (data.fmCategoryTemplates || {})[wo.type] || {defaultMinutes:60, slaMinutes:240, checklist:[]};
+    const startedMs = executionTimers[wo.id] || (wo.startedAt ? new Date(wo.startedAt).getTime() : Date.now());
+    const elapsedMs = now - startedMs;
+    const elapsedMin = elapsedMs / 60000;
+    const slaPct = (elapsedMin / tpl.slaMinutes) * 100;
+    const slaState = slaPct >= 100 ? 'breached' : slaPct >= 80 ? 'warning' : 'ok';
+    const slaColor = slaState === 'breached' ? '#c0392b' : slaState === 'warning' ? '#b08a4a' : '#5a6b4f';
+    const checklist = executionChecklist[wo.id] || {};
+    const photos = completionPhotosByWo[wo.id] || [];
+    const materials = executionMaterials[wo.id] || [];
+
+    return (
+      <div style={{padding:'12px 16px',paddingBottom:140}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+          <button onClick={() => setPage('detail')} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex',alignItems:'center',gap:4,color:'#6b5d52',fontSize:13,fontWeight:500}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Detail
+          </button>
+          <div style={{marginLeft:'auto',fontSize:11,color:'#a89a92'}}>{wo.id}</div>
+        </div>
+
+        {/* Timer + SLA */}
+        <div style={{background:'linear-gradient(135deg,#4a6fa5,#3a5a8a)',color:'#fff',borderRadius:14,padding:18,marginBottom:14,boxShadow:'0 4px 16px rgba(74,111,165,0.25)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+            <div>
+              <div style={{fontSize:11,opacity:0.85,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>Execution Timer</div>
+              <div style={{fontSize:28,fontWeight:700,fontFeatureSettings:"'tnum' 1"}}>{fmtElapsed(elapsedMs)}</div>
+            </div>
+            <div style={{textAlign:'right',padding:'6px 10px',background:slaColor,borderRadius:6,fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+              SLA · {slaState === 'breached' ? 'Breached' : slaState === 'warning' ? 'Warning' : 'On Track'}
+            </div>
+          </div>
+          <div style={{height:6,background:'rgba(255,255,255,0.25)',borderRadius:3,overflow:'hidden'}}>
+            <div style={{height:'100%',width:Math.min(slaPct,100)+'%',background:'#fff',transition:'width 0.5s'}}/>
+          </div>
+          <div style={{fontSize:11,opacity:0.85,marginTop:6}}>SLA window: {fmt(tpl.slaMinutes)}</div>
+        </div>
+
+        {/* Checklist */}
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>Work Checklist</div>
+          {tpl.checklist.length === 0 ? (
+            <div style={{fontSize:12,color:'#a89a92',padding:8}}>No checklist defined for this category.</div>
+          ) : tpl.checklist.map((step, idx) => {
+            const done = !!checklist[idx];
+            return (
+              <label key={idx} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom: idx < tpl.checklist.length-1 ? '1px solid #f0eae5':'none',cursor:'pointer'}}>
+                <input type="checkbox" checked={done} onChange={() => setExecutionChecklist(prev => ({...prev, [wo.id]: {...(prev[wo.id]||{}), [idx]: !done}}))} style={{width:18,height:18,cursor:'pointer'}}/>
+                <span style={{fontSize:13,flex:1,textDecoration: done ? 'line-through':'none',color: done ? '#a89a92':'#1a1a1a'}}>{step}</span>
+              </label>
+            );
+          })}
+        </div>
+
+        {/* Photo capture */}
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em'}}>Photo Evidence</div>
+            <div style={{display:'flex',gap:4,padding:2,background:'#f5f3f0',borderRadius:6}}>
+              {['Before','After'].map(tag => (
+                <button key={tag} onClick={() => setPhotoTag(tag)} style={{padding:'4px 10px',borderRadius:4,border:'none',background: photoTag===tag ? '#928989':'transparent',color: photoTag===tag ? '#fff':'#6b5d52',fontSize:11,fontWeight:600,cursor:'pointer'}}>{tag}</button>
+              ))}
+            </div>
+          </div>
+          <input type="file" id={'fm-photo-input-'+wo.id} accept="image/*" capture="environment" multiple style={{display:'none'}} onChange={e => {
+            const files = Array.from(e.target.files || []);
+            const readers = files.map(file => new Promise(resolve => {
+              const reader = new FileReader();
+              reader.onload = ev => resolve({id:'CP-'+Date.now()+Math.random().toString(36).slice(2,6), name:file.name, type:file.type, dataUrl:ev.target.result, tag: photoTag, capturedAt: new Date().toISOString()});
+              reader.readAsDataURL(file);
+            }));
+            Promise.all(readers).then(items => setCompletionPhotosByWo(prev => ({...prev, [wo.id]: [...(prev[wo.id]||[]), ...items]})));
+            e.target.value = '';
+          }}/>
+          <button onClick={() => document.getElementById('fm-photo-input-'+wo.id).click()} style={{width:'100%',padding:'12px 0',borderRadius:8,border:'1px dashed #c4b8b0',background:'#faf8f6',color:'#6b5d52',fontSize:13,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Capture {photoTag} Photo
+          </button>
+          {photos.length > 0 && (
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:6,marginTop:10}}>
+              {photos.map((p, idx) => (
+                <div key={idx} onClick={() => setPhotoPreview(p)} style={{position:'relative',aspectRatio:'1/1',background:'#f5f3f0',borderRadius:8,overflow:'hidden',cursor:'pointer'}}>
+                  <img src={p.dataUrl} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                  <div style={{position:'absolute',top:4,left:4,padding:'2px 6px',borderRadius:3,background:p.tag==='Before' ? '#b08a4a':'#5a6b4f',color:'#fff',fontSize:9,fontWeight:700,letterSpacing:'0.04em'}}>{p.tag}</div>
+                  <button onClick={(e) => { e.stopPropagation(); setCompletionPhotosByWo(prev => ({...prev, [wo.id]: (prev[wo.id]||[]).filter((_,i) => i !== idx)})); }} style={{position:'absolute',top:4,right:4,background:'rgba(0,0,0,0.6)',border:'none',color:'#fff',width:18,height:18,borderRadius:'50%',fontSize:11,cursor:'pointer',padding:0,lineHeight:1}}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Materials log */}
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>Materials Used</div>
+          {materials.length > 0 && (
+            <div style={{marginBottom:10}}>
+              {materials.map((m, idx) => (
+                <div key={idx} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',background:'#faf8f6',borderRadius:6,marginBottom:4,fontSize:12}}>
+                  <span>{m.name} <span style={{color:'#a89a92'}}>· {m.qty} {m.unit}</span></span>
+                  <button onClick={() => setExecutionMaterials(prev => ({...prev, [wo.id]: (prev[wo.id]||[]).filter((_,i) => i !== idx)}))} style={{background:'none',border:'none',color:'#c0392b',cursor:'pointer',fontSize:14,padding:'0 4px'}}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr auto',gap:6}}>
+            <input value={materialDraft.name} onChange={e => setMaterialDraft({...materialDraft, name: e.target.value})} placeholder="Item name" style={{padding:'8px',border:'1px solid #ebe7e3',borderRadius:6,fontSize:12,outline:'none'}}/>
+            <input type="number" value={materialDraft.qty} min={1} onChange={e => setMaterialDraft({...materialDraft, qty: parseInt(e.target.value)||1})} style={{padding:'8px',border:'1px solid #ebe7e3',borderRadius:6,fontSize:12,outline:'none'}}/>
+            <select value={materialDraft.unit} onChange={e => setMaterialDraft({...materialDraft, unit: e.target.value})} style={{padding:'8px',border:'1px solid #ebe7e3',borderRadius:6,fontSize:12,outline:'none'}}>
+              <option>pc</option><option>m</option><option>kg</option><option>L</option><option>set</option>
+            </select>
+            <button onClick={() => {
+              if (!materialDraft.name.trim()) { showToast('Enter item name'); return; }
+              setExecutionMaterials(prev => ({...prev, [wo.id]: [...(prev[wo.id]||[]), materialDraft]}));
+              setMaterialDraft({name:'', qty:1, unit:'pc'});
+            }} style={{padding:'8px 12px',background:'#928989',color:'#fff',border:'none',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}}>+</button>
+          </div>
+        </div>
+
+        {/* Execution actions */}
+        <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',display:'flex',flexDirection:'column',gap:8,zIndex:50}}>
+          <button onClick={() => { setCloseoutForm({workDone: ''}); setPage('closeout'); }} style={{padding:14,background:'#5a6b4f',color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:600,cursor:'pointer'}}>Submit Close-Out</button>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={() => setShowHoldModal(true)} style={{flex:1,padding:11,background:'#fff',color:'#7a5a30',border:'1px solid #d5cfc8',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>On Hold</button>
+            <button onClick={() => escalateWO(wo)} style={{flex:1,padding:11,background:'#fff',color:'#c0392b',border:'1px solid #e0d5d0',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>Escalate</button>
+          </div>
+        </div>
+
+        {showHoldModal && (
+          <div onClick={() => setShowHoldModal(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div onClick={e => e.stopPropagation()} style={{background:'#fff',borderRadius:14,padding:20,width:'100%',maxWidth:360}}>
+              <div style={{fontSize:15,fontWeight:600,marginBottom:14}}>Place on hold — reason?</div>
+              {['Waiting for Part','Access Denied','Needs Specialist','Waiting for Resident','Other'].map(r => (
+                <label key={r} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid #f0eae5',cursor:'pointer'}}>
+                  <input type="radio" name="hold-reason" checked={holdReason === r} onChange={() => setHoldReason(r)}/>
+                  <span style={{fontSize:13}}>{r}</span>
+                </label>
+              ))}
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <button onClick={() => setShowHoldModal(false)} style={{flex:1,padding:12,background:'#fff',color:'#6b5d52',border:'1px solid #d5cfc8',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                <button onClick={() => setOnHold(wo, holdReason)} style={{flex:1,padding:12,background:'#7a5a30',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Confirm Hold</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderCloseout = () => {
+    if (!activeWO) return null;
+    const wo = activeWO;
+    const photos = completionPhotosByWo[wo.id] || [];
+    const materials = executionMaterials[wo.id] || [];
+    const startedMs = executionTimers[wo.id] || (wo.startedAt ? new Date(wo.startedAt).getTime() : Date.now());
+    const elapsedMs = now - startedMs;
+    return (
+      <div style={{padding:'12px 16px',paddingBottom:120}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+          <button onClick={() => setPage('execution')} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex',alignItems:'center',gap:4,color:'#6b5d52',fontSize:13,fontWeight:500}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <div style={{marginLeft:'auto',fontSize:11,color:'#a89a92'}}>{wo.id}</div>
+        </div>
+
+        <div style={{fontSize:20,fontWeight:600,color:'#1a1a1a',marginBottom:14}}>Close-Out Summary</div>
+
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <label style={{fontSize:11,color:'#8a7f76',fontWeight:500,display:'block',marginBottom:6}}>Work Done <span style={{color:'#c0392b'}}>*</span></label>
+          <textarea value={closeoutForm.workDone} onChange={e => setCloseoutForm({...closeoutForm, workDone: e.target.value})} placeholder="Brief plain-language description of the work carried out..." rows={4} style={{width:'100%',padding:10,border:'1px solid #ebe7e3',borderRadius:6,fontSize:13,resize:'vertical',fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}/>
+        </div>
+
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>Confirm</div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'6px 0',borderBottom:'1px solid #f0eae5'}}><span style={{color:'#8a7f76'}}>Time spent</span><span style={{fontWeight:600}}>{fmtElapsed(elapsedMs)}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'6px 0',borderBottom:'1px solid #f0eae5'}}><span style={{color:'#8a7f76'}}>Photos attached</span><span style={{fontWeight:600}}>{photos.length}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'6px 0'}}><span style={{color:'#8a7f76'}}>Materials logged</span><span style={{fontWeight:600}}>{materials.length}</span></div>
+        </div>
+
+        {photos.length > 0 && (
+          <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+            <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>Before / After Photos</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:6}}>
+              {photos.map((p, idx) => (
+                <div key={idx} onClick={() => setPhotoPreview(p)} style={{position:'relative',aspectRatio:'1/1',background:'#f5f3f0',borderRadius:8,overflow:'hidden',cursor:'pointer'}}>
+                  <img src={p.dataUrl} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                  <div style={{position:'absolute',top:4,left:4,padding:'2px 6px',borderRadius:3,background:p.tag==='Before' ? '#b08a4a':'#5a6b4f',color:'#fff',fontSize:9,fontWeight:700}}>{p.tag}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',display:'flex',gap:8,zIndex:50}}>
+          <button onClick={() => setPage('execution')} style={{flex:1,padding:14,background:'#fff',color:'#6b5d52',border:'1px solid #d5cfc8',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>Back to Execution</button>
+          <button onClick={() => {
+            if (!closeoutForm.workDone.trim()) { showToast('Please describe the work done'); return; }
+            submitCloseOut(wo);
+          }} style={{flex:2,padding:14,background:'#2d6a4f',color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>Submit & Notify Resident</button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSuccess = () => (
+    <div style={{padding:'40px 24px',textAlign:'center'}}>
+      <div style={{width:84,height:84,borderRadius:'50%',background:'#eef0eb',margin:'0 auto 18px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <div style={{fontSize:20,fontWeight:600,color:'#1a1a1a',marginBottom:8}}>Submitted</div>
+      <div style={{fontSize:13,color:'#7a6f66',marginBottom:24,lineHeight:1.5}}>The resident has been notified. Awaiting their confirmation.</div>
+      <button onClick={() => { setPage('queue'); setActiveWoId(null); }} style={{padding:'14px 32px',background:'#928989',color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:600,cursor:'pointer'}}>Back to Queue</button>
+    </div>
+  );
+
+  const renderProfile = () => (
+    <div style={{padding:'12px 16px',paddingBottom:80}}>
+      <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:18,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',textAlign:'center'}}>
+        <div style={{width:64,height:64,borderRadius:'50%',background:'#928989',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:22,margin:'0 auto 12px'}}>{user.initials}</div>
+        <div style={{fontSize:16,fontWeight:600,color:'#1a1a1a'}}>{user.name}</div>
+        <div style={{fontSize:12,color:'#8a7f76',marginTop:2}}>{user.specialty}</div>
+        <div style={{fontSize:11,color:'#a89a92',marginTop:8}}>Zone: {user.zone}</div>
+        <div style={{fontSize:11,color:'#a89a92'}}>Shift: {user.shiftStart} – {user.shiftEnd}</div>
+      </div>
+
+      <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 4px',borderBottom:'1px solid #f0eae5',fontSize:13}}>
+          <span style={{color:'#1a1a1a'}}>Push notifications</span>
+          <span style={{fontSize:11,color:'#5a6b4f',fontWeight:600}}>● Enabled</span>
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 4px',borderBottom:'1px solid #f0eae5',fontSize:13}}>
+          <span style={{color:'#1a1a1a'}}>Offline mode</span>
+          <span style={{fontSize:11,color:'#a89a92'}}>Last 50 WOs cached</span>
+        </div>
+        <div onClick={onSwitchRole} style={{padding:'12px 4px',cursor:'pointer',fontSize:13,color:'#4a6fa5',fontWeight:500}}>Switch role</div>
+        <div onClick={onSignOut} style={{padding:'12px 4px',cursor:'pointer',fontSize:13,color:'#8b4a42',fontWeight:500}}>End shift & sign out</div>
+      </div>
+    </div>
+  );
+
+  const headerTitle = page === 'queue' ? 'My Queue' : page === 'detail' ? 'Work Order' : page === 'execution' ? 'Execution' : page === 'closeout' ? 'Close-Out' : page === 'success' ? 'Submitted' : 'Profile';
+
+  return (
+    <div className="res-app" style={{paddingBottom:60}}>
+      <div className="res-header">
+        <div className="res-header-left">
+          <div className="res-header-title">FM Executor</div>
+          <div className="res-header-unit">{headerTitle} · Technician</div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div onClick={() => setPage('profile')} style={{width:34,height:34,borderRadius:'50%',background:'#928989',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:12,cursor:'pointer'}}>{user.initials}</div>
+        </div>
+      </div>
+
+      <div className="res-content" style={{padding:0}}>
+        {page === 'queue' && renderQueue()}
+        {page === 'detail' && renderDetail()}
+        {page === 'execution' && renderExecution()}
+        {page === 'closeout' && renderCloseout()}
+        {page === 'success' && renderSuccess()}
+        {page === 'profile' && renderProfile()}
+      </div>
+
+      <div className="res-bottom-nav">
+        <div className={`res-nav-item ${page==='queue'?'active':''}`} onClick={() => { setActiveWoId(null); setPage('queue'); }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={page==='queue'?'#1a1a1a':'#888'} strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          <span>Queue</span>
+        </div>
+        <div className={`res-nav-item ${page==='profile'?'active':''}`} onClick={() => setPage('profile')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={page==='profile'?'#1a1a1a':'#888'} strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+          <span>Profile</span>
+        </div>
+      </div>
+
+      {/* Photo preview */}
+      {photoPreview && (
+        <div onClick={() => setPhotoPreview(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <button onClick={() => setPhotoPreview(null)} style={{position:'absolute',top:16,right:16,background:'rgba(255,255,255,0.15)',color:'#fff',border:'none',width:40,height:40,borderRadius:'50%',fontSize:24,cursor:'pointer'}}>&times;</button>
+          <img src={photoPreview.dataUrl} style={{maxWidth:'95%',maxHeight:'90vh',objectFit:'contain'}} onClick={e => e.stopPropagation()}/>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ---- FM Supervisor App (Mobile) ----
+const FmSupervisorApp = ({ user, onSwitchRole, onSignOut }) => {
+  const { data, setData, showToast } = useApp();
+  const [page, setPage] = useState('dashboard'); // dashboard | queue | team | approvals | woDetail
+  const [activeWoId, setActiveWoId] = useState(null);
+  const [queueFilter, setQueueFilter] = useState('All'); // All | Unassigned | Urgent | SLA Breached
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(null);
+
+  const fmUsers = (data.fmUsers || []);
+  const technicians = fmUsers.filter(u => u.role === 'technician');
+
+  const allWOs = (data.serviceRequests || []).map(FmHelpers.enrichWorkOrder);
+  const open = allWOs.filter(w => !['Completed','Closed','Cancelled','Confirmed'].includes(w.woStatus));
+  const urgent = open.filter(w => w.priority === 'Urgent');
+  const unassigned = open.filter(w => !w.assignedTo);
+  const slaBreached = open.filter(w => w.slaBreached);
+  const pendingReview = allWOs.filter(w => w.woStatus === 'Pending Review' || (w.woStatus === 'Completed' && w.requiresSupervisorSignOff));
+
+  const woById = (id) => (data.serviceRequests || []).find(s => s.id === id);
+  const activeWO = activeWoId ? FmHelpers.enrichWorkOrder(woById(activeWoId) || {}) : null;
+  const assignTo = (woId, techId) => {
+    const tech = fmUsers.find(u => u.id === techId);
+    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === woId ? {...s, assignedTo: techId, status: s.status === 'Pending Approval' || s.status === 'New' ? 'Assigned' : s.status, fmTechnician: tech ? {name: tech.name, role: tech.specialty, phone: tech.phone, expectedArrival: s.time || '—'} : s.fmTechnician} : s)}));
+    showToast('Assigned to ' + (tech ? tech.name : 'technician'));
+    setShowAssignModal(false);
+  };
+
+  const escalateWO = (wo) => {
+    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {...s, urgency:'Emergency', escalatedAt: new Date().toISOString()} : s)}));
+    showToast('Priority upgraded to Urgent');
+  };
+  const approveWO = (wo) => {
+    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {...s, status:'Closed', supervisorSignedOff: true, signedOffAt: new Date().toISOString(), signedOffBy: user.name} : s)}));
+    showToast('Sign-off approved — resident notified');
+    setActiveWoId(null);
+    setPage('approvals');
+  };
+  const requestRework = (wo) => {
+    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {...s, status:'In Progress', reworkRequested: true} : s)}));
+    showToast('Rework requested — sent back to technician');
+    setActiveWoId(null);
+    setPage('approvals');
+  };
+
+  // ---- Renderers ----
+  const renderDashboard = () => {
+    const todayCompleted = allWOs.filter(w => ['Completed','Closed','Confirmed'].includes(w.woStatus)).length;
+    const avgMinutes = 47;
+    return (
+      <div style={{padding:'12px 16px',paddingBottom:80}}>
+        <div style={{fontSize:13,color:'#7a6f66',marginBottom:12}}>Welcome, {user.name.split(' ')[0]}. Here is the team overview.</div>
+
+        {/* Summary cards */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+          <div style={{background:'#fff',borderRadius:12,padding:14,border:'1px solid #ebe7e3'}}>
+            <div style={{fontSize:24,fontWeight:700,color:'#1a1a1a',fontFeatureSettings:"'tnum' 1"}}>{open.length}</div>
+            <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginTop:4}}>Open Work Orders</div>
+          </div>
+          <div style={{background:'#fbeeec',borderRadius:12,padding:14,border:'1px solid #e5c6c1'}}>
+            <div style={{fontSize:24,fontWeight:700,color:'#8b3a30',fontFeatureSettings:"'tnum' 1"}}>{urgent.length}</div>
+            <div style={{fontSize:10,color:'#8b3a30',textTransform:'uppercase',letterSpacing:'0.05em',marginTop:4}}>Urgent</div>
+          </div>
+          <div style={{background:'#fdf6e8',borderRadius:12,padding:14,border:'1px solid #e8d5a5'}}>
+            <div style={{fontSize:24,fontWeight:700,color:'#7a6040',fontFeatureSettings:"'tnum' 1"}}>{unassigned.length}</div>
+            <div style={{fontSize:10,color:'#7a6040',textTransform:'uppercase',letterSpacing:'0.05em',marginTop:4}}>Unassigned</div>
+          </div>
+          <div style={{background:'#eef0eb',borderRadius:12,padding:14,border:'1px solid #ccd0c2'}}>
+            <div style={{fontSize:24,fontWeight:700,color:'#2d6a4f',fontFeatureSettings:"'tnum' 1"}}>{todayCompleted}</div>
+            <div style={{fontSize:10,color:'#2d6a4f',textTransform:'uppercase',letterSpacing:'0.05em',marginTop:4}}>Completed Today</div>
+          </div>
+        </div>
+
+        {/* Avg time */}
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Performance · Today</div>
+          <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #f0eae5',fontSize:13}}>
+            <span style={{color:'#7a6f66'}}>Avg time to completion</span>
+            <span style={{fontWeight:600,color:'#1a1a1a'}}>{avgMinutes} min</span>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #f0eae5',fontSize:13}}>
+            <span style={{color:'#7a6f66'}}>SLA breached</span>
+            <span style={{fontWeight:600,color: slaBreached.length > 0 ? '#c0392b':'#1a1a1a'}}>{slaBreached.length}</span>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',fontSize:13}}>
+            <span style={{color:'#7a6f66'}}>Pending sign-off</span>
+            <span style={{fontWeight:600,color:'#1a1a1a'}}>{pendingReview.length}</span>
+          </div>
+        </div>
+
+        {/* Live team view */}
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em'}}>Live Team</div>
+            <span onClick={() => setPage('team')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>See all ›</span>
+          </div>
+          {technicians.slice(0,4).map(t => {
+            const techWOs = open.filter(w => w.assignedTo === t.id);
+            const stColor = t.status === 'on-shift' ? '#5a6b4f' : t.status === 'on-break' ? '#b08a4a' : '#a89a92';
+            return (
+              <div key={t.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid #f0eae5'}}>
+                <div style={{width:36,height:36,borderRadius:'50%',background:'#928989',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600}}>{t.initials}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{t.name}</div>
+                  <div style={{fontSize:11,color:'#a89a92'}}>{t.specialty} · {t.zone}</div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:11,fontWeight:600,color:stColor}}>● {t.status}</div>
+                  <div style={{fontSize:10,color:'#a89a92'}}>{techWOs.length} open</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderQueue = () => {
+    let list = allWOs;
+    if (queueFilter === 'Unassigned') list = unassigned;
+    else if (queueFilter === 'Urgent') list = urgent;
+    else if (queueFilter === 'SLA Breached') list = slaBreached;
+    else list = open;
+    return (
+      <div style={{padding:'12px 16px',paddingBottom:80}}>
+        <div style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto'}}>
+          {['All','Unassigned','Urgent','SLA Breached'].map(f => (
+            <button key={f} onClick={() => setQueueFilter(f)} style={{padding:'7px 12px',borderRadius:20,border:'1px solid '+(queueFilter===f?'#928989':'#d5cfc8'),background: queueFilter===f?'#928989':'#fff',color: queueFilter===f?'#fff':'#6b5d52',fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>{f}</button>
+          ))}
+        </div>
+        {list.length === 0 ? (
+          <div style={{textAlign:'center',padding:40,color:'#a89a92',fontSize:13}}>No work orders in this view.</div>
+        ) : list.map(wo => {
+          const pc = FmHelpers.prColor(wo.priority);
+          const tech = fmUsers.find(u => u.id === wo.assignedTo);
+          return (
+            <div key={wo.id} onClick={() => { setActiveWoId(wo.id); setPage('woDetail'); }} style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:10,border:'1px solid rgba(255,255,255,0.5)',cursor:'pointer'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:4,background:pc.bg,color:pc.color,textTransform:'uppercase',letterSpacing:'0.04em'}}>{wo.priority}</span>
+                <span style={{fontSize:10,fontWeight:600,color:FmHelpers.fmStatusColor(wo.woStatus)}}>{wo.woStatus}</span>
+                <span style={{marginLeft:'auto',fontSize:10,color:'#a89a92'}}>{wo.id}</span>
+              </div>
+              <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a',marginBottom:2}}>{wo.type}</div>
+              <div style={{fontSize:11,color:'#7a6f66',marginBottom:4}}>Unit {wo.flat} · {wo.location || '—'}</div>
+              <div style={{fontSize:11,color:'#a89a92'}}>{tech ? '👷 ' + tech.name : <span style={{color:'#b08a4a',fontWeight:600}}>● Unassigned</span>}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderTeam = () => (
+    <div style={{padding:'12px 16px',paddingBottom:80}}>
+      <div style={{fontSize:13,color:'#7a6f66',marginBottom:14}}>{technicians.length} technicians on shift</div>
+      {technicians.map(t => {
+        const techWOs = open.filter(w => w.assignedTo === t.id);
+        const stColor = t.status === 'on-shift' ? '#5a6b4f' : t.status === 'on-break' ? '#b08a4a' : '#a89a92';
+        return (
+          <div key={t.id} style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:10,border:'1px solid rgba(255,255,255,0.5)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
+              <div style={{width:42,height:42,borderRadius:'50%',background:'#928989',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:600}}>{t.initials}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{t.name}</div>
+                <div style={{fontSize:11,color:'#a89a92'}}>{t.specialty}</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:11,fontWeight:600,color:stColor}}>● {t.status}</div>
+                <div style={{fontSize:10,color:'#a89a92'}}>{t.shiftStart}–{t.shiftEnd}</div>
+              </div>
+            </div>
+            {techWOs.length > 0 && (
+              <div style={{paddingTop:8,borderTop:'1px solid #f0eae5'}}>
+                <div style={{fontSize:10,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:6}}>Active ({techWOs.length})</div>
+                {techWOs.slice(0,3).map(w => (
+                  <div key={w.id} onClick={() => { setActiveWoId(w.id); setPage('woDetail'); }} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',fontSize:12,cursor:'pointer'}}>
+                    <span>{w.type} · {w.flat}</span>
+                    <span style={{color:FmHelpers.fmStatusColor(w.woStatus),fontWeight:600,fontSize:10}}>{w.woStatus}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderApprovals = () => (
+    <div style={{padding:'12px 16px',paddingBottom:80}}>
+      <div style={{fontSize:13,color:'#7a6f66',marginBottom:14}}>{pendingReview.length} work orders awaiting your sign-off</div>
+      {pendingReview.length === 0 ? (
+        <div style={{textAlign:'center',padding:40,color:'#a89a92',fontSize:13}}>No pending sign-offs.</div>
+      ) : pendingReview.map(wo => (
+        <div key={wo.id} onClick={() => { setActiveWoId(wo.id); setPage('woDetail'); }} style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:10,border:'1px solid rgba(255,255,255,0.5)',cursor:'pointer'}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+            <span style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{wo.type}</span>
+            <span style={{fontSize:10,color:'#a89a92'}}>{wo.id}</span>
+          </div>
+          <div style={{fontSize:11,color:'#7a6f66'}}>Unit {wo.flat} · Submitted by {wo.fmTechnician ? wo.fmTechnician.name : 'technician'}</div>
+          {wo.workDone && <div style={{fontSize:12,color:'#1a1a1a',marginTop:6,padding:8,background:'#faf8f6',borderRadius:6}}>{wo.workDone}</div>}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderWoDetail = () => {
+    if (!activeWO) return null;
+    const wo = activeWO;
+    const pc = FmHelpers.prColor(wo.priority);
+    const tech = fmUsers.find(u => u.id === wo.assignedTo);
+    const photos = wo.completionPhotos || [];
+    return (
+      <div style={{padding:'12px 16px',paddingBottom:140}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+          <button onClick={() => { setActiveWoId(null); setPage('queue'); }} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex',alignItems:'center',gap:4,color:'#6b5d52',fontSize:13,fontWeight:500}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <div style={{marginLeft:'auto',fontSize:11,color:'#a89a92'}}>{wo.id}</div>
+        </div>
+
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
+            <span style={{fontSize:9,fontWeight:700,padding:'2px 7px',borderRadius:4,background:pc.bg,color:pc.color,textTransform:'uppercase',letterSpacing:'0.04em'}}>{wo.priority}</span>
+            <span style={{fontSize:10,fontWeight:600,color:FmHelpers.fmStatusColor(wo.woStatus)}}>{wo.woStatus}</span>
+          </div>
+          <div style={{fontSize:18,fontWeight:600,color:'#1a1a1a',marginBottom:4}}>{wo.type}</div>
+          <div style={{fontSize:12,color:'#7a6f66'}}>Unit {wo.flat} · {wo.areaType || ''}{wo.location ? ' — ' + wo.location : ''}</div>
+          <div style={{fontSize:11,color:'#a89a92',marginTop:4}}>Submitted {wo.date} · {wo.time || '—'}</div>
+        </div>
+
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Assignment</div>
+          {tech ? (
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:40,height:40,borderRadius:'50%',background:'#928989',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:13}}>{tech.initials}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600}}>{tech.name}</div>
+                <div style={{fontSize:11,color:'#a89a92'}}>{tech.specialty} · {tech.zone}</div>
+              </div>
+              <button onClick={() => setShowAssignModal(true)} style={{padding:'8px 12px',background:'#fff',color:'#4a6fa5',border:'1px solid #d5cfc8',borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer'}}>Reassign</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowAssignModal(true)} style={{width:'100%',padding:12,background:'#928989',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Assign Technician</button>
+          )}
+        </div>
+
+        <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Resident Request</div>
+          <div style={{fontSize:13,color:'#1a1a1a',lineHeight:1.5,whiteSpace:'pre-wrap'}}>{wo.comments || wo.notes || 'No description provided.'}</div>
+        </div>
+
+        {wo.workDone && (
+          <div style={{background:'#eef0eb',borderRadius:14,padding:14,marginBottom:12,border:'1px solid #ccd0c2'}}>
+            <div style={{fontSize:10,fontWeight:600,color:'#2d6a4f',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Technician Report</div>
+            <div style={{fontSize:13,color:'#1a1a1a',lineHeight:1.5,whiteSpace:'pre-wrap'}}>{wo.workDone}</div>
+          </div>
+        )}
+
+        {photos.length > 0 && (
+          <div style={{background:'rgba(255,255,255,0.7)',borderRadius:14,padding:14,marginBottom:12,border:'1px solid rgba(255,255,255,0.5)'}}>
+            <div style={{fontSize:10,fontWeight:600,color:'#8a7f76',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>Completion Photos ({photos.length})</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:6}}>
+              {photos.map((p, idx) => (
+                <div key={idx} onClick={() => setPhotoPreview(p)} style={{position:'relative',aspectRatio:'1/1',background:'#f5f3f0',borderRadius:8,overflow:'hidden',cursor:'pointer'}}>
+                  {p.dataUrl && <img src={p.dataUrl} style={{width:'100%',height:'100%',objectFit:'cover'}}/>}
+                  {p.tag && <div style={{position:'absolute',top:4,left:4,padding:'2px 6px',borderRadius:3,background:p.tag==='Before' ? '#b08a4a':'#5a6b4f',color:'#fff',fontSize:9,fontWeight:700}}>{p.tag}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Action bar */}
+        <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',display:'flex',gap:8,zIndex:50}}>
+          {wo.woStatus === 'Pending Review' || (wo.woStatus === 'Completed' && !wo.supervisorSignedOff && wo.workDone) ? (
+            <>
+              <button onClick={() => requestRework(wo)} style={{flex:1,padding:13,background:'#fff',color:'#c0392b',border:'1px solid #e0d5d0',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>Request Rework</button>
+              <button onClick={() => approveWO(wo)} style={{flex:2,padding:13,background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Approve & Sign Off</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => escalateWO(wo)} style={{flex:1,padding:13,background:'#fff',color:'#c0392b',border:'1px solid #e0d5d0',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>Escalate</button>
+              <button onClick={() => setShowAssignModal(true)} style={{flex:2,padding:13,background:'#928989',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>{tech ? 'Reassign' : 'Assign'} Technician</button>
+            </>
+          )}
+        </div>
+
+        {showAssignModal && (
+          <div onClick={() => setShowAssignModal(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div onClick={e => e.stopPropagation()} style={{background:'#fff',borderRadius:14,padding:20,width:'100%',maxWidth:380,maxHeight:'80vh',overflowY:'auto'}}>
+              <div style={{fontSize:15,fontWeight:600,marginBottom:14}}>Assign technician</div>
+              {technicians.map(t => {
+                const techOpen = open.filter(w => w.assignedTo === t.id).length;
+                return (
+                  <div key={t.id} onClick={() => assignTo(wo.id, t.id)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 8px',cursor:'pointer',borderRadius:8,borderBottom:'1px solid #f0eae5'}}>
+                    <div style={{width:36,height:36,borderRadius:'50%',background:'#928989',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600}}>{t.initials}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600}}>{t.name}</div>
+                      <div style={{fontSize:10,color:'#a89a92'}}>{t.specialty} · {techOpen} open</div>
+                    </div>
+                    <span style={{fontSize:10,fontWeight:600,color: t.status==='on-shift' ? '#5a6b4f':'#a89a92'}}>● {t.status}</span>
+                  </div>
+                );
+              })}
+              <button onClick={() => setShowAssignModal(false)} style={{width:'100%',marginTop:12,padding:12,background:'#fff',color:'#6b5d52',border:'1px solid #d5cfc8',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const headerTitle = page === 'dashboard' ? 'Dashboard' : page === 'queue' ? 'All Work Orders' : page === 'team' ? 'Team' : page === 'approvals' ? 'Sign-Offs' : 'Work Order';
+
+  return (
+    <div className="res-app" style={{paddingBottom:60}}>
+      <div className="res-header">
+        <div className="res-header-left">
+          <div className="res-header-title">FM Executor</div>
+          <div className="res-header-unit">{headerTitle} · Supervisor</div>
+        </div>
+        <div onClick={onSwitchRole} style={{width:34,height:34,borderRadius:'50%',background:'#928989',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:12,cursor:'pointer'}} title="Switch role">{user.initials}</div>
+      </div>
+
+      <div className="res-content" style={{padding:0}}>
+        {page === 'dashboard' && renderDashboard()}
+        {page === 'queue' && renderQueue()}
+        {page === 'team' && renderTeam()}
+        {page === 'approvals' && renderApprovals()}
+        {page === 'woDetail' && renderWoDetail()}
+      </div>
+
+      <div className="res-bottom-nav">
+        <div className={`res-nav-item ${page==='dashboard'?'active':''}`} onClick={() => { setActiveWoId(null); setPage('dashboard'); }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={page==='dashboard'?'#1a1a1a':'#888'} strokeWidth="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          <span>Home</span>
+        </div>
+        <div className={`res-nav-item ${page==='queue' || page==='woDetail'?'active':''}`} onClick={() => { setActiveWoId(null); setPage('queue'); }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={(page==='queue'||page==='woDetail')?'#1a1a1a':'#888'} strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          <span>Queue</span>
+        </div>
+        <div className={`res-nav-item ${page==='team'?'active':''}`} onClick={() => setPage('team')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={page==='team'?'#1a1a1a':'#888'} strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          <span>Team</span>
+        </div>
+        <div className={`res-nav-item ${page==='approvals'?'active':''}`} onClick={() => setPage('approvals')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={page==='approvals'?'#1a1a1a':'#888'} strokeWidth="1.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span>Sign-offs{pendingReview.length > 0 ? ' · '+pendingReview.length : ''}</span>
+        </div>
+      </div>
+
+      {photoPreview && (
+        <div onClick={() => setPhotoPreview(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <button onClick={() => setPhotoPreview(null)} style={{position:'absolute',top:16,right:16,background:'rgba(255,255,255,0.15)',color:'#fff',border:'none',width:40,height:40,borderRadius:'50%',fontSize:24,cursor:'pointer'}}>&times;</button>
+          <img src={photoPreview.dataUrl} style={{maxWidth:'95%',maxHeight:'90vh',objectFit:'contain'}} onClick={e => e.stopPropagation()}/>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ==================== MAIN APP ====================
 const App = () => {
   const [role, setRole] = useState(() => {
@@ -21155,11 +22264,11 @@ const App = () => {
     );
   }
 
-  // If logged in as Facility Management, show FM app
+  // If logged in as Facility Management, show FM Executor mobile app (Supervisor/Technician sub-role chooser)
   if (role === 'fm') {
     return (
       <AppContext.Provider value={{ data, setData, showToast, language, setLanguage, t }}>
-        <FacilityApp onLogout={handleLogout}/>
+        <FmExecutorApp onLogout={handleLogout}/>
         <SyncDot/>
         {toast && <div className="toast">{toast}</div>}
       </AppContext.Provider>
