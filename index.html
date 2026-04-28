@@ -873,6 +873,35 @@ const initialData = {
     { id: 5, name: 'Sofia Mendes', flat: 'D-1102', amount: 8420, status: 'Paid', time: '10:15' }
   ],
   serviceRequests: [
+    // === Demo entries for flat B-102 (Nitin Sharma) — full progress + FM photos + rating flow ===
+    { id: 'SR-2001', type: 'AC Repair', flat: 'B-102', resident: 'Nitin Sharma', date: '27 Apr', time: '14:30',
+      status: 'Completed',
+      areaType: 'Unit Area', location: 'Bedroom', urgency: 'Urgent',
+      comments: 'AC unit not cooling properly. Strange noise from outdoor compressor.',
+      fmTechnician: { name: 'Ahmed Khan', role: 'Senior HVAC Technician', phone: '+971 4 123 4567', expectedArrival: '14:35' },
+      completedAt: '15:50',
+      completionPhotos: [
+        { id:'CP-1', name:'compressor-after.svg', type:'image/svg+xml', dataUrl:'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5a6b4f"/><stop offset="1" stop-color="#3a4a30"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/><rect x="80" y="60" width="240" height="180" rx="10" fill="#fff" opacity="0.9"/><rect x="100" y="80" width="200" height="80" rx="6" fill="#dcd5cd"/><circle cx="200" cy="120" r="28" fill="#928989"/><circle cx="200" cy="120" r="20" fill="#fff"/><text x="200" y="200" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#1a1a1a" font-weight="600">AC Unit — After Service</text><text x="200" y="220" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#5a6b4f">Compressor replaced</text></svg>') },
+        { id:'CP-2', name:'unit-test.svg', type:'image/svg+xml', dataUrl:'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="#4a6fa5"/><rect x="60" y="60" width="280" height="100" rx="8" fill="#fff" opacity="0.95"/><text x="200" y="100" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="700" fill="#2d6a4f">21°C</text><text x="200" y="130" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#5a6b4f">Cooling normal</text><text x="200" y="200" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="600" fill="#fff">Test Reading</text><text x="200" y="220" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#dde6f0">After repair · 27 Apr 15:48</text></svg>') },
+        { id:'CP-3', name:'service-card.pdf', type:'application/pdf', dataUrl:'data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3RoIDMgMCBSL0ZpbHRlci9GbGF0ZURlY29kZT4+CnN0cmVhbQp4nCWMQQrCMBQF93kK7+AlmpdmCoVCwUWv4OoDXbQfwf72zjMzL5MZBhB8mEVbgu4gVpmFoLY5cHNiojzCNWHGWi/EpDMyoBs0KV3l13E5n89B9d/0Pue3++bi5h36AXgvFjYKZW5kc3RyZWFtCmVuZG9iago=' }
+      ]
+    },
+    { id: 'SR-2002', type: 'Plumbing', flat: 'B-102', resident: 'Nitin Sharma', date: '20 Apr', time: '10:00',
+      status: 'Closed',
+      areaType: 'Unit Area', location: 'Kitchen', urgency: 'Normal',
+      comments: 'Kitchen sink draining slowly.',
+      fmTechnician: { name: 'Mahmoud Ali', role: 'Plumbing Specialist', phone: '+971 4 123 4567', expectedArrival: '10:05' },
+      completedAt: '11:20',
+      completionPhotos: [
+        { id:'CP-4', name:'pipe-cleared.svg', type:'image/svg+xml', dataUrl:'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="#a89a92"/><rect x="50" y="100" width="300" height="100" rx="8" fill="#dcd5cd"/><circle cx="200" cy="150" r="40" fill="#fff"/><circle cx="200" cy="150" r="28" fill="#4a6fa5"/><text x="200" y="240" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="600" fill="#fff">Drainage Restored</text><text x="200" y="260" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#fff">Sink unclogged · pipes flushed</text></svg>') }
+      ],
+      rating: 5, ratingComment: 'Great service, fast response. Mahmoud was very professional.', ratedAt: '2026-04-20T11:35:00.000Z'
+    },
+    { id: 'SR-2003', type: 'Pest Control', flat: 'B-102', resident: 'Nitin Sharma', date: '29 Apr', time: '14:04',
+      status: 'Pending Approval',
+      areaType: 'Unit Area', location: 'Bedroom', urgency: 'Normal',
+      comments: 'Ant trail visible near the bedroom window. Please send pest control team.'
+    },
     // === Past (completed) ===
     { id: 'SR-1080', type: 'AC Repair',    flat: 'A-0302', resident: 'Ms. Dina Al-Farsi',       date: '08 Apr', time: '09:00', status: 'Completed', notes: 'Compressor replaced, unit tested OK' },
     { id: 'SR-1081', type: 'Plumbing',     flat: 'B-0601', resident: 'Mr. Rashid Al-Ketbi',     date: '09 Apr', time: '10:30', status: 'Completed', notes: 'Kitchen sink leak fixed, new gasket installed' },
@@ -13981,6 +14010,7 @@ const ResidentApp = ({ onLogout }) => {
   const [showAmenityDetail, setShowAmenityDetail] = useState(null); // holds amenity booking object for detail/edit/delete
   const [showServiceDetail, setShowServiceDetail] = useState(null); // holds service request object for detail/edit/cancel
   const [serviceAttachmentPreview, setServiceAttachmentPreview] = useState(null); // {name, type, dataUrl} for full-screen preview
+  const [serviceRatingForm, setServiceRatingForm] = useState({rating: 0, comment: ''}); // for resident's rating after FM completes
   // Payment gateway modal state
   const [showPayModal, setShowPayModal] = useState(false);
   const [payStep, setPayStep] = useState('method'); // 'method' | 'details' | 'processing'
@@ -14613,81 +14643,12 @@ const ResidentApp = ({ onLogout }) => {
           <div className="res-content" style={{padding:'12px 16px',paddingBottom:80}}>
             <div style={{fontSize:20,fontWeight:600,color:'#1a1a1a',marginBottom:20}}>{t('res.bookAmenitiesServices')}</div>
 
-            {/* Book Amenities */}
-            <div style={{marginBottom:24}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-                <span style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{t('res.bookAmenities')}</span>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
-                {bookAmenities.map((svc, i) => (
-                  <div key={i} onClick={() => {setBookingMode('amenity'); setEditingServiceId(null); setServiceBooking({type:svc.label, areaType:'Unit Area', location:'', date:'', time:'', duration:'1 hour', guests:1, comments:'', attachments:[]}); setShowServiceBookingModal(true);}} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',padding:'4px 0'}}>
-                    <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.55)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 8px rgba(120,100,90,0.05)'}}>
-                      {svc.icon}
-                    </div>
-                    <span style={{fontSize:10,color:'#7a6f66',textAlign:'center',lineHeight:'1.3'}}>{svcLabel(svc.label)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Amenity Bookings — upcoming + past */}
-            {(() => {
-              const todayISO = new Date().toISOString().split('T')[0];
-              const allBookings = (data.amenityBookings || []).slice().sort((a, b) => {
-                const da = a.date + ' ' + a.time, db = b.date + ' ' + b.time;
-                return da > db ? -1 : da < db ? 1 : 0;
-              });
-              const upcoming = allBookings.filter(b => b.date >= todayISO);
-              const past = allBookings.filter(b => b.date < todayISO);
-              const sorted = [...upcoming.reverse(), ...past];
-              if (sorted.length === 0) return null;
-              const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-              return (
-                <div style={{marginBottom:24}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-                    <span style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{t('res.amenityBookings')}</span>
-                  </div>
-                  {sorted.map(b => {
-                    const isPast = b.date < todayISO;
-                    const dp = b.date.split('-');
-                    const dateLabel = b.date === todayISO ? t('common.today') : (parseInt(dp[2]) + ' ' + months[parseInt(dp[1])-1]);
-                    return (
-                      <div key={b.id} onClick={() => !isPast && setShowAmenityDetail(b)} style={{display:'flex',alignItems:'center',gap:12,marginBottom:10,paddingBottom:10,borderBottom:'1px solid #f2efec',opacity: isPast ? 0.5 : 1,cursor: isPast ? 'default' : 'pointer'}}>
-                        <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        </div>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{svcLabel(b.type)}</div>
-                          <div style={{fontSize:11,color:'#a89a92'}}>{dateLabel} · {b.time} · {b.duration}</div>
-                          <div style={{fontSize:10,color:'#7a6f66',marginTop:2}}>{b.guests} {b.guests === 1 ? t('res.person') : t('res.people')}</div>
-                        </div>
-                        {isPast ? (
-                          <span style={{fontSize:10,fontWeight:500,color:'#a89a92'}}>{t('res.completed')}</span>
-                        ) : (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4b8b0" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-
-            {/* Book Services */}
+            {/* Book Services — single CTA, no icons */}
             <div style={{marginBottom:24}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
                 <span style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{t('res.bookServices')}</span>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
-                {bookServices.map((svc, i) => (
-                  <div key={i} onClick={() => {setBookingMode('service'); setServiceBooking({type:svc.label, location:'', date:'', time:'', duration:'1 hour', guests:1, comments:''}); setShowServiceBookingModal(true);}} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',padding:'4px 0'}}>
-                    <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.55)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 8px rgba(120,100,90,0.05)'}}>
-                      {svc.icon}
-                    </div>
-                    <span style={{fontSize:10,color:'#7a6f66',textAlign:'center',lineHeight:'1.3'}}>{svcLabel(svc.label)}</span>
-                  </div>
-                ))}
-              </div>
+              <button onClick={() => {setBookingMode('service'); setEditingServiceId(null); setServiceBooking({type:'', areaType:'Unit Area', location:'', date:'', time:'', duration:'1 hour', guests:'Normal', comments:'', attachments:[]}); setShowServiceBookingModal(true);}} style={{width:'100%',padding:'13px 0',borderRadius:14,border:'1px solid rgba(26,26,26,0.12)',background:'rgba(255,255,255,0.5)',color:'#1a1a1a',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>{t('res.addServiceRequest')}</button>
             </div>
 
             {/* Service Bookings — upcoming + past (dynamic from serviceRequests) */}
@@ -14785,6 +14746,66 @@ const ResidentApp = ({ onLogout }) => {
                     </div>
                   )}
                 </>
+              );
+            })()}
+
+            {/* Book Amenities — keep icon grid */}
+            <div style={{marginBottom:24}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                <span style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{t('res.bookAmenities')}</span>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+                {bookAmenities.map((svc, i) => (
+                  <div key={i} onClick={() => {setBookingMode('amenity'); setEditingServiceId(null); setServiceBooking({type:svc.label, areaType:'Unit Area', location:'', date:'', time:'', duration:'1 hour', guests:1, comments:'', attachments:[]}); setShowServiceBookingModal(true);}} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',padding:'4px 0'}}>
+                    <div style={{width:48,height:48,borderRadius:'50%',background:'rgba(255,255,255,0.55)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 8px rgba(120,100,90,0.05)'}}>
+                      {svc.icon}
+                    </div>
+                    <span style={{fontSize:10,color:'#7a6f66',textAlign:'center',lineHeight:'1.3'}}>{svcLabel(svc.label)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Amenity Bookings — upcoming + past */}
+            {(() => {
+              const todayISO = new Date().toISOString().split('T')[0];
+              const allBookings = (data.amenityBookings || []).slice().sort((a, b) => {
+                const da = a.date + ' ' + a.time, db = b.date + ' ' + b.time;
+                return da > db ? -1 : da < db ? 1 : 0;
+              });
+              const upcoming = allBookings.filter(b => b.date >= todayISO);
+              const past = allBookings.filter(b => b.date < todayISO);
+              const sorted = [...upcoming.reverse(), ...past];
+              if (sorted.length === 0) return null;
+              const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              return (
+                <div style={{marginBottom:24}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                    <span style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{t('res.amenityBookings')}</span>
+                  </div>
+                  {sorted.map(b => {
+                    const isPast = b.date < todayISO;
+                    const dp = b.date.split('-');
+                    const dateLabel = b.date === todayISO ? t('common.today') : (parseInt(dp[2]) + ' ' + months[parseInt(dp[1])-1]);
+                    return (
+                      <div key={b.id} onClick={() => !isPast && setShowAmenityDetail(b)} style={{display:'flex',alignItems:'center',gap:12,marginBottom:10,paddingBottom:10,borderBottom:'1px solid #f2efec',opacity: isPast ? 0.5 : 1,cursor: isPast ? 'default' : 'pointer'}}>
+                        <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{svcLabel(b.type)}</div>
+                          <div style={{fontSize:11,color:'#a89a92'}}>{dateLabel} · {b.time} · {b.duration}</div>
+                          <div style={{fontSize:10,color:'#7a6f66',marginTop:2}}>{b.guests} {b.guests === 1 ? t('res.person') : t('res.people')}</div>
+                        </div>
+                        {isPast ? (
+                          <span style={{fontSize:10,fontWeight:500,color:'#a89a92'}}>{t('res.completed')}</span>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4b8b0" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               );
             })()}
           </div>
@@ -15081,6 +15102,205 @@ const ResidentApp = ({ onLogout }) => {
         ];
         return (
           <div className="res-content" style={{padding:'12px 16px',paddingBottom:20}}>
+            {/* Upcoming Service — booked separately */}
+            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{t('res.upcomingService')}</span>
+                <span onClick={() => setCurrentPage('services')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>{t('res.seeAll')} ›</span>
+              </div>
+              {(() => {
+                const svcTodayISO = new Date().toISOString().split('T')[0];
+                const upcomingSvc = (data.serviceRequests || [])
+                  .filter(s => {
+                    const d = parseDateISO(s.date);
+                    return d >= svcTodayISO && (s.status === 'Scheduled' || s.status === 'Pending Approval' || s.status === 'In Progress');
+                  })
+                  .sort((a, b) => (parseDateISO(a.date) + ' ' + (a.time||'')).localeCompare(parseDateISO(b.date) + ' ' + (b.time||'')))
+                  .slice(0, 3);
+                if (upcomingSvc.length === 0) {
+                  return <div style={{textAlign:'center',color:'#c4b8b0',fontSize:12,padding:8}}>{t('res.noUpcomingServices')}</div>;
+                }
+                const isArH = t('res.in') !== 'In';
+                const svcMonths = isArH ? ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'] : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                const svcTypeLabel = (tp) => {
+                  switch(tp) {
+                    case 'AC Repair': return t('res.acRepair');
+                    case 'Plumbing': return t('res.plumbing');
+                    case 'Pest Control': return t('res.pestControl');
+                    case 'Electrical': return t('res.electrical');
+                    case 'Handyman': return t('res.handyman');
+                    case 'Installation': return t('res.installation');
+                    case 'Move-In': return t('res.moveIn') === 'res.moveIn' ? 'Move-In' : t('res.moveIn');
+                    case 'Move-Out': return t('res.moveOut') === 'res.moveOut' ? 'Move-Out' : t('res.moveOut');
+                    default: return tp;
+                  }
+                };
+                const statusColors = {Scheduled:'#5a6b4f','Pending Approval':'#b08a4a','In Progress':'#4a6fa5'};
+                return upcomingSvc.map(s => {
+                  const iso = parseDateISO(s.date);
+                  const dp = iso.split('-');
+                  const dl = iso === svcTodayISO ? t('res.today') : (parseInt(dp[2]) + ' ' + svcMonths[parseInt(dp[1])-1]);
+                  return (
+                    <div key={s.id} onClick={() => setShowServiceDetail(s)} style={{display:'flex',alignItems:'center',gap:12,marginBottom:10,paddingBottom:10,borderBottom:'1px solid #f2efec',cursor:'pointer'}}>
+                      <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{svcTypeLabel(s.type)}</div>
+                        <div style={{fontSize:11,color:'#a89a92'}}>{dl} · {s.time || '—'}</div>
+                        {s.location && <div style={{fontSize:10,color:'#7a6f66',marginTop:1}}>{s.location}</div>}
+                      </div>
+                      <span style={{fontSize:10,fontWeight:500,color: statusColors[s.status] || '#5a6b4f'}}>{s.status === 'Scheduled' ? t('res.scheduled') : s.status === 'Pending Approval' ? t('res.pendingApproval') : s.status === 'In Progress' ? t('res.inProgress') : s.status === 'Completed' ? t('res.completed') : s.status === 'Open' ? t('res.open') : s.status === 'Cancelled' ? t('res.cancelled') : s.status === 'Closed' ? t('res.closed') : s.status}</span>
+                    </div>
+                  );
+                });
+              })()}
+              <button onClick={() => {setBookingMode('service'); setEditingServiceId(null); setServiceBooking({type:'', areaType:'Unit Area', location:'', date:'', time:'', duration:'1 hour', guests:'Normal', comments:'', attachments:[]}); setShowServiceBookingModal(true);}} style={{width:'100%',marginTop:4,padding:'13px 0',borderRadius:14,border:'1px solid rgba(26,26,26,0.12)',background:'rgba(255,255,255,0.5)',color:'#1a1a1a',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>{t('res.addServiceRequest')}</button>
+            </div>
+
+            {/* Upcoming Amenities — booked amenities */}
+            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{t('res.upcomingAmenities')}</span>
+                <span onClick={() => setCurrentPage('book')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>{t('res.seeAll')} ›</span>
+              </div>
+              {(() => {
+                const todayISO = new Date().toISOString().split('T')[0];
+                const upcoming = (data.amenityBookings || [])
+                  .filter(b => b.date >= todayISO)
+                  .sort((a, b) => (a.date + ' ' + a.time).localeCompare(b.date + ' ' + b.time));
+                if (upcoming.length === 0) {
+                  return <div style={{textAlign:'center',color:'#c4b8b0',fontSize:12,padding:8}}>{t('res.noAmenities')}</div>;
+                }
+                return upcoming.slice(0, 3).map(b => {
+                  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                  const dp = b.date.split('-');
+                  const dateLabel = b.date === todayISO ? t('common.today') : (parseInt(dp[2]) + ' ' + months[parseInt(dp[1])-1]);
+                  const bTime = b.time;
+                  return (
+                    <div key={b.id} onClick={() => setShowAmenityDetail(b)} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid rgba(200,190,180,0.15)',cursor:'pointer'}}>
+                      <div style={{width:40,height:40,borderRadius:'50%',background:'rgba(255,255,255,0.55)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,0.5)',flexShrink:0}}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{b.type}</div>
+                        <div style={{fontSize:11,color:'#a89a92'}}>{dateLabel} · {bTime} · {b.duration}</div>
+                        <div style={{fontSize:10,color:'#7a6f66',marginTop:1}}>{b.guests} {b.guests === 1 ? t('res.person') : t('res.people')}</div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4b8b0" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                  );
+                });
+              })()}
+              <button onClick={() => {setBookingMode('amenity'); setEditingServiceId(null); setServiceBooking({type:'', areaType:'Unit Area', location:'', date:'', time:'', duration:'1 hour', guests:1, comments:'', attachments:[]}); setShowServiceBookingModal(true);}} style={{width:'100%',marginTop:8,padding:'13px 0',borderRadius:14,border:'1px solid rgba(26,26,26,0.12)',background:'rgba(255,255,255,0.5)',color:'#1a1a1a',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>{t('res.bookAmenity')}</button>
+            </div>
+
+            {/* Visitors — pending approvals + upcoming pre-approved (merged) */}
+            <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                <span style={{fontSize:13,fontWeight:600,color:'#1a1a1a'}}>{t('res.visitors')}</span>
+                <span onClick={() => setCurrentPage('viewall')} style={{fontSize:11,color:'#a89a92',cursor:'pointer'}}>{t('res.seeAll')} ›</span>
+              </div>
+
+              {/* Pending approvals — appear at top with action buttons */}
+              {waitingApprovals.length > 0 && (
+                <div style={{marginBottom: (scheduledVisitors.length > 0 ? 14 : 4)}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
+                    <span style={{fontSize:10,fontWeight:600,color:'#b08a4a',textTransform:'uppercase',letterSpacing:'0.05em'}}>{t('res.newVisitor')}</span>
+                    <span style={{fontSize:10,color:'#a89a92'}}>· {waitingApprovals.length} {t('res.pending')}</span>
+                  </div>
+                  {waitingApprovals.slice(0,2).map(v => (
+                <div key={v.id} style={{marginBottom: 14}}>
+                  <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                    <div style={{width:44,height:44,borderRadius:'50%',background:'#f2efec',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
+                      <div style={{fontSize:11,color:'#a89a92'}}>{(v.type === 'Resident Guest' ? t('res.residentGuest') : v.type === 'Contractor / Worker' ? t('res.contractorWorker') : v.type === 'Delivery / Courier' ? t('res.deliveryCourier') : v.type === 'Domestic Staff' ? t('res.domesticStaff') : v.type === 'Service Vendor' ? t('res.serviceVendor') : v.type === 'Other / Misc.' ? t('res.otherMisc') : (v.type || t('res.guest')))} — {v.purpose === 'Personal visit' ? t('res.personalVisit') : v.purpose === 'Delivery' ? t('res.delivery') : v.purpose === 'Maintenance' ? t('res.maintenance') : v.purpose === 'Moving Out Service' ? t('res.movingOut') : (v.purpose || t('res.personalVisit'))}</div>
+                      <div style={{fontSize:11,color:'#a89a92'}}>
+                        {v.date && v.time ? v.date + ' · ' + ((t('res.in') !== 'In' && v.time) ? v.time.replace(/\bAM\b/i,'ص').replace(/\bPM\b/i,'م') : v.time) : ''}{v.date || v.time ? ' · ' : ''}{v.source === 'security' ? t('res.fromSecurityGate') : (t('res.gate')+': '+t('res.mainGate'))} — {v.flat || 'B-102'}
+                      </div>
+                      {v.repeater && v.repeater !== 'Single Visit' && (
+                        <div style={{fontSize:10,color:'#a89a92',marginTop:2}}>{v.repeater}</div>
+                      )}
+                    </div>
+                    <span style={{fontSize:10,color:'#7a6f66',background:'rgba(26,26,26,0.06)',padding:'3px 10px',borderRadius:4,fontWeight:600}}>
+                      {v.source === 'security' ? t('res.securityRequest') : t('res.waiting')}
+                    </span>
+                  </div>
+                  <div style={{display:'flex',gap:8}}>
+                    <button onClick={() => handleApproveVisitor(v)} style={{flex:1,padding:'10px 0',borderRadius:6,border:'none',background:'#928989',color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg> {t('res.approve')}
+                    </button>
+                    <button onClick={() => handleRejectVisitor(v)} style={{flex:1,padding:'10px 0',borderRadius:6,border:'1px solid #d5cfc8',background:'#fff',color:'#8b4a42',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg> {t('res.reject')}
+                    </button>
+                    <button onClick={() => setShowCallSecurity(!showCallSecurity)} style={{padding:'10px 14px',borderRadius:6,border:'1px solid #d5cfc8',background:'#fff',color:'#7a6f66',fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7a6f66" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.11 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                      {t('res.call')}
+                    </button>
+                  </div>
+                  {showCallSecurity && (
+                    <div style={{marginTop:8,background:'#f2efec',borderRadius:6,padding:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,color:'#1a1a1a'}}>{t('res.securityGate')}</div>
+                        <div style={{fontSize:13,color:'#7a6f66'}}>+971 4 123 4567</div>
+                      </div>
+                      <a href="tel:+97141234567" style={{background:'#928989',color:'#fff',borderRadius:6,padding:'8px 16px',fontSize:12,fontWeight:600,textDecoration:'none',display:'flex',alignItems:'center',gap:4}}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.11 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                        {t('res.callNow')}
+                      </a>
+                    </div>
+                  )}
+                </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Upcoming pre-approved visitors */}
+              {scheduledVisitors.length > 0 && (
+                <div>
+                  {waitingApprovals.length > 0 && (
+                    <div style={{fontSize:10,fontWeight:600,color:'#7a6f66',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>{t('res.upcomingVisitor')}</div>
+                  )}
+                  {scheduledVisitors.slice(0,3).map(v => {
+                    const statusLabel = v.status === 'Inside' ? t('res.passedSecurity') : v.status === 'Rejected' ? t('res.rejected') : v.status === 'Checked Out' || v.status === 'Exited' ? t('res.checkedOut') : v.status === 'On Hold' ? t('res.onHold') : t('res.preApproved');
+                    const statusColor = v.status === 'Inside' ? '#2d6a4f' : v.status === 'Rejected' ? '#8b4a42' : v.status === 'On Hold' ? '#7a6040' : '#7a6f66';
+                    const statusBg = v.status === 'Inside' ? '#e0e5db' : v.status === 'Rejected' ? '#eddbd9' : v.status === 'On Hold' ? '#ebe3d9' : 'rgba(26,26,26,0.06)';
+                    return (
+                <div key={'up-'+v.id} style={{display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom: 10,paddingBottom:10,borderBottom:'1px solid #f2efec'}} onClick={() => { setSelectedVisitor(v); setCurrentPage('viewVisitor'); }}>
+                  <div style={{width:40,height:40,borderRadius:'50%',background:'#e8e3de',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a89a92" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:600,color:'#1a1a1a'}}>{v.name}</div>
+                    <div style={{fontSize:11,color:'#a89a92'}}>{(v.type === 'Resident Guest' ? t('res.residentGuest') : v.type === 'Contractor / Worker' ? t('res.contractorWorker') : v.type === 'Delivery / Courier' ? t('res.deliveryCourier') : v.type === 'Domestic Staff' ? t('res.domesticStaff') : v.type === 'Service Vendor' ? t('res.serviceVendor') : v.type === 'Other / Misc.' ? t('res.otherMisc') : (v.type || t('res.guest')))} — {v.purpose === 'Personal visit' ? t('res.personalVisit') : v.purpose === 'Delivery' ? t('res.delivery') : v.purpose === 'Maintenance' ? t('res.maintenance') : v.purpose === 'Moving Out Service' ? t('res.movingOut') : (v.purpose || t('res.personalVisit'))}</div>
+                    <div style={{fontSize:11,color:'#a89a92'}}>{(() => { const isAr = t('res.in') !== 'In'; const monthsEn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const monthsArH=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']; const months = isAr ? monthsArH : monthsEn; const d=v.date||''; let datePart=''; if(/^\d{4}-\d{2}-\d{2}$/.test(d)){const p=d.split('-'); datePart=parseInt(p[2],10)+' '+months[parseInt(p[1],10)-1];} else if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(d)){const p=d.split('/'); datePart=parseInt(p[0],10)+' '+months[parseInt(p[1],10)-1];} else { datePart=d; } const tStr = v.time && isAr ? v.time.replace(/\bAM\b/i,'ص').replace(/\bPM\b/i,'م') : v.time; return datePart + ' · ' + tStr; })()}</div>
+                    <div style={{fontSize:10,color:'#7a6f66',marginTop:2,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                      <span>{t('res.gate')}: {v.gate || t('res.mainGate')}</span>
+                      <span style={{color:'#c4b8b0'}}>·</span>
+                      <span style={{color:'#7a6f66',fontSize:10,fontWeight:500}}>{t('res.status')}: {statusLabel}</span>
+                    </div>
+                    {v.repeater && v.repeater !== 'Single Visit' && <div style={{fontSize:10,color:'#5a5470',marginTop:2}}>{v.repeater}</div>}
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4b8b0" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {waitingApprovals.length === 0 && scheduledVisitors.length === 0 && (
+                <div style={{textAlign:'center',color:'#c4b8b0',fontSize:12,padding:8}}>{t('res.noUpcoming')}</div>
+              )}
+
+              <button onClick={() => setCurrentPage('preapprove')} style={{width:'100%',marginTop:4,padding:'13px 0',borderRadius:14,border:'none',background:'#1a1a1a',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>{t('res.preApprovedGuest')}</button>
+            </div>
+
+            {/* Old block — superseded by combined Visitors block above */}
+            {false && (<>
             {/* New Visitor — pending approvals */}
             <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
@@ -15264,6 +15484,7 @@ const ResidentApp = ({ onLogout }) => {
               })()}
               <button onClick={() => {setBookingMode('service'); setEditingServiceId(null); setServiceBooking({type:'', areaType:'Unit Area', location:'', date:'', time:'', duration:'1 hour', guests:'Normal', comments:'', attachments:[]}); setShowServiceBookingModal(true);}} style={{width:'100%',marginTop:4,padding:'13px 0',borderRadius:14,border:'1px solid rgba(26,26,26,0.12)',background:'rgba(255,255,255,0.5)',color:'#1a1a1a',fontSize:13,fontWeight:600,cursor:'pointer',letterSpacing:'-0.01em'}}>{t('res.addServiceRequest')}</button>
             </div>
+            </>)}
 
             {/* Recent Announcements */}
             <div style={{background:'rgba(255,255,255,0.55)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderRadius:18,padding:16,marginBottom:14,border:'1px solid rgba(255,255,255,0.5)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
@@ -16595,11 +16816,45 @@ const ResidentApp = ({ onLogout }) => {
         const dateLabel = dp.length === 3 ? (parseInt(dp[2]) + ' ' + months[parseInt(dp[1])-1] + ' ' + dp[0]) : s.date;
         const editable = s.status === 'Pending Approval' || s.status === 'Scheduled' || s.status === 'Open';
         const cancellable = editable || s.status === 'In Progress';
+        const isCompleted = s.status === 'Completed' || s.status === 'Done';
+        const isClosed = s.status === 'Closed';
         const statusColors = {Scheduled:'#5a6b4f','Pending Approval':'#b08a4a','In Progress':'#4a6fa5',Completed:'#2d6a4f',Cancelled:'#888',Closed:'#888'};
         const attachments = s.attachments || [];
+
+        // Build progress timeline — use seeded steps if present, else derive from status
+        const fmTech = s.fmTechnician || {name:'Ahmed Khan', role:'Senior Technician', phone:'+971 4 123 4567', expectedArrival: s.time || '—'};
+        const buildProgress = () => {
+          if (Array.isArray(s.progress) && s.progress.length > 0) return s.progress;
+          const baseDate = dateLabel || s.date || '';
+          const baseSteps = [
+            {key:'submitted',   label:'Request submitted to Facility Management',                              ts: baseDate + ' · 09:00 AM',                       done:false},
+            {key:'acknowledged',label:'Request acknowledged by FM team',                                       ts: baseDate + ' · 09:15 AM',                       done:false},
+            {key:'assigned',    label:'Technician assigned: ' + fmTech.name + ' (' + (fmTech.role||'Technician') + ')', ts: 'Expected arrival: ' + fmTech.expectedArrival, done:false},
+            {key:'on_site',     label:'Technician on site — work in progress',                                  ts: baseDate + ' · ' + fmTech.expectedArrival,      done:false},
+            {key:'completed',   label:'Task completed by FM team',                                             ts: baseDate + ' · ' + (s.completedAt || (s.time || '—')), done:false},
+            {key:'closed',      label:'Request closed',                                                        ts: '',                                              done:false}
+          ];
+          const st = (s.status || '').toLowerCase();
+          if (st === 'cancelled') {
+            baseSteps[0].done = true;
+            baseSteps.push({key:'cancelled', label:'Request cancelled', ts: '', done:true, cancelled:true});
+            return baseSteps.filter((_, i) => i === 0 || i === baseSteps.length - 1);
+          }
+          if (st === 'pending approval') { baseSteps[0].done = true; }
+          else if (st === 'scheduled' || st === 'open') { baseSteps[0].done = baseSteps[1].done = baseSteps[2].done = true; }
+          else if (st === 'in progress') { baseSteps[0].done = baseSteps[1].done = baseSteps[2].done = baseSteps[3].done = true; }
+          else if (st === 'completed' || st === 'done') { for (let i=0;i<5;i++) baseSteps[i].done = true; }
+          else if (st === 'closed') { baseSteps.forEach(x => x.done = true); }
+          return baseSteps;
+        };
+        const progressSteps = buildProgress();
+
+        // FM completion photos — seeded in data (auto-shown when completed)
+        const completionPhotos = s.completionPhotos || [];
+
         return (
         <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={() => setShowServiceDetail(null)}>
-          <div style={{background:'#fff',borderRadius:12,padding:24,maxWidth:420,width:'100%',maxHeight:'92vh',overflowY:'auto',boxShadow:'0 8px 32px rgba(0,0,0,.2)'}} onClick={e => e.stopPropagation()}>
+          <div style={{background:'#fff',borderRadius:12,padding:24,maxWidth:440,width:'100%',maxHeight:'92vh',overflowY:'auto',boxShadow:'0 8px 32px rgba(0,0,0,.2)'}} onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
               <h3 style={{margin:0,fontSize:16,fontWeight:600}}>{s.type}</h3>
               <button onClick={() => setShowServiceDetail(null)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#a89a92'}}>&times;</button>
@@ -16614,15 +16869,54 @@ const ResidentApp = ({ onLogout }) => {
               {s.urgency && <div style={{display:'flex',justifyContent:'space-between',fontSize:13,color:'#1a1a1a'}}><span style={{color:'#8a7f76'}}>Priority</span><span style={{fontWeight:500}}>{s.urgency === 'Normal' ? 'Standard' : s.urgency}</span></div>}
               {s.flat && <div style={{display:'flex',justifyContent:'space-between',fontSize:13,color:'#1a1a1a'}}><span style={{color:'#8a7f76'}}>Unit</span><span style={{fontWeight:500}}>{s.flat}</span></div>}
             </div>
-            {s.comments && (
-              <div style={{marginBottom:18,padding:12,background:'#faf8f6',borderRadius:8,border:'1px solid #ebe7e3'}}>
-                <div style={{fontSize:11,color:'#8a7f76',fontWeight:500,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.04em'}}>Additional Details</div>
-                <div style={{fontSize:13,color:'#1a1a1a',lineHeight:1.5,whiteSpace:'pre-wrap'}}>{s.comments}</div>
+
+            {/* Progress Timeline — FM-driven */}
+            {progressSteps.length > 0 && (
+              <div style={{marginBottom:18,padding:14,background:'#faf8f6',borderRadius:10,border:'1px solid #ebe7e3'}}>
+                <div style={{fontSize:11,color:'#8a7f76',fontWeight:500,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.04em'}}>Service Progress</div>
+                <div style={{display:'flex',flexDirection:'column',gap:0}}>
+                  {progressSteps.map((step, idx) => {
+                    const isLast = idx === progressSteps.length - 1;
+                    const isCancelled = step.cancelled;
+                    return (
+                      <div key={step.key || idx} style={{display:'flex',gap:12,position:'relative'}}>
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0}}>
+                          <div style={{
+                            width:20, height:20, borderRadius:'50%',
+                            background: isCancelled ? '#c0392b' : (step.done ? '#5a6b4f' : '#fff'),
+                            border: '2px solid ' + (isCancelled ? '#c0392b' : (step.done ? '#5a6b4f' : '#d5cfc8')),
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            zIndex:1
+                          }}>
+                            {step.done && !isCancelled && (
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
+                            )}
+                            {isCancelled && (
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                            )}
+                          </div>
+                          {!isLast && (
+                            <div style={{width:2, flex:1, minHeight:20, background: step.done ? '#5a6b4f' : '#e8e3de', marginTop:0}}/>
+                          )}
+                        </div>
+                        <div style={{flex:1, paddingBottom: isLast ? 0 : 14}}>
+                          <div style={{fontSize:13, fontWeight: step.done ? 600 : 500, color: step.done ? '#1a1a1a' : '#a89a92', lineHeight:1.4}}>{step.label}</div>
+                          {step.ts && <div style={{fontSize:11, color:'#8a7f76', marginTop:2}}>{step.ts}</div>}
+                          {step.key === 'assigned' && step.done && fmTech.phone && (
+                            <a href={'tel:'+fmTech.phone} style={{display:'inline-block',marginTop:6,fontSize:11,color:'#4a6fa5',textDecoration:'none',fontWeight:600}}>Call technician: {fmTech.phone}</a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
+
+            {/* Resident attachments */}
             {attachments.length > 0 && (
               <div style={{marginBottom:18}}>
-                <div style={{fontSize:11,color:'#8a7f76',fontWeight:500,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.04em'}}>Attachments ({attachments.length})</div>
+                <div style={{fontSize:11,color:'#8a7f76',fontWeight:500,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.04em'}}>Your Attachments ({attachments.length})</div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:8}}>
                   {attachments.map((att, idx) => {
                     const isImg = att.type && att.type.startsWith('image/');
@@ -16642,6 +16936,106 @@ const ResidentApp = ({ onLogout }) => {
                 </div>
               </div>
             )}
+
+            {/* FM completion photos — auto-shown when work is done */}
+            {(isCompleted || isClosed) && completionPhotos.length > 0 && (
+              <div style={{marginBottom:18,padding:12,background:'#f0f4ec',borderRadius:8,border:'1px solid #d5dcce'}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                  <div style={{fontSize:11,color:'#2d6a4f',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.04em'}}>Completion Photos from FM Team ({completionPhotos.length})</div>
+                </div>
+                <div style={{fontSize:11,color:'#5a6b4f',marginBottom:10}}>Photos uploaded by the technician on completion.</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3, 1fr)',gap:8}}>
+                  {completionPhotos.map((att, idx) => {
+                    const isImg = att.type && att.type.startsWith('image/');
+                    return (
+                      <div key={att.id || idx} onClick={() => setServiceAttachmentPreview(att)} style={{position:'relative',aspectRatio:'1 / 1',background:'#fff',borderRadius:8,border:'1px solid #d5dcce',cursor:'pointer',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        {isImg ? (
+                          <img src={att.dataUrl} alt={att.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                        ) : (
+                          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:6}}>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5a6b4f" strokeWidth="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            <div style={{fontSize:9,color:'#5a6b4f',textAlign:'center',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}}>{att.name}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {(isCompleted || isClosed) && completionPhotos.length === 0 && (
+              <div style={{marginBottom:18,padding:12,background:'#faf8f6',borderRadius:8,border:'1px dashed #d5cfc8',fontSize:12,color:'#8a7f76',textAlign:'center'}}>
+                Completion photos will appear here once uploaded by the FM team.
+              </div>
+            )}
+
+            {/* Original comments */}
+            {s.comments && (
+              <div style={{marginBottom:18,padding:12,background:'#faf8f6',borderRadius:8,border:'1px solid #ebe7e3'}}>
+                <div style={{fontSize:11,color:'#8a7f76',fontWeight:500,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.04em'}}>Additional Details</div>
+                <div style={{fontSize:13,color:'#1a1a1a',lineHeight:1.5,whiteSpace:'pre-wrap'}}>{s.comments}</div>
+              </div>
+            )}
+
+            {/* Resident Rating + Escalate (visible when work is completed) */}
+            {isCompleted && !s.rating && !s.escalated && (
+              <div style={{marginBottom:18,padding:14,background:'#fff8e8',borderRadius:10,border:'1px solid #e8d8a8'}}>
+                <div style={{fontSize:13,fontWeight:600,color:'#1a1a1a',marginBottom:4}}>How was the service?</div>
+                <div style={{fontSize:11,color:'#8a7f76',marginBottom:10}}>Please rate the work completed by the FM team.</div>
+                <div style={{display:'flex',gap:6,marginBottom:12,justifyContent:'center'}}>
+                  {[1,2,3,4,5].map(n => (
+                    <button key={n} type="button" onClick={() => setServiceRatingForm(f => ({...f, rating: n}))} style={{background:'none',border:'none',cursor:'pointer',padding:4}}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill={n <= serviceRatingForm.rating ? '#e8a838' : 'none'} stroke={n <= serviceRatingForm.rating ? '#e8a838' : '#c4b8b0'} strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={serviceRatingForm.comment}
+                  onChange={e => setServiceRatingForm(f => ({...f, comment: e.target.value}))}
+                  placeholder="Share your feedback (optional)..."
+                  rows={2}
+                  style={{width:'100%',padding:10,border:'1px solid #ebe7e3',borderRadius:6,fontSize:13,outline:'none',resize:'vertical',boxSizing:'border-box',fontFamily:'inherit',marginBottom:10}}
+                />
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={() => {
+                    if (serviceRatingForm.rating === 0) { showToast('Please select a star rating'); return; }
+                    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests || []).map(x => x.id === s.id ? {...x, status:'Closed', rating: serviceRatingForm.rating, ratingComment: serviceRatingForm.comment, ratedAt: new Date().toISOString()} : x)}));
+                    showToast('Thank you for your feedback');
+                    setShowServiceDetail(null);
+                    setServiceRatingForm({rating:0, comment:''});
+                  }} style={{flex:1,padding:12,background:'#928989',color:'#fff',border:'none',borderRadius:6,fontSize:13,fontWeight:600,cursor:'pointer'}}>Submit Rating</button>
+                  <button onClick={() => {
+                    setData(prev => ({...prev, serviceRequests: (prev.serviceRequests || []).map(x => x.id === s.id ? {...x, escalated: true, escalatedAt: new Date().toISOString(), escalationReason: serviceRatingForm.comment || 'Quality of work below expectations'} : x)}));
+                    showToast('Issue escalated to Property Manager');
+                    setShowServiceDetail(null);
+                    setServiceRatingForm({rating:0, comment:''});
+                  }} style={{flex:1,padding:12,background:'#fff',color:'#c0392b',border:'1px solid #e0d5d0',borderRadius:6,fontSize:13,fontWeight:600,cursor:'pointer'}}>Escalate</button>
+                </div>
+              </div>
+            )}
+
+            {/* Submitted rating (read-only) */}
+            {s.rating && (
+              <div style={{marginBottom:18,padding:14,background:'#faf8f6',borderRadius:10,border:'1px solid #ebe7e3'}}>
+                <div style={{fontSize:11,color:'#8a7f76',fontWeight:500,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.04em'}}>Your Rating</div>
+                <div style={{display:'flex',gap:4,marginBottom:s.ratingComment ? 8 : 0}}>
+                  {[1,2,3,4,5].map(n => (
+                    <svg key={n} width="20" height="20" viewBox="0 0 24 24" fill={n <= s.rating ? '#e8a838' : 'none'} stroke={n <= s.rating ? '#e8a838' : '#c4b8b0'} strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  ))}
+                </div>
+                {s.ratingComment && <div style={{fontSize:13,color:'#1a1a1a',lineHeight:1.5,whiteSpace:'pre-wrap'}}>{s.ratingComment}</div>}
+              </div>
+            )}
+
+            {/* Escalated notice */}
+            {s.escalated && (
+              <div style={{marginBottom:18,padding:12,background:'#fbeeec',borderRadius:8,border:'1px solid #e0bfb8'}}>
+                <div style={{fontSize:12,color:'#8b4a42',fontWeight:600,marginBottom:4}}>Issue Escalated</div>
+                <div style={{fontSize:11,color:'#7a5650'}}>The Property Manager has been notified and will follow up with you.</div>
+              </div>
+            )}
+
             {editable ? (
               <button onClick={() => {
                 setBookingMode('service');
