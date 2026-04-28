@@ -5640,7 +5640,7 @@ const OverviewPage = ({ setPage }) => {
     .filter(sr => sr.status !== 'Completed' && sr.status !== 'Cancelled' && sr.status !== 'Closed')
     .slice(0, 5)
     .map(sr => {
-      const action = sr.status === 'Pending Approval' ? t('pm.pendingApproval') : sr.status === 'In Progress' ? t('pm.viewAll') : sr.status === 'Scheduled' ? t('pm.scheduleDate') : t('pm.viewAll');
+      const action = (sr.status === 'Pending Approval' || sr.status === 'New') ? t('pm.pendingApproval') : sr.status === 'In Progress' ? t('pm.viewAll') : sr.status === 'Scheduled' ? t('pm.scheduleDate') : t('pm.viewAll');
       return { id: sr.id, type: sr.type, unit: sr.flat, resident: sr.resident, days: sr.date, status: sr.status, action };
     });
 
@@ -6751,8 +6751,8 @@ const ServiceRequestsPage = () => {
     sla: r.sla || ({'AC Repair':'4h','Installation':'4h','Move-In':'2h','Move-Out':'2h','Handyman':'2h','Pest Control':'8h','Plumbing':'2h','Electrical':'2h'}[r.type] || '4h')
   }));
 
-  const activeCount = srWithSLA.filter(r => r.status !== 'Completed').length;
-  const pendingCount = srWithSLA.filter(r => r.status === 'Pending Approval').length;
+  const activeCount = srWithSLA.filter(r => r.status !== 'Completed' && r.status !== 'Closed' && r.status !== 'Confirmed' && r.status !== 'Cancelled').length;
+  const pendingCount = srWithSLA.filter(r => r.status === 'Pending Approval' || r.status === 'New').length;
   const escalatedCount = srWithSLA.filter(r => r.status === 'Escalated').length;
 
   const handleCreateSR = () => {
@@ -15039,7 +15039,7 @@ const ResidentApp = ({ onLogout }) => {
                 return '9999-99-99';
               };
               const allSvc = (data.serviceRequests || []).slice();
-              const activeStatuses = ['Scheduled','Pending Approval','In Progress'];
+              const activeStatuses = ['New','Scheduled','Pending Approval','Assigned','Accepted','In Progress','On Hold'];
               const pastStatuses = ['Completed','Done','Closed','Paid','Cancelled'];
               const upcoming = allSvc
                 .filter(s => activeStatuses.includes(s.status) && parseSvcDate(s.date) >= svcTodayISO)
@@ -15488,7 +15488,7 @@ const ResidentApp = ({ onLogout }) => {
                 const upcomingSvc = (data.serviceRequests || [])
                   .filter(s => {
                     const d = parseDateISO(s.date);
-                    return d >= svcTodayISO && (s.status === 'Scheduled' || s.status === 'Pending Approval' || s.status === 'In Progress');
+                    return d >= svcTodayISO && ['New','Scheduled','Pending Approval','Assigned','Accepted','In Progress','On Hold'].includes(s.status);
                   })
                   .sort((a, b) => (parseDateISO(a.date) + ' ' + (a.time||'')).localeCompare(parseDateISO(b.date) + ' ' + (b.time||'')))
                   .slice(0, 2);
@@ -15510,7 +15510,7 @@ const ResidentApp = ({ onLogout }) => {
                     default: return tp;
                   }
                 };
-                const statusColors = {Scheduled:'#5a6b4f','Pending Approval':'#b08a4a','In Progress':'#4a6fa5'};
+                const statusColors = {Scheduled:'#5a6b4f','Pending Approval':'#b08a4a','New':'#b08a4a','Assigned':'#7a6040','Accepted':'#4a6fa5','In Progress':'#4a6fa5','On Hold':'#7a5a30'};
                 return upcomingSvc.map(s => {
                   const iso = parseDateISO(s.date);
                   const dp = iso.split('-');
@@ -15525,7 +15525,7 @@ const ResidentApp = ({ onLogout }) => {
                         <div style={{fontSize:11,color:'#a89a92'}}>{dl} · {s.time || '—'}</div>
                         {s.location && <div style={{fontSize:10,color:'#7a6f66',marginTop:1}}>{s.location}</div>}
                       </div>
-                      <span style={{fontSize:10,fontWeight:500,color: statusColors[s.status] || '#5a6b4f'}}>{s.status === 'Scheduled' ? t('res.scheduled') : s.status === 'Pending Approval' ? t('res.pendingApproval') : s.status === 'In Progress' ? t('res.inProgress') : s.status === 'Completed' ? t('res.completed') : s.status === 'Open' ? t('res.open') : s.status === 'Cancelled' ? t('res.cancelled') : s.status === 'Closed' ? t('res.closed') : s.status}</span>
+                      <span style={{fontSize:10,fontWeight:500,color: statusColors[s.status] || '#5a6b4f'}}>{s.status === 'Scheduled' ? t('res.scheduled') : (s.status === 'Pending Approval' || s.status === 'New') ? t('res.pendingApproval') : s.status === 'Assigned' ? 'Awaiting tech' : s.status === 'Accepted' ? 'Accepted' : s.status === 'In Progress' ? t('res.inProgress') : s.status === 'On Hold' ? 'On hold' : s.status === 'Completed' ? t('res.completed') : s.status === 'Open' ? t('res.open') : s.status === 'Cancelled' ? t('res.cancelled') : s.status === 'Closed' ? t('res.closed') : s.status}</span>
                     </div>
                   );
                 });
@@ -15817,7 +15817,7 @@ const ResidentApp = ({ onLogout }) => {
                 const upcomingSvc = (data.serviceRequests || [])
                   .filter(s => {
                     const d = parseDateISO(s.date);
-                    return d >= svcTodayISO && (s.status === 'Scheduled' || s.status === 'Pending Approval' || s.status === 'In Progress');
+                    return d >= svcTodayISO && ['New','Scheduled','Pending Approval','Assigned','Accepted','In Progress','On Hold'].includes(s.status);
                   })
                   .sort((a, b) => (parseDateISO(a.date) + ' ' + (a.time||'')).localeCompare(parseDateISO(b.date) + ' ' + (b.time||'')))
                   .slice(0, 2);
@@ -15839,7 +15839,7 @@ const ResidentApp = ({ onLogout }) => {
                     default: return tp;
                   }
                 };
-                const statusColors = {Scheduled:'#5a6b4f','Pending Approval':'#b08a4a','In Progress':'#4a6fa5'};
+                const statusColors = {Scheduled:'#5a6b4f','Pending Approval':'#b08a4a','New':'#b08a4a','Assigned':'#7a6040','Accepted':'#4a6fa5','In Progress':'#4a6fa5','On Hold':'#7a5a30'};
                 return upcomingSvc.map(s => {
                   const iso = parseDateISO(s.date);
                   const dp = iso.split('-');
@@ -15854,7 +15854,7 @@ const ResidentApp = ({ onLogout }) => {
                         <div style={{fontSize:11,color:'#a89a92'}}>{dl} · {s.time || '—'}</div>
                         {s.location && <div style={{fontSize:10,color:'#7a6f66',marginTop:1}}>{s.location}</div>}
                       </div>
-                      <span style={{fontSize:10,fontWeight:500,color: statusColors[s.status] || '#5a6b4f'}}>{s.status === 'Scheduled' ? t('res.scheduled') : s.status === 'Pending Approval' ? t('res.pendingApproval') : s.status === 'In Progress' ? t('res.inProgress') : s.status === 'Completed' ? t('res.completed') : s.status === 'Open' ? t('res.open') : s.status === 'Cancelled' ? t('res.cancelled') : s.status === 'Closed' ? t('res.closed') : s.status}</span>
+                      <span style={{fontSize:10,fontWeight:500,color: statusColors[s.status] || '#5a6b4f'}}>{s.status === 'Scheduled' ? t('res.scheduled') : (s.status === 'Pending Approval' || s.status === 'New') ? t('res.pendingApproval') : s.status === 'Assigned' ? 'Awaiting tech' : s.status === 'Accepted' ? 'Accepted' : s.status === 'In Progress' ? t('res.inProgress') : s.status === 'On Hold' ? 'On hold' : s.status === 'Completed' ? t('res.completed') : s.status === 'Open' ? t('res.open') : s.status === 'Cancelled' ? t('res.cancelled') : s.status === 'Closed' ? t('res.closed') : s.status}</span>
                     </div>
                   );
                 });
@@ -17209,7 +17209,7 @@ const ResidentApp = ({ onLogout }) => {
         })();
         const dp = isoDate.split('-');
         const dateLabel = dp.length === 3 ? (parseInt(dp[2]) + ' ' + months[parseInt(dp[1])-1] + ' ' + dp[0]) : s.date;
-        const editable = s.status === 'Pending Approval' || s.status === 'Scheduled' || s.status === 'Open';
+        const editable = s.status === 'New' || s.status === 'Pending Approval' || s.status === 'Scheduled' || s.status === 'Open';
         const cancellable = editable || s.status === 'In Progress';
         const isCompleted = s.status === 'Completed' || s.status === 'Done';
         const isClosed = s.status === 'Closed';
