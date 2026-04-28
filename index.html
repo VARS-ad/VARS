@@ -22009,6 +22009,13 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
     const tower = flat.charAt(0) || '—';
     const flatNum = flat.replace(/^[A-Z]-/, '');
     const floor = flatNum.length >= 3 ? flatNum.slice(0, flatNum.length - 2).replace(/^0+/, '') || '0' : flatNum.charAt(0) || '—';
+    // Live elapsed time since Accept (timer started immediately on Accept)
+    const startedMs = executionTimers[wo.id] || (wo.startedAt ? new Date(wo.startedAt).getTime() : Date.now());
+    const elapsedMs = now - startedMs;
+    const tplE = (data.fmCategoryTemplates || {})[wo.type] || {slaMinutes:240};
+    const slaPctE = (elapsedMs / 60000 / tplE.slaMinutes) * 100;
+    const slaStateE = slaPctE >= 100 ? 'breached' : slaPctE >= 80 ? 'warning' : 'ok';
+    const slaBadgeBg = slaStateE === 'breached' ? '#7a3a30' : slaStateE === 'warning' ? '#7a6040' : '#5a6b4f';
     const onArrive = () => {
       setData(FmHelpers.transitionWO(wo.id, { arrivedAt: new Date().toISOString() }));
       showToast('Arrival confirmed — resident notified. Begin checklist.');
@@ -22025,9 +22032,26 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
           <div style={{marginLeft:'auto',fontSize:11,color:'#a89a92'}}>{wo.id}</div>
         </div>
 
+        {/* Execution Timer — visible from the moment the task is accepted */}
+        <div style={{background:'linear-gradient(135deg,#a89a92 0%,#928989 60%,#7a6f66 100%)',color:'#fff',borderRadius:14,padding:16,marginBottom:14,boxShadow:'0 4px 16px rgba(146,137,137,0.28)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+            <div>
+              <div style={{fontSize:11,opacity:0.85,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>Execution Timer</div>
+              <div style={{fontSize:26,fontWeight:700,fontFeatureSettings:"'tnum' 1",letterSpacing:'-0.01em'}}>{fmtElapsed(elapsedMs)}</div>
+            </div>
+            <div style={{padding:'6px 10px',background:slaBadgeBg,borderRadius:6,fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+              SLA · {slaStateE === 'breached' ? 'Breached' : slaStateE === 'warning' ? 'Warning' : 'On Track'}
+            </div>
+          </div>
+          <div style={{height:5,background:'rgba(255,255,255,0.25)',borderRadius:3,overflow:'hidden'}}>
+            <div style={{height:'100%',width:Math.min(slaPctE,100)+'%',background:'#fff',transition:'width 0.5s'}}/>
+          </div>
+          <div style={{fontSize:10,opacity:0.85,marginTop:6}}>SLA window: {fmt(tplE.slaMinutes)} · timer started on Accept</div>
+        </div>
+
         {/* Title */}
-        <div style={{fontSize:22,fontWeight:600,color:'#1a1a1a',marginBottom:4,letterSpacing:'-0.01em'}}>On the way</div>
-        <div style={{fontSize:13,color:'#7a6f66',marginBottom:18}}>{wo.type}{wo.location ? ' · ' + wo.location : ''}</div>
+        <div style={{fontSize:20,fontWeight:600,color:'#1a1a1a',marginBottom:4,letterSpacing:'-0.01em'}}>On the way</div>
+        <div style={{fontSize:13,color:'#7a6f66',marginBottom:14}}>{wo.type}{wo.location ? ' · ' + wo.location : ''}</div>
 
         {/* Address card — Building / Floor / Unit / Resident */}
         <div style={{background:'rgba(255,255,255,0.78)',borderRadius:16,padding:18,marginBottom:14,border:'1px solid rgba(255,255,255,0.55)',boxShadow:'0 2px 12px rgba(120,100,90,0.06)'}}>
