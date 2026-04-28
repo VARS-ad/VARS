@@ -16962,7 +16962,25 @@ const ResidentApp = ({ onLogout }) => {
                   setData(prev => ({...prev, serviceRequests: (prev.serviceRequests || []).map(s => s.id === editingServiceId ? {...s, type: serviceBooking.type, date: serviceBooking.date, time: serviceBooking.time, location: serviceBooking.location, areaType: serviceBooking.areaType, urgency: serviceBooking.guests, comments: serviceBooking.comments || '', attachments: serviceBooking.attachments || []} : s)}));
                   showToast('Service request updated');
                 } else {
-                  setData(prev => ({...prev, serviceRequests: [...prev.serviceRequests, {id: 'SR-'+Date.now(), type: serviceBooking.type, flat: 'B-102', resident: 'Nitin Sharma', date: serviceBooking.date, time: serviceBooking.time, status: 'Pending Approval', location: serviceBooking.location, areaType: serviceBooking.areaType, urgency: serviceBooking.guests, comments: serviceBooking.comments || '', attachments: serviceBooking.attachments || []}]}));
+                  // Canonical: resident submission creates a 'New' (unassigned) work order.
+                  // Supervisor must explicitly assign before it becomes 'Assigned'.
+                  setData(prev => ({...prev, serviceRequests: [...prev.serviceRequests, {
+                    id: 'SR-'+Date.now(),
+                    type: serviceBooking.type,
+                    flat: 'B-102',
+                    resident: 'Nitin Sharma',
+                    residentPhone: '+971 50 123 4567',
+                    date: serviceBooking.date,
+                    time: serviceBooking.time,
+                    status: 'New',                        // ← canonical step 1
+                    submittedAt: new Date().toISOString(),// ← submission timestamp
+                    assignedTo: null,                     // ← unassigned
+                    location: serviceBooking.location,
+                    areaType: serviceBooking.areaType,
+                    urgency: serviceBooking.guests,
+                    comments: serviceBooking.comments || '',
+                    attachments: serviceBooking.attachments || []
+                  }]}));
                   showToast('Service request submitted for approval');
                 }
               } else if (editingAmenityId) {
@@ -21243,16 +21261,40 @@ const FmHelpers = {
     if (st === 'Assessment shared') return 'Assessed';
     return st;
   },
-  enrichWorkOrder: (sr) => {
-    // Normalize serviceRequest into work-order shape with derived status
-    let status = sr.status;
-    if (status === 'Pending Approval') status = 'Assigned'; // resident-submitted, awaiting tech accept
-    return { ...sr, woStatus: status, priority: FmHelpers.priorityFromUrgency(sr.urgency) };
+  // Canonical status names used by the work-order lifecycle.
+  // 'Pending Approval' is treated as a legacy alias of 'New' (older seed rows used it).
+  STATUS: {
+    NEW: 'New',
+    ASSIGNED: 'Assigned',
+    ACCEPTED: 'Accepted',
+    IN_PROGRESS: 'In Progress',
+    ON_HOLD: 'On Hold',
+    COMPLETED: 'Completed',
+    CONFIRMED: 'Confirmed',
+    CLOSED: 'Closed',
+    REJECTED: 'Rejected',
+    REOPENED: 'Reopened',
+    CANCELLED: 'Cancelled'
   },
-  // Returns the FmTechnician page name to render for a given woStatus
+  // Aliases (legacy / display variants). These map back to the canonical name above.
+  isNewStatus: (st) => st === 'New' || st === 'Pending Approval' || st === 'Scheduled',
+  // Transition helper — returns an updater fn for setData(prev) that updates a single WO by id.
+  // Preserves all prior fields via spread; never overwrites untouched data.
+  transitionWO: (id, patch) => (prev) => ({
+    ...prev,
+    serviceRequests: (prev.serviceRequests || []).map(s => s.id === id ? { ...s, ...patch } : s)
+  }),
+  enrichWorkOrder: (sr) => {
+    // Pass-through enrichment — adds derived priority and a normalized woStatus alias for legacy callers
+    return { ...sr, woStatus: sr.status, priority: FmHelpers.priorityFromUrgency(sr.urgency) };
+  },
+  // Returns the FmTechnician page name to render for a given woStatus.
+  // Canonical flow:
+  //   Assigned  → 'detail' (Accept/Reject CTAs)
+  //   Accepted  → 'detail' (Start work CTA — step 4)
+  //   In Progress / On Hold / Arrived / Assessment shared → 'execution'
+  //   Completed / Closed / Confirmed → 'detail' (read-only summary)
   techPageForStatus: (st) => {
-    // Streamlined flow: Detail (with prominent CTA) → Execution → Close-out
-    // The detail screen handles Assigned (accept/reject) and Accepted (I have arrived)
     if (st === 'In Progress' || st === 'On Hold' || st === 'Arrived' || st === 'Assessment shared') return 'execution';
     return 'detail';
   },
@@ -21315,10 +21357,12 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
     if (!shiftStartedAt) setShiftStartedAt(Date.now());
   }, []);
 
-  // My queue = ONLY service requests explicitly assigned to me by a supervisor
-  const myWorkOrders = (data.serviceRequests || [])
-    .filter(s => s.assignedTo === (user && user.id))
-    .map(FmHelpers.enrichWorkOrder);
+  // My queue = ONLY service requests explicitly assigned to me by a supervisor.
+  // useMemo: recompute only when the underlying SR list or current user changes.
+  const myWorkOrders = React.useMemo(
+    () => (data.serviceRequests || []).filter(s => s.assignedTo === (user && user.id)).map(FmHelpers.enrichWorkOrder),
+    [data.serviceRequests, user && user.id]
+  );
 
   // Single source of truth for tab matching — badge count and visible list always agree
   const tabMatch = {
@@ -21387,7 +21431,7 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
     const duringPhotos = duringPhotosByWo[wo.id] || [];
     setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {
       ...s,
-      status:'Done',
+      status:'Completed',
       completedAt: new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}),
       workDone: closeoutForm.workDone,
       materialsUsed: (executionMaterials[wo.id] || []).filter(m => m && m.name && m.name.trim()),
@@ -21399,7 +21443,7 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
       fmTechnician: { name: user.name, role: user.specialty, phone: user.phone, expectedArrival: s.time || '—' }
     } : s)}));
     setCloseoutForm({workDone:''});
-    showToast('Service request closed — resident notified');
+    showToast('Service marked complete — resident notified');
     setPage('success');
   };
 
@@ -21494,7 +21538,7 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
     const arriveCanTap = acceptedAtMs > 0 && arriveSinceAccept >= arriveLockMs;
     const arriveCountdown = Math.max(0, Math.ceil((arriveLockMs - arriveSinceAccept)/1000));
     return (
-      <div style={{padding:'12px 16px',paddingBottom:120}}>
+      <div style={{padding:'12px 16px',paddingBottom:160}}>
         {/* Back + WO ref */}
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
           <button onClick={() => setPage('queue')} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex',alignItems:'center',gap:4,color:'#6b5d52',fontSize:13,fontWeight:500}}>
@@ -21593,25 +21637,26 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
           <textarea value={executionNotes[wo.id] || ''} onChange={e => setExecutionNotes(prev => ({...prev, [wo.id]: e.target.value}))} placeholder="Add internal note..." rows={2} style={{width:'100%',padding:8,border:'1px solid #ebe7e3',borderRadius:6,fontSize:12,resize:'vertical',fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}/>
         </div>
 
-        {/* Action buttons — depend on woStatus */}
-        <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',display:'flex',gap:8,zIndex:50}}>
+        {/* Action buttons — depend on woStatus. Lifted above bottom nav (bottom:60) so always visible */}
+        <div style={{position:'fixed',bottom:60,left:0,right:0,padding:'12px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',display:'flex',gap:8,zIndex:50}}>
           {wo.woStatus === 'Assigned' ? (
             <>
-              <button onClick={() => setShowRejectModal(true)} style={{flex:1,padding:14,background:'#fff',color:'#c0392b',border:'1px solid #e0d5d0',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>Reject task</button>
-              <button onClick={() => setShowAcceptConfirm(true)} style={{flex:2,padding:14,background:'#2d6a4f',color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>Accept task</button>
+              <button onClick={() => setShowRejectModal(true)} style={{flex:1,padding:14,background:'#fff',color:'#c0392b',border:'1px solid #e0d5d0',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>Reject</button>
+              <button onClick={() => setShowAcceptConfirm(true)} style={{flex:2,padding:14,background:'#2d6a4f',color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:600,cursor:'pointer'}}>Accept</button>
             </>
-          ) : ['Accepted','En route'].includes(wo.woStatus) ? (
-            <button disabled={!arriveCanTap} onClick={() => {
-              setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {...s, status:'Arrived', arrivedAt: new Date().toISOString()} : s)}));
-              showToast('Marked as arrived — resident notified');
+          ) : wo.woStatus === 'Accepted' ? (
+            // Canonical step 4: Start Work — separate action from Accept.
+            <button onClick={() => {
+              const ts = new Date().toISOString();
+              setExecutionTimers(prev => ({...prev, [wo.id]: Date.now()}));
+              setData(FmHelpers.transitionWO(wo.id, { status: 'In Progress', startedAt: ts }));
+              showToast('Work started — timer running');
               setPage('execution');
-            }} style={{flex:1,padding:16,background: arriveCanTap ? '#3a5a8a' : '#c4b8b0',color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:600,cursor: arriveCanTap ? 'pointer':'default',letterSpacing:'-0.01em'}}>
-              {arriveCanTap ? 'I have arrived' : 'I have arrived (' + arriveCountdown + 's)'}
-            </button>
-          ) : ['Arrived','Assessment shared','In Progress','On Hold'].includes(wo.woStatus) ? (
+            }} style={{flex:1,padding:14,background:'#5a6b4f',color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:600,cursor:'pointer'}}>Start work</button>
+          ) : ['En route','Arrived','Assessment shared','In Progress','On Hold'].includes(wo.woStatus) ? (
             <button onClick={() => setPage('execution')} style={{flex:1,padding:14,background:'#4a6fa5',color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>{wo.woStatus === 'On Hold' ? 'Resume work' : 'Continue to checklist'}</button>
           ) : ['Completed','Closed','Confirmed','Done'].includes(wo.woStatus) ? (
-            <div style={{flex:1,padding:14,background:'#eef0eb',color:'#2d6a4f',borderRadius:10,fontSize:12,textAlign:'center',fontWeight:600}}>{wo.id} · Done</div>
+            <div style={{flex:1,padding:14,background:'#eef0eb',color:'#2d6a4f',borderRadius:10,fontSize:12,textAlign:'center',fontWeight:600}}>{wo.id} · Complete</div>
           ) : (
             <div style={{flex:1,padding:14,background:'#fbeeec',color:'#8b3a30',borderRadius:10,fontSize:12,textAlign:'center',fontWeight:600}}>Status: {wo.woStatus}</div>
           )}
@@ -21641,13 +21686,15 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
           <div onClick={() => setShowAcceptConfirm(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
             <div onClick={e => e.stopPropagation()} style={{background:'#fff',borderRadius:14,padding:24,width:'100%',maxWidth:360}}>
               <div style={{fontSize:16,fontWeight:600,marginBottom:8,color:'#1a1a1a'}}>Accept this task?</div>
-              <div style={{fontSize:13,color:'#6b5d52',lineHeight:1.5,marginBottom:18}}>You are taking responsibility for <strong>{wo.id}</strong>. The resident will be notified that you have been assigned and are on the way.</div>
+              <div style={{fontSize:13,color:'#6b5d52',lineHeight:1.5,marginBottom:18}}>You are taking responsibility for <strong>{wo.id}</strong>. The status will move to <strong>Accepted</strong> and the resident will be notified. You can press <strong>Start work</strong> when you arrive on site.</div>
               <div style={{display:'flex',gap:8}}>
                 <button onClick={() => setShowAcceptConfirm(false)} style={{flex:1,padding:12,background:'#fff',color:'#6b5d52',border:'1px solid #d5cfc8',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
                 <button onClick={() => {
-                  setData(prev => ({...prev, serviceRequests: (prev.serviceRequests||[]).map(s => s.id === wo.id ? {...s, status:'Accepted', acceptedAt: new Date().toISOString()} : s)}));
+                  // Canonical step 3: Accept — sets status to 'Accepted' + acceptedAt only.
+                  // Start Work is a separate action (step 4) below.
+                  setData(FmHelpers.transitionWO(wo.id, { status: 'Accepted', acceptedAt: new Date().toISOString() }));
                   setShowAcceptConfirm(false);
-                  showToast('Task accepted — resident notified');
+                  showToast('Task accepted — resident notified. Tap Start work when on site.');
                 }} style={{flex:1,padding:12,background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Confirm</button>
               </div>
             </div>
@@ -21872,7 +21919,7 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
     const materials = executionMaterials[wo.id] || [];
 
     return (
-      <div style={{padding:'12px 16px',paddingBottom:140}}>
+      <div style={{padding:'12px 16px',paddingBottom:200}}>
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
           <button onClick={() => setPage('detail')} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex',alignItems:'center',gap:4,color:'#6b5d52',fontSize:13,fontWeight:500}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -22020,8 +22067,8 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
           </button>
         </div>
 
-        {/* Execution actions */}
-        <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',display:'flex',flexDirection:'column',gap:8,zIndex:50}}>
+        {/* Execution actions — lifted above bottom nav */}
+        <div style={{position:'fixed',bottom:60,left:0,right:0,padding:'12px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',display:'flex',flexDirection:'column',gap:8,zIndex:50}}>
           <button onClick={() => { setCloseoutForm({workDone: ''}); setPage('closeout'); }} style={{padding:14,background:'#5a6b4f',color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:600,cursor:'pointer'}}>Continue to close-out</button>
           <div style={{display:'flex',gap:8}}>
             <button onClick={() => setShowHoldModal(true)} style={{flex:1,padding:11,background:'#fff',color:'#7a5a30',border:'1px solid #d5cfc8',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>On Hold</button>
@@ -22063,7 +22110,7 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
     const checklistComplete = tpl.checklist.length === 0 || tpl.checklist.every((_, i) => checklist[i]);
     const valid = closeoutForm.workDone.trim().length > 0 && afterPhotos.length >= 1 && checklistComplete;
     return (
-      <div style={{padding:'12px 16px',paddingBottom:140}}>
+      <div style={{padding:'12px 16px',paddingBottom:180}}>
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
           <button onClick={() => setPage('execution')} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex',alignItems:'center',gap:4,color:'#6b5d52',fontSize:13,fontWeight:500}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -22157,25 +22204,36 @@ const FmTechnicianApp = ({ user, onSwitchRole, onSignOut }) => {
           </div>
         )}
 
-        <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',display:'flex',gap:8,zIndex:50}}>
-          <button onClick={() => setPage('execution')} style={{flex:1,padding:14,background:'#fff',color:'#6b5d52',border:'1px solid #d5cfc8',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>Back</button>
+        {/* Inline primary CTA — always visible inside the close-out content */}
+        <div style={{marginBottom:14}}>
           <button disabled={!valid} onClick={() => {
             if (!checklistComplete) { showToast('Complete or mark N/A all checklist steps'); return; }
             if (afterPhotos.length === 0) { showToast('At least one after-photo is required'); return; }
             if (!closeoutForm.workDone.trim()) { showToast('Please describe the work done'); return; }
             setShowCompleteConfirm(true);
-          }} style={{flex:2,padding:14,background: valid ? '#2d6a4f':'#c4b8b0',color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:600,cursor: valid ? 'pointer':'default'}}>Close service request</button>
+          }} style={{width:'100%',padding:16,background: valid ? '#2d6a4f':'#c4b8b0',color:'#fff',border:'none',borderRadius:12,fontSize:15,fontWeight:600,cursor: valid ? 'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow: valid ? '0 4px 12px rgba(45,106,79,0.25)':'none'}}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M20 6L9 17l-5-5"/></svg>
+            Complete the service
+          </button>
+          {!valid && (
+            <div style={{fontSize:11,color:'#a89a92',textAlign:'center',marginTop:6}}>Complete the checklist, add at least one after-photo, and write a summary.</div>
+          )}
+        </div>
+
+        {/* Fixed footer — Back to execution, lifted above bottom nav */}
+        <div style={{position:'fixed',bottom:60,left:0,right:0,padding:'10px 16px',background:'rgba(255,255,255,0.95)',backdropFilter:'blur(20px)',borderTop:'1px solid #ebe7e3',zIndex:50}}>
+          <button onClick={() => setPage('execution')} style={{width:'100%',padding:12,background:'#fff',color:'#6b5d52',border:'1px solid #d5cfc8',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Back to execution</button>
         </div>
 
         {/* Complete confirmation */}
         {showCompleteConfirm && (
           <div onClick={() => setShowCompleteConfirm(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
             <div onClick={e => e.stopPropagation()} style={{background:'#fff',borderRadius:14,padding:24,width:'100%',maxWidth:360}}>
-              <div style={{fontSize:16,fontWeight:600,marginBottom:8,color:'#1a1a1a'}}>Close service request?</div>
-              <div style={{fontSize:13,color:'#6b5d52',lineHeight:1.5,marginBottom:18}}>This will mark the order as <strong>Done</strong>, notify the resident, and share the after-photos. The resident can then confirm or report an issue.</div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:8,color:'#1a1a1a'}}>Complete the service?</div>
+              <div style={{fontSize:13,color:'#6b5d52',lineHeight:1.5,marginBottom:18}}>This will mark the service as <strong>Complete</strong> in the system, notify the resident, and share the after-photos.</div>
               <div style={{display:'flex',gap:8}}>
                 <button onClick={() => setShowCompleteConfirm(false)} style={{flex:1,padding:12,background:'#fff',color:'#6b5d52',border:'1px solid #d5cfc8',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Back</button>
-                <button onClick={() => { setShowCompleteConfirm(false); submitCloseOut(wo); }} style={{flex:1,padding:12,background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Close request</button>
+                <button onClick={() => { setShowCompleteConfirm(false); submitCloseOut(wo); }} style={{flex:1,padding:12,background:'#2d6a4f',color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>Confirm complete</button>
               </div>
             </div>
           </div>
@@ -22363,7 +22421,11 @@ const FmSupervisorApp = ({ user, onSwitchRole, onSignOut }) => {
   const fmUsers = (data.fmUsers || []);
   const technicians = fmUsers.filter(u => u.role === 'technician');
 
-  const allWOs = (data.serviceRequests || []).map(FmHelpers.enrichWorkOrder);
+  // Memoize: recompute only when the SR list reference changes, not on every now-tick render
+  const allWOs = React.useMemo(
+    () => (data.serviceRequests || []).map(FmHelpers.enrichWorkOrder),
+    [data.serviceRequests]
+  );
 
   // Sort by priority then submission time descending — most urgent + recent on top
   const sortQueue = (list) => list.slice().sort((a,b) => {
@@ -22373,8 +22435,10 @@ const FmSupervisorApp = ({ user, onSwitchRole, onSignOut }) => {
     return FmHelpers.parseDate(b.date).localeCompare(FmHelpers.parseDate(a.date));
   });
 
-  // Status grouping per spec
-  const isAwaitingTech = (w) => w.woStatus === 'Assigned' || w.woStatus === 'Pending Approval' || w.woStatus === 'New';
+  // Status grouping — canonical 4-step model (New → Assigned → Accepted → In Progress → Completed)
+  // 'Pending Approval' kept as legacy alias of 'New'.
+  const isNewUnassigned = (w) => !w.assignedTo && (w.woStatus === 'New' || w.woStatus === 'Pending Approval');
+  const isAwaitingTech = (w) => !!w.assignedTo && !w.acceptedAt && (w.woStatus === 'Assigned' || w.woStatus === 'New' || w.woStatus === 'Pending Approval');
   const isInProgress = (w) => ['Accepted','En route','Arrived','Assessment shared','In Progress'].includes(w.woStatus);
   const isOnHold = (w) => w.woStatus === 'On Hold';
   const isCompleted = (w) => ['Completed','Closed','Confirmed','Done'].includes(w.woStatus);
@@ -22598,10 +22662,11 @@ const FmSupervisorApp = ({ user, onSwitchRole, onSignOut }) => {
   };
 
   const renderQueue = () => {
-    // Per-filter list builders
+    // Per-filter list builders — canonical lifecycle
     const lists = {
       'All': allWOs,
       'Urgent': allWOs.filter(w => w.priority === 'Urgent' && isOpen(w)),
+      'New': allWOs.filter(isNewUnassigned),
       'Awaiting tech': allWOs.filter(isAwaitingTech),
       'In progress': allWOs.filter(isInProgress),
       'On hold': allWOs.filter(isOnHold),
@@ -22627,7 +22692,7 @@ const FmSupervisorApp = ({ user, onSwitchRole, onSignOut }) => {
 
         {/* Filter pills with counts */}
         <div style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto',paddingBottom:2}}>
-          {['All','Urgent','Awaiting tech','In progress','On hold','Completed'].map(f => (
+          {['All','Urgent','New','Awaiting tech','In progress','On hold','Completed'].map(f => (
             <button key={f} onClick={() => setQueueFilter(f)} style={{padding:'7px 12px',borderRadius:20,border:'1px solid '+(queueFilter===f?'#1a1a1a':'#d5cfc8'),background: queueFilter===f?'#1a1a1a':'#fff',color: queueFilter===f?'#fff':'#6b5d52',fontSize:12,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
               {f} {counts[f] > 0 && <span style={{opacity:0.8,fontWeight:500,marginLeft:4}}>({counts[f]})</span>}
             </button>
