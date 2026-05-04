@@ -23966,7 +23966,7 @@ const useFMData = () => {
 
   // Map Supabase rows to the existing FM_MOCK shape so the UI doesn't change
   const mapLoc = r => ({ id: r.id, name: r.name, address: r.address || '', sub: 0, parent: r.parent_id, isDefault: r.is_default });
-  const mapAsset = r => ({ id: r.id, name: r.name, criticality: r.criticality, status: r.status, location: '', location_id: r.location_id, manufacturer: r.manufacturer || '', model: r.model || '', serial: r.serial_number || '' });
+  const mapAsset = r => ({ id: r.id, name: r.name, criticality: r.criticality, status: r.status, location: '', location_id: r.location_id, parent_id: r.parent_id, manufacturer: r.manufacturer || '', model: r.model || '', serial: r.serial_number || '', qr_code: r.qr_code || '' });
   const mapWO = r => ({ id: '#' + r.seq_no, _id: r.id, title: r.title, priority: r.priority, status: r.status, assignee: '—', dueDate: r.due_date ? new Date(r.due_date).toLocaleDateString('en-GB') : '—', asset: '', location: '', workType: r.work_type, est: (r.estimated_hours || 1) + 'h' });
   const mapReq = r => ({ id: 'R-' + r.seq_no, _id: r.id, title: r.title, priority: r.priority, status: r.status, submittedBy: r.submitter_name || '—', submittedDate: r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '—' });
   const mapVendor = r => ({ id: r.id, name: r.name, type: r.vendor_type || 'Service', phone: r.phone || '—', email: r.email || '—', tradeLicense: r.trade_license || '—', civilDefence: r.civil_defence || '—' });
@@ -24099,8 +24099,65 @@ const useFMData = () => {
       const patch = { status };
       if (status === 'Done') patch.completed_at = new Date().toISOString();
       const r = await update('fm_workorders', woRowId, patch);
+      // === Recurrence engine (client-side) ===
+      // If a recurring WO is marked Done, automatically spawn the next occurrence
+      if (r && status === 'Done' && r.recurrence && r.recurrence.freq && r.due_date) {
+        const cur = new Date(r.due_date);
+        const next = new Date(cur);
+        const interval = r.recurrence.interval || 1;
+        if (r.recurrence.freq === 'daily') next.setDate(cur.getDate() + interval);
+        else if (r.recurrence.freq === 'weekly') next.setDate(cur.getDate() + 7 * interval);
+        else if (r.recurrence.freq === 'monthly') next.setMonth(cur.getMonth() + interval);
+        else if (r.recurrence.freq === 'yearly') next.setFullYear(cur.getFullYear() + interval);
+        // Find next seq_no
+        const { data: maxRow } = await supabaseClient.from('fm_workorders').select('seq_no').eq('org_id', FM_ORG_ID).order('seq_no', { ascending: false }).limit(1).single();
+        const nextSeq = ((maxRow && maxRow.seq_no) || 0) + 1;
+        await supabaseClient.from('fm_workorders').insert({
+          org_id: FM_ORG_ID, seq_no: nextSeq,
+          title: r.title, description: r.description,
+          status: 'Open', priority: r.priority, work_type: r.work_type,
+          asset_id: r.asset_id, location_id: r.location_id, procedure_id: r.procedure_id,
+          assignee_user_id: r.assignee_user_id, assignee_team_id: r.assignee_team_id,
+          due_date: next.toISOString().slice(0,10),
+          estimated_hours: r.estimated_hours, recurrence: r.recurrence,
+          category_ids: r.category_ids, vendor_ids: r.vendor_ids,
+        });
+        console.log('[FM] recurrence: spawned next WO due', next.toISOString().slice(0,10));
+      }
       if (r) await loadAll();
       return r;
+    },
+    // Save procedure responses (when WO with linked procedure is being executed)
+    saveWOProcedureResponses: async (woId, responses) => {
+      const r = await update('fm_workorders', woId, { procedure_responses: responses });
+      if (r) await loadAll();
+      return r;
+    },
+    // Fire automation triggers (client-side rule engine — checks enabled automations)
+    fireAutomation: async (eventName, context) => {
+      if (!supabaseClient) return;
+      const { data: autos } = await supabaseClient.from('fm_automations').select('*').eq('org_id', FM_ORG_ID).eq('enabled', true);
+      for (const a of (autos || [])) {
+        if (a.trigger && a.trigger.event === eventName) {
+          // Execute action
+          if (a.action && a.action.type === 'send_notification') {
+            console.log('[Automation]', a.name, '→ Notification:', context && context.title);
+            // Hook for real email/SMS: see Settings → Integrations
+          } else if (a.action && a.action.type === 'create_wo_from_template' && a.action.template_id) {
+            const { data: tpl } = await supabaseClient.from('fm_wo_templates').select('*').eq('id', a.action.template_id).single();
+            if (tpl) {
+              const { data: maxRow } = await supabaseClient.from('fm_workorders').select('seq_no').eq('org_id', FM_ORG_ID).order('seq_no', { ascending: false }).limit(1).single();
+              await supabaseClient.from('fm_workorders').insert({
+                org_id: FM_ORG_ID, seq_no: ((maxRow && maxRow.seq_no) || 0) + 1,
+                title: tpl.title || tpl.name, description: tpl.description,
+                priority: tpl.priority, asset_id: tpl.asset_id, location_id: tpl.location_id,
+                procedure_id: tpl.procedure_id, status: 'Open', work_type: 'Preventive',
+                estimated_hours: tpl.estimated_hours, recurrence: tpl.recurrence,
+              });
+            }
+          }
+        }
+      }
     },
     deleteWorkOrder: async (id) => { const ok = await remove('fm_workorders', id); if (ok) await loadAll(); return ok; },
     // REQUESTS
@@ -24133,6 +24190,8 @@ const useFMData = () => {
       });
       if (wo) {
         await update('fm_requests', requestRowId, { status: 'Approved', workorder_id: wo.id, triaged_at: new Date().toISOString() });
+        // Fire automation
+        await ops.fireAutomation('request_approved', { title: wo.title, woId: wo.id });
         await loadAll();
       }
       return wo;
@@ -24322,6 +24381,7 @@ const FMWorkOrders = ({ data, ops, onCreate, onEdit }) => {
   const [partDraft, setPartDraft] = React.useState({ part_id: '', qty: '1' });
   const [costDraft, setCostDraft] = React.useState({ label: '', amount: '' });
   const [showAdd, setShowAdd] = React.useState(null); // 'time' | 'part' | 'cost' | null
+  const [executingProcedure, setExecutingProcedure] = React.useState(null);
   const selected = list.find(w => (w._id || w.id) === selectedId) || list[0] || FM_MOCK.workOrders[0];
   const filtered = tab === 'todo' ? list.filter(w => w.status !== 'Done') : list.filter(w => w.status === 'Done');
   const todo = filtered;
@@ -24412,7 +24472,11 @@ const FMWorkOrders = ({ data, ops, onCreate, onEdit }) => {
             <div style={{fontSize:12,color:FM_COLORS.textMuted,marginTop:4}}>📅 Created on 04/05/2026</div>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button style={fmStyles.secondaryBtn}>💬 Comments</button>
+            {fullWO && fullWO.procedure_id && <button onClick={async () => {
+              if (!supabaseClient) return;
+              const { data: proc } = await supabaseClient.from('fm_procedures').select('*').eq('id', fullWO.procedure_id).single();
+              if (proc) setExecutingProcedure(proc);
+            }} style={{...fmStyles.secondaryBtn,color:FM_COLORS.blue,borderColor:FM_COLORS.blue+'66'}}>📋 Run Procedure</button>}
             {onEdit && selected._id && <button onClick={() => onEdit(selected._id)} style={fmStyles.secondaryBtn}>✏ Edit</button>}
             <button onClick={handleDelete} style={{...fmStyles.secondaryBtn,color:FM_COLORS.red,borderColor:FM_COLORS.red+'44'}}>🗑 Delete</button>
             {selected.status !== 'Done' && <button onClick={() => handleStatusChange('Done')} style={fmStyles.primaryBtn}>Mark as Done ✓</button>}
@@ -24546,6 +24610,19 @@ const FMWorkOrders = ({ data, ops, onCreate, onEdit }) => {
           </div>
         </div>
       </div>
+      {executingProcedure && (
+        <FMProcedureExecutionModal
+          workorder={fullWO || selected}
+          procedure={executingProcedure}
+          onClose={() => setExecutingProcedure(null)}
+          onComplete={async (responses) => {
+            await ops.saveWOProcedureResponses(selected._id, responses);
+            // Auto-mark WO as Done after procedure completion
+            await ops.updateWorkOrderStatus(selected._id, 'Done');
+            if (ops.fetchWorkOrder) ops.fetchWorkOrder(selected._id).then(setFullWO);
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -24669,6 +24746,7 @@ const FMTablePage = ({ title, columns, rows, filters = [], primaryAction = '+ Ne
 };
 
 const FMReporting = ({ data }) => {
+  const [tab, setTab] = React.useState('workorders');
   // Compute reporting cards from live data
   const wos = data?.workOrders || [];
   const today = new Date();
@@ -24699,27 +24777,130 @@ const FMReporting = ({ data }) => {
       <div style={{display:'flex',gap:8}}><button style={fmStyles.secondaryBtn}>Export ▾</button><button style={fmStyles.primaryBtn}>🔒 Build Report</button></div>
     </div>
     <div style={{padding:'12px 24px',borderBottom:`1px solid ${FM_COLORS.border}`,display:'flex',gap:24,fontSize:13}}>
-      <span style={{borderBottom:`2px solid ${FM_COLORS.blue}`,paddingBottom:8,color:FM_COLORS.blue,fontWeight:600}}>Work Orders</span>
-      <span style={{paddingBottom:8,color:FM_COLORS.textMuted}}>🔒 Asset Health</span>
-      <span style={{paddingBottom:8,color:FM_COLORS.textMuted}}>Reporting Details</span>
-      <span style={{paddingBottom:8,color:FM_COLORS.textMuted}}>Recent Activity</span>
-      <span style={{paddingBottom:8,color:FM_COLORS.textMuted}}>Export Data</span>
-      <span style={{paddingBottom:8,color:FM_COLORS.textMuted}}>Custom Dashboards</span>
+      {[
+        ['workorders','Work Orders'],
+        ['assethealth','🔒 Asset Health'],
+        ['details','Reporting Details'],
+        ['activity','Recent Activity'],
+        ['export','Export Data'],
+        ['dashboards','Custom Dashboards'],
+      ].map(([id, label]) => (
+        <span key={id} onClick={() => setTab(id)} style={{borderBottom:tab===id?`2px solid ${FM_COLORS.blue}`:'none',paddingBottom:8,color:tab===id?FM_COLORS.blue:FM_COLORS.textMuted,fontWeight:tab===id?600:500,cursor:'pointer'}}>{label}</span>
+      ))}
     </div>
-    <div style={fmStyles.body}>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:12}}>
-        {cards.map((c,i) => (
-          <div key={i} style={{...fmStyles.card,marginBottom:0}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-              <div style={{fontSize:13,color:FM_COLORS.textSecondary,fontWeight:500}}>{c.title}</div>
-              <button style={{...fmStyles.chip,fontSize:10,padding:'3px 8px'}}>+ Dashboard</button>
+    {tab === 'workorders' && (
+      <div style={fmStyles.body}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:12}}>
+          {cards.map((c,i) => (
+            <div key={i} style={{...fmStyles.card,marginBottom:0}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div style={{fontSize:13,color:FM_COLORS.textSecondary,fontWeight:500}}>{c.title}</div>
+              </div>
+              <div style={{fontSize:32,fontWeight:700,color:FM_COLORS.navy,marginTop:8,letterSpacing:'-0.02em'}}>{c.big}</div>
+              <div style={{fontSize:11,color:FM_COLORS.textMuted,marginTop:4}}>{c.sub}</div>
             </div>
-            <div style={{fontSize:32,fontWeight:700,color:FM_COLORS.navy,marginTop:8,letterSpacing:'-0.02em'}}>{c.big}</div>
-            <div style={{fontSize:11,color:FM_COLORS.textMuted,marginTop:4}}>{c.sub}</div>
+          ))}
+        </div>
+        {/* Breakdown by Status */}
+        <div style={{marginTop:24}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:FM_COLORS.navy,marginBottom:12}}>By Status</h3>
+          <div style={{...fmStyles.card,marginBottom:0}}>
+            {['Open','On Hold','In Progress','Done'].map(s => {
+              const count = wos.filter(w => w.status === s).length;
+              const pct = wos.length ? (count / wos.length) * 100 : 0;
+              return (
+                <div key={s} style={{marginBottom:10}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4,fontSize:12}}>
+                    <span style={{color:FM_COLORS.text}}>{s}</span>
+                    <span style={{color:FM_COLORS.textMuted}}>{count} ({pct.toFixed(0)}%)</span>
+                  </div>
+                  <div style={{height:8,background:FM_COLORS.bgSoft,borderRadius:4,overflow:'hidden'}}>
+                    <div style={{height:'100%',background:FM_COLORS.blue,width:pct + '%',transition:'width .3s'}}/>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        </div>
       </div>
-    </div>
+    )}
+    {tab === 'assethealth' && (
+      <div style={fmStyles.body}>
+        <div style={{padding:60,textAlign:'center',color:FM_COLORS.textMuted}}>
+          <div style={{fontSize:48,marginBottom:12}}>🔒</div>
+          <div style={{fontSize:16,fontWeight:600,color:FM_COLORS.navy,marginBottom:8}}>Asset Health Reporting</div>
+          <p style={{fontSize:13}}>Premium feature. Tracks asset uptime %, MTBF, downtime causes by asset.</p>
+        </div>
+      </div>
+    )}
+    {tab === 'details' && (
+      <div style={fmStyles.body}>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:FM_COLORS.navy,marginBottom:12}}>Detailed Work Order List</h3>
+          <table style={fmStyles.table}>
+            <thead><tr><th style={fmStyles.th}>ID</th><th style={fmStyles.th}>Title</th><th style={fmStyles.th}>Status</th><th style={fmStyles.th}>Priority</th><th style={fmStyles.th}>Type</th><th style={fmStyles.th}>Due</th><th style={fmStyles.th}>Est.</th></tr></thead>
+            <tbody>{wos.map(w => (
+              <tr key={w._id || w.id}><td style={fmStyles.td}>{w.id}</td><td style={fmStyles.td}>{w.title}</td><td style={fmStyles.td}><FMStatusPill s={w.status}/></td><td style={fmStyles.td}><FMPriorityPill p={w.priority}/></td><td style={fmStyles.td}>{w.workType}</td><td style={fmStyles.td}>{w.dueDate}</td><td style={fmStyles.td}>{w.est}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </div>
+    )}
+    {tab === 'activity' && (
+      <div style={fmStyles.body}>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:FM_COLORS.navy,marginBottom:12}}>Recent Activity</h3>
+          {wos.slice(0, 20).map(w => (
+            <div key={w._id || w.id} style={{padding:'10px 0',borderBottom:`1px solid ${FM_COLORS.borderLight}`,display:'flex',gap:10,alignItems:'center'}}>
+              <span style={{fontSize:11,color:FM_COLORS.textMuted,minWidth:80}}>{w.dueDate}</span>
+              <FMStatusPill s={w.status}/>
+              <span style={{flex:1,fontSize:13,color:FM_COLORS.text}}>{w.id} — {w.title}</span>
+            </div>
+          ))}
+          {wos.length === 0 && <div style={{padding:40,textAlign:'center',color:FM_COLORS.textMuted,fontSize:13}}>No activity yet.</div>}
+        </div>
+      </div>
+    )}
+    {tab === 'export' && (
+      <div style={fmStyles.body}>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:FM_COLORS.navy,marginBottom:12}}>Export Data</h3>
+          <p style={{fontSize:13,color:FM_COLORS.textSecondary,margin:'0 0 16px'}}>Download FM data as XLSX for offline analysis or to upload into Mollak / DMT compliance reports.</p>
+          {[
+            { entity: 'Work Orders', rows: wos, name: 'workorders' },
+            { entity: 'Assets', rows: data?.assets || [], name: 'assets' },
+            { entity: 'Locations', rows: data?.locations || [], name: 'locations' },
+            { entity: 'Requests', rows: data?.requests || [], name: 'requests' },
+            { entity: 'Parts Inventory', rows: data?.parts || [], name: 'parts' },
+            { entity: 'Vendors', rows: data?.vendors || [], name: 'vendors' },
+          ].map(({entity, rows, name}) => (
+            <div key={name} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:`1px solid ${FM_COLORS.borderLight}`}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:500,color:FM_COLORS.navy}}>{entity}</div>
+                <div style={{fontSize:11,color:FM_COLORS.textMuted}}>{rows.length} rows</div>
+              </div>
+              <button onClick={() => {
+                if (!window.XLSX || rows.length === 0) return;
+                const ws = window.XLSX.utils.json_to_sheet(rows);
+                const wb = window.XLSX.utils.book_new();
+                window.XLSX.utils.book_append_sheet(wb, ws, entity);
+                window.XLSX.writeFile(wb, 'vars_fm_' + name + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+              }} style={fmStyles.secondaryBtn}>📥 Export XLSX</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+    {tab === 'dashboards' && (
+      <div style={fmStyles.body}>
+        <div style={{padding:60,textAlign:'center',color:FM_COLORS.textMuted}}>
+          <div style={{fontSize:48,marginBottom:12}}>📊</div>
+          <div style={{fontSize:16,fontWeight:600,color:FM_COLORS.navy,marginBottom:8}}>Custom Dashboards</div>
+          <p style={{fontSize:13,marginBottom:16}}>Build your own dashboards by pinning data cards. Premium feature.</p>
+          <button style={fmStyles.primaryBtn}>+ New Dashboard</button>
+        </div>
+      </div>
+    )}
   </>);
 };
 
@@ -25129,7 +25310,7 @@ const FMImportDialog = ({ entityType, onClose, onImported }) => {
 };
 
 // Generic form modal — handles Create (no initial) and Edit (initial = row data)
-const FMCreateModal = ({ title, fields, onClose, onSubmit, initial, submitLabel }) => {
+const FMCreateModal = ({ title, fields, onClose, onSubmit, initial, submitLabel, extraActions }) => {
   const [vals, setVals] = React.useState(() => {
     if (!initial) return {};
     // Coerce initial values for date fields (Supabase returns ISO; HTML date input wants yyyy-mm-dd)
@@ -25168,14 +25349,26 @@ const FMCreateModal = ({ title, fields, onClose, onSubmit, initial, submitLabel 
                   <option value="">— Select —</option>
                   {(f.options || []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
+              ) : f.type === 'datalist' ? (
+                <>
+                  <input list={'dl_' + f.name} value={vals[f.name] || ''} onChange={e => setVals({...vals, [f.name]: e.target.value})} placeholder={f.placeholder || 'Type or pick from suggestions'} style={{width:'100%',padding:'10px 12px',border:`1px solid ${FM_COLORS.border}`,borderRadius:6,fontSize:13,fontFamily:FM_FONT,outline:'none'}}/>
+                  <datalist id={'dl_' + f.name}>{(f.options || []).map(o => <option key={o} value={o}/>)}</datalist>
+                </>
               ) : (
                 <input type={f.type || 'text'} value={vals[f.name] || ''} onChange={e => setVals({...vals, [f.name]: e.target.value})} required={f.required} placeholder={f.placeholder} style={{width:'100%',padding:'10px 12px',border:`1px solid ${FM_COLORS.border}`,borderRadius:6,fontSize:13,fontFamily:FM_FONT,outline:'none'}}/>
               )}
             </div>
           ))}
-          <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:16,paddingTop:16,borderTop:`1px solid ${FM_COLORS.borderLight}`}}>
-            <button type="button" onClick={onClose} style={fmStyles.secondaryBtn}>Cancel</button>
-            <button type="submit" disabled={busy} style={fmStyles.primaryBtn}>{busy ? 'Saving…' : (submitLabel || (initial ? 'Save changes' : 'Create'))}</button>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginTop:16,paddingTop:16,borderTop:`1px solid ${FM_COLORS.borderLight}`}}>
+            <div style={{display:'flex',gap:8}}>
+              {(extraActions || []).map((a, i) => (
+                <button key={i} type="button" onClick={() => { a.onClick(vals); }} style={{...fmStyles.secondaryBtn,color:FM_COLORS.blue,borderColor:FM_COLORS.blue+'66'}}>{a.label}</button>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button type="button" onClick={onClose} style={fmStyles.secondaryBtn}>Cancel</button>
+              <button type="submit" disabled={busy} style={fmStyles.primaryBtn}>{busy ? 'Saving…' : (submitLabel || (initial ? 'Save changes' : 'Create'))}</button>
+            </div>
           </div>
         </form>
       </div>
@@ -25186,11 +25379,64 @@ const FMCreateModal = ({ title, fields, onClose, onSubmit, initial, submitLabel 
 const FMSettings = () => {
   const [apiKey, setApiKey] = React.useState(() => (typeof localStorage !== 'undefined' && localStorage.getItem('vars_anthropic_key')) || '');
   const [saved, setSaved] = React.useState(false);
+  const [settingsRow, setSettingsRow] = React.useState(null);
+  const [orgGeneral, setOrgGeneral] = React.useState({});
+  const [customAssetTypes, setCustomAssetTypes] = React.useState('');
+  const [customDowntimeReasons, setCustomDowntimeReasons] = React.useState('');
+  const [compliance, setCompliance] = React.useState({});
+  const [qrAutoGen, setQrAutoGen] = React.useState({ assets: false, locations: false, parts: false });
+  const [sessionTimeout, setSessionTimeout] = React.useState(60);
+  const [savedSection, setSavedSection] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!supabaseClient) return;
+    supabaseClient.from('fm_settings').select('*').eq('org_id', FM_ORG_ID).single().then(({ data: r }) => {
+      if (r) {
+        setSettingsRow(r);
+        setOrgGeneral(r.general || {});
+        setCustomAssetTypes(((r.customizations || {}).asset_types || []).join(', '));
+        setCustomDowntimeReasons(((r.customizations || {}).downtime_reasons || []).join(', '));
+        setCompliance(r.compliance || {});
+        setQrAutoGen(r.qr_auto_gen || { assets: false, locations: false, parts: false });
+        setSessionTimeout(r.session_timeout_minutes || 60);
+      }
+    });
+  }, []);
+
   const saveKey = () => {
     try { localStorage.setItem('vars_anthropic_key', apiKey); } catch(e) {}
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+  const flashSaved = (key) => { setSavedSection(key); setTimeout(() => setSavedSection(null), 2000); };
+  const saveOrgGeneral = async () => {
+    if (!supabaseClient) return;
+    await supabaseClient.from('fm_settings').update({ general: orgGeneral }).eq('org_id', FM_ORG_ID);
+    flashSaved('general');
+  };
+  const saveCustomizations = async () => {
+    if (!supabaseClient) return;
+    const customizations = {
+      asset_types: customAssetTypes.split(',').map(s => s.trim()).filter(Boolean),
+      downtime_reasons: customDowntimeReasons.split(',').map(s => s.trim()).filter(Boolean),
+    };
+    await supabaseClient.from('fm_settings').update({ customizations }).eq('org_id', FM_ORG_ID);
+    flashSaved('custom');
+  };
+  const saveCompliance = async () => {
+    if (!supabaseClient) return;
+    await supabaseClient.from('fm_settings').update({ compliance }).eq('org_id', FM_ORG_ID);
+    flashSaved('compliance');
+  };
+  const saveQR = async () => {
+    if (!supabaseClient) return;
+    await supabaseClient.from('fm_settings').update({ qr_auto_gen: qrAutoGen, session_timeout_minutes: sessionTimeout }).eq('org_id', FM_ORG_ID);
+    flashSaved('qr');
+  };
+
+  const labelStyle = {fontSize:11,fontWeight:600,color:FM_COLORS.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:6,display:'block'};
+  const inputStyle = {width:'100%',padding:'8px 12px',border:`1px solid ${FM_COLORS.border}`,borderRadius:6,fontSize:13,fontFamily:FM_FONT,outline:'none'};
+
   return (<>
     <div style={fmStyles.pageHeader}><h2 style={fmStyles.pageTitle}>Settings</h2></div>
     <div style={fmStyles.body}><div style={{maxWidth:760}}>
@@ -25206,7 +25452,120 @@ const FMSettings = () => {
           </div>
         </div>
       </div>
-      {[{section:'Organization Settings',items:['General','Features','Subscription','Manage Teammates','Customizations']},{section:'My Account',items:['Profile Preferences','Notification Settings','Open Download Center']},{section:'Quick links',items:['Get the Mobile App','Invite Users']}].map((g,i) => (
+      {/* General — editable */}
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:600,color:FM_COLORS.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:8}}>Organization — General</div>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+            <div><label style={labelStyle}>Org name</label><input value={orgGeneral.name || ''} onChange={e => setOrgGeneral({...orgGeneral, name: e.target.value})} style={inputStyle}/></div>
+            <div><label style={labelStyle}>Locale</label><input value={orgGeneral.locale || ''} onChange={e => setOrgGeneral({...orgGeneral, locale: e.target.value})} placeholder="en_GB" style={inputStyle}/></div>
+            <div><label style={labelStyle}>Currency</label><input value={orgGeneral.currency || ''} onChange={e => setOrgGeneral({...orgGeneral, currency: e.target.value})} placeholder="AED" style={inputStyle}/></div>
+            <div><label style={labelStyle}>Time zone</label><input value={orgGeneral.timezone || ''} onChange={e => setOrgGeneral({...orgGeneral, timezone: e.target.value})} placeholder="Asia/Dubai" style={inputStyle}/></div>
+          </div>
+          <button onClick={saveOrgGeneral} style={fmStyles.primaryBtn}>{savedSection==='general' ? '✓ Saved' : 'Save general settings'}</button>
+        </div>
+      </div>
+
+      {/* Customizations — custom Asset Types + Downtime Reasons */}
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:600,color:FM_COLORS.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:8}}>Customizations</div>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <p style={{fontSize:12,color:FM_COLORS.textSecondary,margin:'0 0 10px'}}>Define the dropdown values used across Asset records. Comma-separated.</p>
+          <div style={{marginBottom:12}}>
+            <label style={labelStyle}>Custom Asset Types</label>
+            <input value={customAssetTypes} onChange={e => setCustomAssetTypes(e.target.value)} placeholder="HVAC, Lift, Generator, Fire Safety, Water System" style={inputStyle}/>
+          </div>
+          <div style={{marginBottom:12}}>
+            <label style={labelStyle}>Custom Downtime Reasons</label>
+            <input value={customDowntimeReasons} onChange={e => setCustomDowntimeReasons(e.target.value)} placeholder="Mechanical Failure, Electrical Failure, Operator Error, Scheduled Maintenance" style={inputStyle}/>
+          </div>
+          <button onClick={saveCustomizations} style={fmStyles.primaryBtn}>{savedSection==='custom' ? '✓ Saved' : 'Save customizations'}</button>
+        </div>
+      </div>
+
+      {/* Compliance — VARS extension for UAE regulators */}
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:600,color:FM_COLORS.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:8}}>Compliance (UAE)</div>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <p style={{fontSize:12,color:FM_COLORS.textSecondary,margin:'0 0 10px'}}>Regulator registration numbers. Required for Mollak / DMT submission flows.</p>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+            <div><label style={labelStyle}>RERA registration</label><input value={compliance.rera || ''} onChange={e => setCompliance({...compliance, rera: e.target.value})} style={inputStyle}/></div>
+            <div><label style={labelStyle}>Mollak account</label><input value={compliance.mollak || ''} onChange={e => setCompliance({...compliance, mollak: e.target.value})} style={inputStyle}/></div>
+            <div><label style={labelStyle}>DMT registration</label><input value={compliance.dmt || ''} onChange={e => setCompliance({...compliance, dmt: e.target.value})} style={inputStyle}/></div>
+            <div><label style={labelStyle}>Civil Defence approval</label><input value={compliance.civil_defence || ''} onChange={e => setCompliance({...compliance, civil_defence: e.target.value})} style={inputStyle}/></div>
+          </div>
+          <button onClick={saveCompliance} style={fmStyles.primaryBtn}>{savedSection==='compliance' ? '✓ Saved' : 'Save compliance settings'}</button>
+        </div>
+      </div>
+
+      {/* QR auto-generation + Session timeout */}
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:600,color:FM_COLORS.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:8}}>Operations</div>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <p style={{fontSize:12,color:FM_COLORS.textSecondary,margin:'0 0 10px'}}>Auto-generate QR codes for new entities and configure shared-device session timeout.</p>
+          <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:12}}>
+            <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:FM_COLORS.text,cursor:'pointer'}}><input type="checkbox" checked={qrAutoGen.assets} onChange={e => setQrAutoGen({...qrAutoGen, assets: e.target.checked})}/> Auto-generate QR codes for new Assets</label>
+            <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:FM_COLORS.text,cursor:'pointer'}}><input type="checkbox" checked={qrAutoGen.locations} onChange={e => setQrAutoGen({...qrAutoGen, locations: e.target.checked})}/> Auto-generate QR codes for new Locations</label>
+            <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:FM_COLORS.text,cursor:'pointer'}}><input type="checkbox" checked={qrAutoGen.parts} onChange={e => setQrAutoGen({...qrAutoGen, parts: e.target.checked})}/> Auto-generate QR codes for new Parts</label>
+          </div>
+          <div style={{marginBottom:12,maxWidth:240}}>
+            <label style={labelStyle}>Session timeout (minutes)</label>
+            <input type="number" value={sessionTimeout} onChange={e => setSessionTimeout(parseInt(e.target.value, 10) || 60)} style={inputStyle}/>
+          </div>
+          <button onClick={saveQR} style={fmStyles.primaryBtn}>{savedSection==='qr' ? '✓ Saved' : 'Save operations settings'}</button>
+        </div>
+      </div>
+
+      {/* Workstation Mode */}
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:600,color:FM_COLORS.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:8}}>Workstation Mode</div>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <p style={{fontSize:12,color:FM_COLORS.textSecondary,margin:'0 0 10px'}}>For shared-device deployments (security desk tablet, kiosk). When ON, the device runs as a generic "Workstation" account — no personal user pinned. Time logs are attributed to "Workstation" until a technician scans in.</p>
+          <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:FM_COLORS.text,cursor:'pointer'}}>
+            <input type="checkbox" defaultChecked={typeof localStorage !== 'undefined' && localStorage.getItem('vars_fm_workstation') === '1'} onChange={e => { try { localStorage.setItem('vars_fm_workstation', e.target.checked ? '1' : '0'); } catch(err) {} }}/>
+            Run this device in Workstation Mode
+          </label>
+        </div>
+      </div>
+
+      {/* Notification settings — Resend / Twilio key inputs */}
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:600,color:FM_COLORS.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:8}}>Notifications (external services)</div>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <p style={{fontSize:12,color:FM_COLORS.textSecondary,margin:'0 0 12px'}}>To enable real Email / SMS notifications from automations, paste service API keys below. Stored in localStorage only.</p>
+          <div style={{marginBottom:10}}>
+            <label style={labelStyle}>Resend API key (for email)</label>
+            <input type="password" defaultValue={(typeof localStorage !== 'undefined' && localStorage.getItem('vars_resend_key')) || ''} onBlur={e => { try { localStorage.setItem('vars_resend_key', e.target.value); } catch(err){} }} placeholder="re_…" style={inputStyle}/>
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={labelStyle}>Twilio Account SID</label>
+            <input type="text" defaultValue={(typeof localStorage !== 'undefined' && localStorage.getItem('vars_twilio_sid')) || ''} onBlur={e => { try { localStorage.setItem('vars_twilio_sid', e.target.value); } catch(err){} }} placeholder="AC…" style={inputStyle}/>
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={labelStyle}>Twilio Auth Token</label>
+            <input type="password" defaultValue={(typeof localStorage !== 'undefined' && localStorage.getItem('vars_twilio_token')) || ''} onBlur={e => { try { localStorage.setItem('vars_twilio_token', e.target.value); } catch(err){} }} placeholder="…" style={inputStyle}/>
+          </div>
+          <p style={{fontSize:11,color:FM_COLORS.textMuted,margin:'8px 0 0'}}>⚠ Notifications fire from automations. Get keys: <a href="https://resend.com/api-keys" target="_blank" style={{color:FM_COLORS.blue}}>resend.com</a> · <a href="https://www.twilio.com/console" target="_blank" style={{color:FM_COLORS.blue}}>twilio.com</a></p>
+        </div>
+      </div>
+
+      {/* Public Request Link */}
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:600,color:FM_COLORS.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:8}}>Public Request Link</div>
+        <div style={{...fmStyles.card,marginBottom:0}}>
+          <p style={{fontSize:12,color:FM_COLORS.textSecondary,margin:'0 0 10px'}}>Share this URL with residents. They submit service requests anonymously without an account; requests appear in your Requests inbox for triage.</p>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <input readOnly value={typeof window !== 'undefined' ? window.location.origin + window.location.pathname + '?fmRequest=1' : ''} style={{...inputStyle,fontFamily:'monospace',fontSize:11,color:FM_COLORS.textSecondary}} onClick={e => e.target.select()}/>
+            <button onClick={async () => {
+              const url = window.location.origin + window.location.pathname + '?fmRequest=1';
+              try { await navigator.clipboard.writeText(url); alert('Link copied'); } catch(e) { alert('Could not copy. URL: ' + url); }
+            }} style={fmStyles.primaryBtn}>📋 Copy</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Open / soft items */}
+      {[{section:'My Account',items:['Profile Preferences','Open Download Center']},{section:'Quick links',items:['Get the Mobile App','Invite Users']}].map((g,i) => (
         <div key={i} style={{marginBottom:24}}>
           <div style={{fontSize:11,fontWeight:600,color:FM_COLORS.textMuted,textTransform:'uppercase',letterSpacing:0.5,marginBottom:8}}>{g.section}</div>
           <div style={{...fmStyles.card,padding:0,overflow:'hidden',marginBottom:0}}>
@@ -25216,6 +25575,149 @@ const FMSettings = () => {
       ))}
     </div></div>
   </>);
+};
+
+// Procedure execution modal — walks through steps in order, captures responses, saves to WO
+const FMProcedureExecutionModal = ({ workorder, procedure, onClose, onComplete }) => {
+  const [responses, setResponses] = React.useState(workorder.procedure_responses || {});
+  const [busy, setBusy] = React.useState(false);
+  const setResp = (stepId, value) => setResponses({ ...responses, [stepId]: value });
+  const submit = async () => {
+    setBusy(true);
+    await onComplete(responses);
+    setBusy(false);
+    onClose();
+  };
+  const allRequiredAnswered = (procedure.steps || []).filter(s => s.required).every(s => responses[s.id] != null && responses[s.id] !== '');
+  return (
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:9000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:FM_COLORS.bg,borderRadius:8,width:680,maxWidth:'92%',maxHeight:'90vh',overflowY:'auto',boxShadow:'0 20px 60px rgba(0,0,0,0.25)',fontFamily:FM_FONT}}>
+        <div style={{padding:'16px 20px',borderBottom:`1px solid ${FM_COLORS.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <h3 style={{margin:0,fontSize:16,fontWeight:600,color:FM_COLORS.navy}}>Execute: {procedure.name}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,color:FM_COLORS.textMuted,cursor:'pointer'}}>×</button>
+        </div>
+        <div style={{padding:20}}>
+          <p style={{fontSize:12,color:FM_COLORS.textSecondary,margin:'0 0 16px'}}>{procedure.description || 'Walk through each step. Required steps must be answered.'}</p>
+          {(procedure.steps || []).map((s, i) => (
+            <div key={s.id} style={{padding:14,border:`1px solid ${FM_COLORS.border}`,borderRadius:6,marginBottom:10,background:FM_COLORS.bgSoft}}>
+              <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:10}}>
+                <div style={{width:24,height:24,background:FM_COLORS.blue,color:'#fff',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600}}>{i+1}</div>
+                <div style={{fontSize:13,fontWeight:500,color:FM_COLORS.navy}}>{s.label}{s.required && <span style={{color:FM_COLORS.red}}> *</span>}</div>
+              </div>
+              {s.type === 'text' && <textarea value={responses[s.id] || ''} onChange={e => setResp(s.id, e.target.value)} placeholder="Type your response…" style={{width:'100%',padding:'8px 10px',border:`1px solid ${FM_COLORS.border}`,borderRadius:4,fontSize:13,fontFamily:FM_FONT,minHeight:50,resize:'vertical'}}/>}
+              {s.type === 'number' && <input type="number" value={responses[s.id] || ''} onChange={e => setResp(s.id, e.target.value)} placeholder="0" style={{width:160,padding:'8px 10px',border:`1px solid ${FM_COLORS.border}`,borderRadius:4,fontSize:13,fontFamily:FM_FONT}}/>}
+              {s.type === 'checkbox' && <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={!!responses[s.id]} onChange={e => setResp(s.id, e.target.checked)}/> Confirmed / Done</label>}
+              {s.type === 'date' && <input type="date" value={responses[s.id] || ''} onChange={e => setResp(s.id, e.target.value)} style={{padding:'8px 10px',border:`1px solid ${FM_COLORS.border}`,borderRadius:4,fontSize:13,fontFamily:FM_FONT}}/>}
+              {s.type === 'multiple_choice' && (
+                <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                  {(s.options || []).map(opt => (
+                    <label key={opt} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,cursor:'pointer'}}>
+                      <input type="radio" name={'mc_' + s.id} checked={responses[s.id] === opt} onChange={() => setResp(s.id, opt)}/> {opt}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {s.type === 'photo' && (
+                <div>
+                  <input type="text" value={responses[s.id] || ''} onChange={e => setResp(s.id, e.target.value)} placeholder="Photo URL or file reference" style={{width:'100%',padding:'8px 10px',border:`1px solid ${FM_COLORS.border}`,borderRadius:4,fontSize:13,fontFamily:FM_FONT}}/>
+                  <p style={{fontSize:10,color:FM_COLORS.textMuted,margin:'4px 0 0'}}>Upload to your storage bucket and paste URL here. (Direct upload requires Supabase Storage bucket — see Open items.)</p>
+                </div>
+              )}
+              {s.type === 'signature' && (
+                <div>
+                  <input type="text" value={responses[s.id] || ''} onChange={e => setResp(s.id, e.target.value)} placeholder="Type full name to sign" style={{width:'100%',padding:'8px 10px',border:`1px solid ${FM_COLORS.border}`,borderRadius:4,fontSize:13,fontFamily:FM_FONT,fontStyle:'italic'}}/>
+                  <p style={{fontSize:10,color:FM_COLORS.textMuted,margin:'4px 0 0'}}>Typed signature — will be timestamped on save.</p>
+                </div>
+              )}
+              {s.type === 'inspection_pass_fail' && (
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={() => setResp(s.id, 'pass')} style={{padding:'6px 16px',background:responses[s.id]==='pass'?FM_COLORS.green:FM_COLORS.bg,color:responses[s.id]==='pass'?'#fff':FM_COLORS.green,border:`1px solid ${FM_COLORS.green}`,borderRadius:4,fontSize:12,fontWeight:600,cursor:'pointer'}}>✓ Pass</button>
+                  <button onClick={() => setResp(s.id, 'fail')} style={{padding:'6px 16px',background:responses[s.id]==='fail'?FM_COLORS.red:FM_COLORS.bg,color:responses[s.id]==='fail'?'#fff':FM_COLORS.red,border:`1px solid ${FM_COLORS.red}`,borderRadius:4,fontSize:12,fontWeight:600,cursor:'pointer'}}>× Fail</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{padding:'14px 20px',borderTop:`1px solid ${FM_COLORS.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontSize:12,color:FM_COLORS.textMuted}}>{Object.keys(responses).filter(k => responses[k] != null && responses[k] !== '').length} of {(procedure.steps || []).length} steps answered</span>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={onClose} style={fmStyles.secondaryBtn}>Save & Close</button>
+            <button onClick={submit} disabled={busy || !allRequiredAnswered} style={fmStyles.primaryBtn}>{busy ? 'Saving…' : 'Complete Procedure ✓'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Public Request Page — anonymous resident-facing request form (no login required)
+const FMPublicRequestPage = () => {
+  const [vals, setVals] = React.useState({ title: '', description: '', priority: 'Medium', submitter_name: '', submitter_email: '', submitter_phone: '', unit_number: '', area_type: 'In-Unit', preferred_contact: 'WhatsApp' });
+  const [done, setDone] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState(null);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!vals.title.trim() || !supabaseClient) return;
+    setBusy(true); setErr(null);
+    try {
+      const { data: maxRow } = await supabaseClient.from('fm_requests').select('seq_no').eq('org_id', FM_ORG_ID).order('seq_no', { ascending: false }).limit(1).single();
+      const nextSeq = ((maxRow && maxRow.seq_no) || 0) + 1;
+      await supabaseClient.from('fm_requests').insert({ ...vals, org_id: FM_ORG_ID, seq_no: nextSeq, status: 'Pending Review' });
+      setDone(true);
+    } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  if (done) {
+    return (
+      <div style={{minHeight:'100vh',background:FM_COLORS.bgSoft,fontFamily:FM_FONT,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+        <div style={{background:FM_COLORS.bg,padding:40,borderRadius:8,maxWidth:480,boxShadow:'0 4px 20px rgba(0,0,0,0.06)',textAlign:'center'}}>
+          <div style={{width:64,height:64,margin:'0 auto 16px',background:FM_COLORS.greenBg,color:FM_COLORS.green,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:32}}>✓</div>
+          <h2 style={{fontSize:20,fontWeight:700,color:FM_COLORS.navy,margin:'0 0 8px'}}>Request submitted</h2>
+          <p style={{fontSize:14,color:FM_COLORS.textSecondary,margin:'0 0 20px'}}>Your facility request has been received. The FM team will review it shortly and contact you on {vals.preferred_contact}.</p>
+          <button onClick={() => { setDone(false); setVals({ title: '', description: '', priority: 'Medium', submitter_name: vals.submitter_name, submitter_email: vals.submitter_email, submitter_phone: vals.submitter_phone, unit_number: vals.unit_number, area_type: 'In-Unit', preferred_contact: vals.preferred_contact }); }} style={fmStyles.primaryBtn}>Submit another request</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{minHeight:'100vh',background:FM_COLORS.bgSoft,fontFamily:FM_FONT,padding:20}}>
+      <div style={{maxWidth:560,margin:'40px auto',background:FM_COLORS.bg,padding:32,borderRadius:8,boxShadow:'0 4px 20px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
+          <svg width="40" height="40" viewBox="0 0 100 100" fill="none"><rect width="100" height="100" rx="6" fill="#928989"/><path d="M33.3 16.7 L50 16.7 L58.1 25.2 L66.7 33.3 L66.7 83.3 L50 83.3 L33.3 66.7 Z" fill="#ffffff"/></svg>
+          <div>
+            <div style={{fontSize:18,fontWeight:700,color:FM_COLORS.navy}}>Submit a Service Request</div>
+            <div style={{fontSize:12,color:FM_COLORS.textMuted}}>VARS Facility Management — public form</div>
+          </div>
+        </div>
+        <form onSubmit={submit}>
+          {[
+            { name: 'submitter_name', label: 'Your Name', required: true },
+            { name: 'unit_number', label: 'Unit Number (e.g. A-1204)' },
+            { name: 'submitter_phone', label: 'Phone (for WhatsApp / SMS)' },
+            { name: 'submitter_email', label: 'Email', type: 'email' },
+            { name: 'title', label: 'What is the issue?', required: true, placeholder: 'e.g. AC not cooling' },
+            { name: 'description', label: 'Details', type: 'textarea', placeholder: 'Describe the problem in your own words' },
+          ].map(f => (
+            <div key={f.name} style={{marginBottom:14}}>
+              <label style={{display:'block',fontSize:12,fontWeight:600,color:FM_COLORS.text,marginBottom:6}}>{f.label}{f.required && <span style={{color:FM_COLORS.red}}> *</span>}</label>
+              {f.type === 'textarea' ?
+                <textarea value={vals[f.name]} onChange={e => setVals({...vals, [f.name]: e.target.value})} placeholder={f.placeholder} required={f.required} style={{width:'100%',padding:'10px 12px',border:`1px solid ${FM_COLORS.border}`,borderRadius:6,fontSize:14,fontFamily:FM_FONT,outline:'none',resize:'vertical',minHeight:80}}/> :
+                <input type={f.type || 'text'} value={vals[f.name]} onChange={e => setVals({...vals, [f.name]: e.target.value})} placeholder={f.placeholder} required={f.required} style={{width:'100%',padding:'10px 12px',border:`1px solid ${FM_COLORS.border}`,borderRadius:6,fontSize:14,fontFamily:FM_FONT,outline:'none'}}/>}
+            </div>
+          ))}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:14}}>
+            <div><label style={{display:'block',fontSize:12,fontWeight:600,color:FM_COLORS.text,marginBottom:6}}>Priority</label><select value={vals.priority} onChange={e => setVals({...vals, priority: e.target.value})} style={{width:'100%',padding:'10px 12px',border:`1px solid ${FM_COLORS.border}`,borderRadius:6,fontSize:14,fontFamily:FM_FONT,background:FM_COLORS.bg}}>{['Low','Medium','High'].map(p => <option key={p}>{p}</option>)}</select></div>
+            <div><label style={{display:'block',fontSize:12,fontWeight:600,color:FM_COLORS.text,marginBottom:6}}>Area</label><select value={vals.area_type} onChange={e => setVals({...vals, area_type: e.target.value})} style={{width:'100%',padding:'10px 12px',border:`1px solid ${FM_COLORS.border}`,borderRadius:6,fontSize:14,fontFamily:FM_FONT,background:FM_COLORS.bg}}>{['In-Unit','Common Area','Outdoor'].map(a => <option key={a}>{a}</option>)}</select></div>
+            <div><label style={{display:'block',fontSize:12,fontWeight:600,color:FM_COLORS.text,marginBottom:6}}>Contact me via</label><select value={vals.preferred_contact} onChange={e => setVals({...vals, preferred_contact: e.target.value})} style={{width:'100%',padding:'10px 12px',border:`1px solid ${FM_COLORS.border}`,borderRadius:6,fontSize:14,fontFamily:FM_FONT,background:FM_COLORS.bg}}>{['WhatsApp','SMS','Email','Phone'].map(c => <option key={c}>{c}</option>)}</select></div>
+          </div>
+          {err && <div style={{padding:10,background:FM_COLORS.redBg,color:FM_COLORS.redText,borderRadius:6,fontSize:13,marginBottom:14}}>{err}</div>}
+          <button type="submit" disabled={busy} style={{...fmStyles.primaryBtn,width:'100%',padding:'14px',fontSize:14}}>{busy ? 'Submitting…' : 'Submit Request'}</button>
+        </form>
+        <p style={{fontSize:11,color:FM_COLORS.textMuted,textAlign:'center',marginTop:16}}>Your request will be reviewed within 4 hours during operating hours.</p>
+      </div>
+    </div>
+  );
 };
 
 // FM App main component
@@ -25250,9 +25752,11 @@ const FMApp = ({ onLogout }) => {
           { name: 'criticality', label: 'Criticality', type: 'select', options: [{value:'Critical',label:'Critical'},{value:'Important',label:'Important'},{value:'Normal',label:'Normal'}] },
           { name: 'status', label: 'Status', type: 'select', options: [{value:'Online',label:'Online'},{value:'Offline',label:'Offline'},{value:'Standby',label:'Standby'},{value:'Decommissioned',label:'Decommissioned'},{value:'Do Not Track',label:'Do Not Track'}] },
           { name: 'location_id', label: 'Location', type: 'select', options: (data.locations || []).map(l => ({ value: l.id, label: l.name })) },
-          { name: 'manufacturer', label: 'Manufacturer' },
+          { name: 'parent_id', label: 'Parent Asset (for hierarchy)', type: 'select', options: (data.assets || []).map(a => ({ value: a.id, label: a.name })) },
+          { name: 'manufacturer', label: 'Manufacturer (suggestions from existing assets)', type: 'datalist', options: [...new Set((data.assets || []).map(a => a.manufacturer).filter(Boolean))] },
           { name: 'model', label: 'Model' },
           { name: 'serial_number', label: 'Serial Number' },
+          { name: 'asset_type', label: 'Asset Type' },
         ],
         onSubmit: ops.createAsset,
       },
@@ -25452,16 +25956,28 @@ const FMApp = ({ onLogout }) => {
             { name: 'name', label: 'Location Name', required: true },
             { name: 'address', label: 'Address' },
             { name: 'description', label: 'Description', type: 'textarea' },
-          ], onSubmit: (vals) => ops.updateLocation(rowId, vals) },
+          ], onSubmit: (vals) => ops.updateLocation(rowId, vals),
+            extraActions: [
+              { label: '📋 Use in New Work Order', onClick: () => { setCreateModal(null); setTimeout(() => { openCreate('workorder'); setTimeout(() => { setCreateModal(prev => prev ? { ...prev, title: prev.title, fields: prev.fields.map(f => f.name === 'location_id' ? { ...f, defaultValue: rowId } : f) } : prev); }, 100); }, 100); } },
+              { label: '+ Create Sub-Location', onClick: () => { setCreateModal(null); setTimeout(() => { openCreate('location'); setTimeout(() => { setCreateModal(prev => prev ? { ...prev, fields: prev.fields.map(f => f.name === 'parent_id' ? { ...f, defaultValue: rowId } : f) } : prev); }, 100); }, 100); } },
+              { label: '📱 QR Code', onClick: () => { setCreateModal(null); setQrModal({ entity: row, entityType: 'fm_locations' }); } },
+            ],
+          },
           asset: { title: 'Edit Asset', fields: [
             { name: 'name', label: 'Asset Name', required: true },
             { name: 'criticality', label: 'Criticality', type: 'select', options: [{value:'Critical',label:'Critical'},{value:'Important',label:'Important'},{value:'Normal',label:'Normal'}] },
             { name: 'status', label: 'Status', type: 'select', options: [{value:'Online',label:'Online'},{value:'Offline',label:'Offline'},{value:'Standby',label:'Standby'},{value:'Decommissioned',label:'Decommissioned'},{value:'Do Not Track',label:'Do Not Track'}] },
             { name: 'location_id', label: 'Location', type: 'select', options: (data.locations || []).map(l => ({ value: l.id, label: l.name })) },
-            { name: 'manufacturer', label: 'Manufacturer' },
+            // Manufacturer typeahead with learning — distinct values from existing assets
+            { name: 'manufacturer', label: 'Manufacturer (suggestions)', type: 'datalist', options: [...new Set((data.assets || []).map(a => a.manufacturer).filter(Boolean))] },
             { name: 'model', label: 'Model' },
             { name: 'serial_number', label: 'Serial Number' },
-          ], onSubmit: (vals) => ops.updateAsset(rowId, vals) },
+          ], onSubmit: (vals) => ops.updateAsset(rowId, vals),
+            extraActions: [
+              { label: '📋 Use in New Work Order', onClick: () => { setCreateModal(null); setTimeout(() => { openCreate('workorder'); }, 100); } },
+              { label: '📱 QR Code', onClick: () => { setCreateModal(null); setQrModal({ entity: row, entityType: 'fm_assets' }); } },
+            ],
+          },
           workorder: { title: 'Edit Work Order', fields: [
             { name: 'title', label: 'Title', required: true },
             { name: 'description', label: 'Description', type: 'textarea' },
@@ -25528,6 +26044,8 @@ const FMApp = ({ onLogout }) => {
   const [statusFilters, setStatusFilters] = React.useState({});
   const [priorityFilters, setPriorityFilters] = React.useState({});
   const [locationFilters, setLocationFilters] = React.useState({});
+  const [assetViewMode, setAssetViewMode] = React.useState('panel'); // 'panel' | 'tree' | 'table'
+  const [workstationMode, setWorkstationMode] = React.useState(() => { try { return localStorage.getItem('vars_fm_workstation') === '1'; } catch(e) { return false; } });
 
   // Bulk action helpers (defined here so they have access to ops + supabaseClient)
   const bulkActionsForRequests = {
@@ -25563,7 +26081,56 @@ const FMApp = ({ onLogout }) => {
           </div>
         ) : (r.status === 'Approved' ? <span style={{fontSize:11,color:FM_COLORS.greenText}}>WO created</span> : <span style={{fontSize:11,color:FM_COLORS.textMuted}}>—</span>)
       ] }))} filters={['Asset','+ Add Filter']} primaryAction="+ New Request" onCreate={() => openCreate('request')} onRowClick={(id) => openEdit('request', id)} onRowDelete={ops.deleteRequest} statusOptions={['Pending Review','Approved','Declined','On Hold']} statusFilter={statusFilters.requests} onStatusFilterChange={v => setStatusFilters({...statusFilters, requests: v})} priorityFilter={priorityFilters.requests} onPriorityFilterChange={v => setPriorityFilters({...priorityFilters, requests: v})} bulkActions={bulkActionsForRequests}/>;
-      case 'assets': return <FMTablePage title="Assets" columns={['Name','Criticality','Status','Manufacturer','Model']} rows={(D.assets || []).map(a => ({ id: a.id, status: a.status, locationId: a.location_id, cells: [a.name,<FMStatusPill s={a.criticality}/>,<FMStatusPill s={a.status}/>,a.manufacturer,a.model] }))} filters={['Criticality','Downtime Reason','Asset Types','+ Add Filter']} primaryAction="+ New Asset" onCreate={() => openCreate('asset')} onImport={() => setImportDialog('fm_assets')} onRowClick={(id) => openEdit('asset', id)} onRowDelete={ops.deleteAsset} statusOptions={['Online','Offline','Standby','Decommissioned','Do Not Track']} statusFilter={statusFilters.assets} onStatusFilterChange={v => setStatusFilters({...statusFilters, assets: v})} locationOptions={(D.locations || []).filter(l => !l.parent)} locationFilter={locationFilters.assets} onLocationFilterChange={v => setLocationFilters({...locationFilters, assets: v})} bulkActions={bulkActionsForAssets}/>;
+      case 'assets': {
+        if (assetViewMode === 'tree') {
+          // Build hierarchy from data.assets via parent_id
+          const byParent = {};
+          (D.assets || []).forEach(a => {
+            const p = a.parent_id || 'root';
+            if (!byParent[p]) byParent[p] = [];
+            byParent[p].push(a);
+          });
+          const renderTree = (parentId, depth) => (byParent[parentId] || []).map(a => (
+            <div key={a.id}>
+              <div onClick={() => openEdit('asset', a.id)} style={{padding:'10px 12px',marginLeft: depth * 24,borderLeft: depth > 0 ? `2px solid ${FM_COLORS.border}` : 'none',cursor:'pointer',display:'flex',gap:10,alignItems:'center'}}
+                   onMouseOver={e => e.currentTarget.style.background = FM_COLORS.bgSoft}
+                   onMouseOut={e => e.currentTarget.style.background = ''}>
+                <span style={{fontSize:14}}>{byParent[a.id] ? '▾' : '○'}</span>
+                <span style={{fontSize:13,fontWeight:500,color:FM_COLORS.navy,flex:1}}>{a.name}</span>
+                <FMStatusPill s={a.criticality}/>
+                <FMStatusPill s={a.status}/>
+              </div>
+              {renderTree(a.id, depth + 1)}
+            </div>
+          ));
+          return (
+            <>
+              <div style={fmStyles.pageHeader}>
+                <h2 style={fmStyles.pageTitle}>Assets</h2>
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <div style={{display:'flex',gap:0,border:`1px solid ${FM_COLORS.border}`,borderRadius:6,overflow:'hidden'}}>
+                    <button onClick={() => setAssetViewMode('panel')} style={{padding:'6px 10px',background:assetViewMode==='panel'?FM_COLORS.blueBg:FM_COLORS.bg,color:assetViewMode==='panel'?FM_COLORS.blue:FM_COLORS.textSecondary,border:'none',cursor:'pointer',fontSize:12}}>📋 Panel</button>
+                    <button onClick={() => setAssetViewMode('tree')} style={{padding:'6px 10px',background:assetViewMode==='tree'?FM_COLORS.blueBg:FM_COLORS.bg,color:assetViewMode==='tree'?FM_COLORS.blue:FM_COLORS.textSecondary,border:'none',cursor:'pointer',fontSize:12}}>🌳 Tree</button>
+                  </div>
+                  <button style={fmStyles.secondaryBtn} onClick={() => setImportDialog('fm_assets')}>📥 Import</button>
+                  <button style={fmStyles.primaryBtn} onClick={() => openCreate('asset')}>+ New Asset</button>
+                </div>
+              </div>
+              <div style={fmStyles.body}>
+                <div style={{...fmStyles.card,padding:8}}>
+                  {(D.assets || []).length === 0 ? <div style={{padding:40,textAlign:'center',color:FM_COLORS.textMuted,fontSize:13}}>No assets yet.</div> : renderTree('root', 0)}
+                </div>
+              </div>
+            </>
+          );
+        }
+        return <FMTablePage title={<span>Assets <span style={{display:'inline-flex',gap:0,border:`1px solid ${FM_COLORS.border}`,borderRadius:6,marginLeft:12,fontSize:11,verticalAlign:'middle'}}>
+          <button onClick={() => setAssetViewMode('panel')} style={{padding:'4px 10px',background:FM_COLORS.blueBg,color:FM_COLORS.blue,border:'none',cursor:'pointer',fontSize:11}}>📋 Panel</button>
+          <button onClick={() => setAssetViewMode('tree')} style={{padding:'4px 10px',background:FM_COLORS.bg,color:FM_COLORS.textSecondary,border:'none',cursor:'pointer',fontSize:11}}>🌳 Tree</button>
+        </span></span>} columns={['Name','Criticality','Status','Manufacturer','Model','QR']} rows={(D.assets || []).map(a => ({ id: a.id, status: a.status, locationId: a.location_id, cells: [a.name,<FMStatusPill s={a.criticality}/>,<FMStatusPill s={a.status}/>,a.manufacturer,a.model,
+        <button onClick={e => { e.stopPropagation(); setQrModal({ entity: { id: a.id, name: a.name, qr_code: a.qr_code }, entityType: 'fm_assets' }); }} title="QR Code" style={{background:'none',border:`1px solid ${FM_COLORS.border}`,color:FM_COLORS.textSecondary,cursor:'pointer',padding:'4px 10px',borderRadius:4,fontSize:11,fontWeight:500}}>📱 QR</button>
+      ] }))} filters={['Criticality','Downtime Reason','Asset Types','+ Add Filter']} primaryAction="+ New Asset" onCreate={() => openCreate('asset')} onImport={() => setImportDialog('fm_assets')} onRowClick={(id) => openEdit('asset', id)} onRowDelete={ops.deleteAsset} statusOptions={['Online','Offline','Standby','Decommissioned','Do Not Track']} statusFilter={statusFilters.assets} onStatusFilterChange={v => setStatusFilters({...statusFilters, assets: v})} locationOptions={(D.locations || []).filter(l => !l.parent)} locationFilter={locationFilters.assets} onLocationFilterChange={v => setLocationFilters({...locationFilters, assets: v})} bulkActions={bulkActionsForAssets}/>;
+      }
       case 'messages': return <FMMessages/>;
       case 'categories': return <FMCategories data={D}/>;
       case 'parts': return <FMTablePage title="Parts Inventory" columns={['Part Name','Stock','Min','Cost / Unit']} rows={(D.parts || []).map(p => ({ id: p.id, cells: [p.name,<span style={{color:p.stock<p.min?FM_COLORS.red:FM_COLORS.text,fontWeight:p.stock<p.min?700:400}}>{p.stock}</span>,p.min,p.cost] }))} filters={['Needs Restock','Part Types','Location','Asset','Vendor','+ Add Filter']} primaryAction="+ New Part" onCreate={() => openCreate('part')} onImport={() => setImportDialog('fm_parts')} onRowClick={(id) => openEdit('part', id)} onRowDelete={ops.deletePart}/>;
@@ -25988,6 +26555,13 @@ const App = () => {
     try { localStorage.removeItem('varspm_role'); } catch(e) {}
     setRole(null);
   };
+
+  // Public Request route — anonymous, no login required.
+  // Activated by ?fmRequest=1 in URL — share this link with residents.
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('fmRequest') === '1') {
+    return <FMPublicRequestPage/>;
+  }
 
   // If not logged in, show login page (with scan notice if QR was scanned)
   if (!role) return (
