@@ -4743,7 +4743,7 @@ const MiniCalendar = ({ selectedDate, onDateSelect, eventDayMap }) => {
 // ==================== LOGIN PAGE ====================
 const LoginPage = ({ onLogin, syncStatus }) => {
   const { t } = useApp();
-  const [selectedRole, setSelectedRole] = useState('resident');
+  const [selectedRole, setSelectedRole] = useState('fmApp');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -4831,14 +4831,9 @@ const LoginPage = ({ onLogin, syncStatus }) => {
           <p style={{fontSize:10,letterSpacing:'0.16em',textTransform:'uppercase',color:'var(--text-secondary)',margin:'8px 0 0',fontWeight:400}}>{t('login.subtitle')}</p>
         </div>
 
-        {/* Role Selection */}
-        <div style={{fontSize:10,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--text-secondary)',marginBottom:10,fontWeight:500}}>{t('login.selectRole')}</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(5, 1fr)',gap:8,marginBottom:28}}>
+        {/* Role Selection — only FM App */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr',gap:8,marginBottom:28}}>
           {[
-            {id:'resident',label:t('role.resident'),sub:''},
-            {id:'security',label:t('role.security'),sub:''},
-            {id:'manager',label:t('role.manager'),sub:''},
-            {id:'fm',label:t('role.fm'),sub:''},
             {id:'fmApp',label:'FM App',sub:''}
           ].map(role => {
             const active = selectedRole === role.id;
@@ -23896,9 +23891,9 @@ const FM_MOCK = {
   categories: [
     { id: 'C1', name: 'Damage', icon: '⚠', color: '#EF4444' },
     { id: 'C2', name: 'Electrical', icon: '⚡', color: '#F59E0B' },
-    { id: 'C3', name: 'Inspection', icon: '📋', color: '#8B5CF6' },
+    { id: 'C3', name: 'Inspection', icon: '', color: '#8B5CF6' },
     { id: 'C4', name: 'Mechanical', icon: '🔧', color: '#A855F7' },
-    { id: 'C5', name: 'Preventive', icon: '🔄', color: '#10B981' },
+    { id: 'C5', name: 'Preventive', icon: '', color: '#10B981' },
     { id: 'C6', name: 'Project', icon: '📁', color: '#F97316' },
     { id: 'C7', name: 'Refrigeration', icon: '❄', color: '#0EA5E9' },
     { id: 'C8', name: 'Safety', icon: '🛡', color: '#22C55E' },
@@ -24269,6 +24264,50 @@ const useFMData = () => {
   return { data, syncStatus, error, ops };
 };
 
+// VARS-style outline SVG icons — replaces emoji throughout the FM App
+const FMIcon = ({ name, size = 16, color }) => {
+  const stroke = color || 'currentColor';
+  const sw = 1.5;
+  const props = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke, strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  switch (name) {
+    case 'setup':       return <svg {...props}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>;
+    case 'workorders':  return <svg {...props}><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12l2 2 4-4"/></svg>;
+    case 'reporting':   return <svg {...props}><path d="M3 21h18"/><rect x="6" y="11" width="3" height="8"/><rect x="11" y="6" width="3" height="13"/><rect x="16" y="14" width="3" height="5"/></svg>;
+    case 'requests':    return <svg {...props}><path d="M3 8h18v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/><path d="M3 8l9-5 9 5"/><path d="M8 13h8"/></svg>;
+    case 'assets':      return <svg {...props}><path d="M12 2L3 7v10l9 5 9-5V7l-9-5z"/><path d="M3 7l9 5 9-5"/><path d="M12 22V12"/></svg>;
+    case 'messages':    return <svg {...props}><path d="M21 11.5a8.4 8.4 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.4 8.4 0 01-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.4 8.4 0 013.8-.9h.5a8.5 8.5 0 018 8z"/></svg>;
+    case 'categories':  return <svg {...props}><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>;
+    case 'parts':       return <svg {...props}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>;
+    case 'library':     return <svg {...props}><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>;
+    case 'meters':      return <svg {...props}><path d="M12 12l4-4"/><circle cx="12" cy="12" r="9"/><path d="M3 12h2M19 12h2M12 3v2"/></svg>;
+    case 'automations': return <svg {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
+    case 'locations':   return <svg {...props}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>;
+    case 'users':       return <svg {...props}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.9"/><path d="M16 3.1a4 4 0 010 7.8"/></svg>;
+    case 'vendors':     return <svg {...props}><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h.01M9 12h.01M9 15h.01M9 18h.01"/></svg>;
+    case 'settings':    return <svg {...props}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>;
+    case 'plus':        return <svg {...props}><path d="M12 5v14M5 12h14"/></svg>;
+    case 'edit':        return <svg {...props}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+    case 'trash':       return <svg {...props}><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>;
+    case 'check':       return <svg {...props}><polyline points="20 6 9 17 4 12"/></svg>;
+    case 'x':           return <svg {...props}><path d="M18 6L6 18M6 6l12 12"/></svg>;
+    case 'qr':          return <svg {...props}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M21 14v3M14 17v4M17 21h4"/></svg>;
+    case 'download':    return <svg {...props}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+    case 'upload':      return <svg {...props}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>;
+    case 'sparkle':     return <svg {...props}><path d="M12 3l1.9 5.5L19 10l-5.1 1.5L12 17l-1.9-5.5L5 10l5.1-1.5z"/><path d="M19 4v3M21 6h-3M5 18v3M3 19.5h3"/></svg>;
+    case 'comments':    return <svg {...props}><path d="M21 11.5a8.4 8.4 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.4 8.4 0 01-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.4 8.4 0 013.8-.9h.5a8.5 8.5 0 018 8z"/></svg>;
+    case 'play':        return <svg {...props}><polygon points="5 3 19 12 5 21 5 3"/></svg>;
+    case 'gauge':       return <svg {...props}><path d="M21 15a9 9 0 10-18 0"/><path d="M12 15l3-3"/></svg>;
+    case 'info':        return <svg {...props}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>;
+    case 'bell':        return <svg {...props}><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>;
+    case 'paperclip':   return <svg {...props}><path d="M21.4 11l-9.2 9.2a6 6 0 11-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7L9.4 17.5a2 2 0 11-2.8-2.8L15.1 6"/></svg>;
+    case 'chevron-down':return <svg {...props}><polyline points="6 9 12 15 18 9"/></svg>;
+    case 'chevron-right':return <svg {...props}><polyline points="9 18 15 12 9 6"/></svg>;
+    case 'send':        return <svg {...props}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>;
+    case 'circle':      return <svg {...props}><circle cx="12" cy="12" r="9"/></svg>;
+    default:            return <svg {...props}><circle cx="12" cy="12" r="2"/></svg>;
+  }
+};
+
 // FM App style helpers
 const fmStyles = {
   page: { fontFamily: FM_FONT, background: FM_COLORS.bg, color: FM_COLORS.text, minHeight: '100%', display: 'flex', position: 'relative' },
@@ -24448,7 +24487,7 @@ const FMWorkOrders = ({ data, ops, onCreate, onEdit }) => {
           </div>
           {onCreate && <button onClick={onCreate} style={{...fmStyles.primaryBtn,padding:'6px 12px',fontSize:12}}>+ New</button>}
         </div>
-        <div style={{padding:'10px 18px',borderBottom:`1px solid ${FM_COLORS.borderLight}`,fontSize:12,color:FM_COLORS.textSecondary}}>Sort By: <span style={{color:FM_COLORS.blue,fontWeight:500}}>Priority: Highest First ▾</span></div>
+        <div style={{padding:'10px 18px',borderBottom:`1px solid ${FM_COLORS.borderLight}`,fontSize:12,color:FM_COLORS.textSecondary}}>Sort By: <span style={{color:FM_COLORS.blue,fontWeight:500}}>Priority: Highest First </span></div>
         {todo.map(w => (
           <div key={w.id} onClick={() => setSelected(w)} style={{padding:'14px 18px',borderBottom:`1px solid ${FM_COLORS.borderLight}`,cursor:'pointer',background:selected.id===w.id?FM_COLORS.blueBg:'transparent',borderLeft:selected.id===w.id?`3px solid ${FM_COLORS.blue}`:'3px solid transparent'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
@@ -24476,10 +24515,10 @@ const FMWorkOrders = ({ data, ops, onCreate, onEdit }) => {
               if (!supabaseClient) return;
               const { data: proc } = await supabaseClient.from('fm_procedures').select('*').eq('id', fullWO.procedure_id).single();
               if (proc) setExecutingProcedure(proc);
-            }} style={{...fmStyles.secondaryBtn,color:FM_COLORS.blue,borderColor:FM_COLORS.blue+'66'}}>📋 Run Procedure</button>}
-            {onEdit && selected._id && <button onClick={() => onEdit(selected._id)} style={fmStyles.secondaryBtn}>✏ Edit</button>}
-            <button onClick={handleDelete} style={{...fmStyles.secondaryBtn,color:FM_COLORS.red,borderColor:FM_COLORS.red+'44'}}>🗑 Delete</button>
-            {selected.status !== 'Done' && <button onClick={() => handleStatusChange('Done')} style={fmStyles.primaryBtn}>Mark as Done ✓</button>}
+            }} style={{...fmStyles.secondaryBtn,color:FM_COLORS.blue,borderColor:FM_COLORS.blue+'66'}}>Run procedure</button>}
+            {onEdit && selected._id && <button onClick={() => onEdit(selected._id)} style={fmStyles.secondaryBtn}>Edit</button>}
+            <button onClick={handleDelete} style={{...fmStyles.secondaryBtn,color:FM_COLORS.red,borderColor:FM_COLORS.red+'44'}}>Delete</button>
+            {selected.status !== 'Done' && <button onClick={() => handleStatusChange('Done')} style={fmStyles.primaryBtn}>Mark as done</button>}
           </div>
         </div>
         <div style={{marginBottom:24}}>
@@ -24515,7 +24554,7 @@ const FMWorkOrders = ({ data, ops, onCreate, onEdit }) => {
           <div style={{marginBottom:12}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
               <span style={{fontSize:12,color:FM_COLORS.textSecondary,fontWeight:500}}>Parts ({(fullWO?.parts || []).length})</span>
-              <a onClick={() => setShowAdd(showAdd === 'part' ? null : 'part')} style={{color:FM_COLORS.blue,fontSize:11,fontWeight:600,cursor:'pointer'}}>{showAdd === 'part' ? '× Cancel' : 'Add ›'}</a>
+              <a onClick={() => setShowAdd(showAdd === 'part' ? null : 'part')} style={{color:FM_COLORS.blue,fontSize:11,fontWeight:600,cursor:'pointer'}}>{showAdd === 'part' ? 'Cancel' : 'Add'}</a>
             </div>
             {(fullWO?.parts || []).map(p => (
               <div key={p.used_at} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',fontSize:12}}>
@@ -24539,7 +24578,7 @@ const FMWorkOrders = ({ data, ops, onCreate, onEdit }) => {
           <div style={{marginBottom:12}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
               <span style={{fontSize:12,color:FM_COLORS.textSecondary,fontWeight:500}}>Time ({(fullWO?.time_logs || []).reduce((s,l) => s + (l.minutes||0), 0)} min total)</span>
-              <a onClick={() => setShowAdd(showAdd === 'time' ? null : 'time')} style={{color:FM_COLORS.blue,fontSize:11,fontWeight:600,cursor:'pointer'}}>{showAdd === 'time' ? '× Cancel' : 'Add ›'}</a>
+              <a onClick={() => setShowAdd(showAdd === 'time' ? null : 'time')} style={{color:FM_COLORS.blue,fontSize:11,fontWeight:600,cursor:'pointer'}}>{showAdd === 'time' ? 'Cancel' : 'Add'}</a>
             </div>
             {(fullWO?.time_logs || []).map(l => (
               <div key={l.id} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',fontSize:12}}>
@@ -24560,7 +24599,7 @@ const FMWorkOrders = ({ data, ops, onCreate, onEdit }) => {
           <div style={{marginBottom:12}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
               <span style={{fontSize:12,color:FM_COLORS.textSecondary,fontWeight:500}}>Other Costs (AED {(fullWO?.other_costs || []).reduce((s,c) => s + (c.amount||0), 0).toFixed(2)} total)</span>
-              <a onClick={() => setShowAdd(showAdd === 'cost' ? null : 'cost')} style={{color:FM_COLORS.blue,fontSize:11,fontWeight:600,cursor:'pointer'}}>{showAdd === 'cost' ? '× Cancel' : 'Add ›'}</a>
+              <a onClick={() => setShowAdd(showAdd === 'cost' ? null : 'cost')} style={{color:FM_COLORS.blue,fontSize:11,fontWeight:600,cursor:'pointer'}}>{showAdd === 'cost' ? 'Cancel' : 'Add'}</a>
             </div>
             {(fullWO?.other_costs || []).map(c => (
               <div key={c.id} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',fontSize:12}}>
@@ -24654,7 +24693,7 @@ const FMTablePage = ({ title, columns, rows, filters = [], primaryAction = '+ Ne
       <h2 style={fmStyles.pageTitle}>{title}</h2>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
         <input style={fmStyles.search} placeholder={`Search ${title}…`} value={search} onChange={e => setSearch(e.target.value)}/>
-        {onImport && <button style={fmStyles.secondaryBtn} onClick={onImport}>📥 Import</button>}
+        {onImport && <button style={fmStyles.secondaryBtn} onClick={onImport}>Import</button>}
         {onCreate && <button style={fmStyles.primaryBtn} onClick={onCreate}>{primaryAction}</button>}
       </div>
     </div>
@@ -24696,7 +24735,7 @@ const FMTablePage = ({ title, columns, rows, filters = [], primaryAction = '+ Ne
             </select>
           )}
           {bulkActions.delete && (
-            <button onClick={async () => { if (confirm(`Delete ${selectedIds.length} item(s)?`)) { await bulkActions.delete(selectedIds); setSelected({}); }}} style={{...fmStyles.secondaryBtn,color:FM_COLORS.red,borderColor:FM_COLORS.red+'44'}}>🗑 Delete selected</button>
+            <button onClick={async () => { if (confirm(`Delete ${selectedIds.length} item(s)?`)) { await bulkActions.delete(selectedIds); setSelected({}); }}} style={{...fmStyles.secondaryBtn,color:FM_COLORS.red,borderColor:FM_COLORS.red+'44'}}>Delete selected</button>
           )}
           <button onClick={() => setSelected({})} style={fmStyles.secondaryBtn}>Cancel</button>
         </div>
@@ -24773,13 +24812,13 @@ const FMReporting = ({ data }) => {
   ];
   return (<>
     <div style={fmStyles.pageHeader}>
-      <h2 style={fmStyles.pageTitle}>Reporting <span style={{fontSize:11,fontWeight:600,padding:'2px 8px',background:FM_COLORS.bgSoft,borderRadius:4,color:FM_COLORS.textMuted,marginLeft:8,verticalAlign:'middle'}}>📅 Live data</span></h2>
-      <div style={{display:'flex',gap:8}}><button style={fmStyles.secondaryBtn}>Export ▾</button><button style={fmStyles.primaryBtn}>🔒 Build Report</button></div>
+      <h2 style={fmStyles.pageTitle}>Reporting <span style={{fontSize:11,fontWeight:600,padding:'2px 8px',background:FM_COLORS.bgSoft,borderRadius:4,color:FM_COLORS.textMuted,marginLeft:8,verticalAlign:'middle'}}>Live data</span></h2>
+      <div style={{display:'flex',gap:8}}><button style={fmStyles.secondaryBtn}>Export </button><button style={fmStyles.primaryBtn}> Build Report</button></div>
     </div>
     <div style={{padding:'12px 24px',borderBottom:`1px solid ${FM_COLORS.border}`,display:'flex',gap:24,fontSize:13}}>
       {[
         ['workorders','Work Orders'],
-        ['assethealth','🔒 Asset Health'],
+        ['assethealth',' Asset Health'],
         ['details','Reporting Details'],
         ['activity','Recent Activity'],
         ['export','Export Data'],
@@ -24827,7 +24866,7 @@ const FMReporting = ({ data }) => {
     {tab === 'assethealth' && (
       <div style={fmStyles.body}>
         <div style={{padding:60,textAlign:'center',color:FM_COLORS.textMuted}}>
-          <div style={{fontSize:48,marginBottom:12}}>🔒</div>
+          <div style={{fontSize:48,marginBottom:12}}></div>
           <div style={{fontSize:16,fontWeight:600,color:FM_COLORS.navy,marginBottom:8}}>Asset Health Reporting</div>
           <p style={{fontSize:13}}>Premium feature. Tracks asset uptime %, MTBF, downtime causes by asset.</p>
         </div>
@@ -24885,7 +24924,7 @@ const FMReporting = ({ data }) => {
                 const wb = window.XLSX.utils.book_new();
                 window.XLSX.utils.book_append_sheet(wb, ws, entity);
                 window.XLSX.writeFile(wb, 'vars_fm_' + name + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
-              }} style={fmStyles.secondaryBtn}>📥 Export XLSX</button>
+              }} style={fmStyles.secondaryBtn}>Export XLSX</button>
             </div>
           ))}
         </div>
@@ -24894,7 +24933,7 @@ const FMReporting = ({ data }) => {
     {tab === 'dashboards' && (
       <div style={fmStyles.body}>
         <div style={{padding:60,textAlign:'center',color:FM_COLORS.textMuted}}>
-          <div style={{fontSize:48,marginBottom:12}}>📊</div>
+          <div style={{fontSize:48,marginBottom:12}}></div>
           <div style={{fontSize:16,fontWeight:600,color:FM_COLORS.navy,marginBottom:8}}>Custom Dashboards</div>
           <p style={{fontSize:13,marginBottom:16}}>Build your own dashboards by pinning data cards. Premium feature.</p>
           <button style={fmStyles.primaryBtn}>+ New Dashboard</button>
@@ -24973,12 +25012,12 @@ const FMMessages = () => {
             <div style={{fontSize:14,fontWeight:600,color:FM_COLORS.navy}}>{activeChannel ? activeChannel.name : 'Select a channel'}</div>
             <div style={{fontSize:11,color:FM_COLORS.textMuted}}>{messages.length} message{messages.length !== 1 ? 's' : ''}</div>
           </div>
-          <div style={{fontSize:18,color:FM_COLORS.textMuted}}>🔔</div>
+          <div style={{fontSize:18,color:FM_COLORS.textMuted}}></div>
         </div>
         <div ref={scrollRef} style={{flex:1,padding:20,overflowY:'auto'}}>
           {messages.length === 0 ? (
             <div style={{display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',height:'100%'}}>
-              <div style={{width:80,height:80,background:FM_COLORS.blueBg,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,marginBottom:12}}>💬</div>
+              <div style={{width:80,height:80,background:FM_COLORS.blueBg,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,marginBottom:12}}></div>
               <div style={{fontSize:18,fontWeight:700,color:FM_COLORS.navy,marginBottom:8}}>Start the conversation</div>
               <div style={{fontSize:13,color:FM_COLORS.textSecondary}}>Go ahead and write the first message!</div>
             </div>
@@ -24993,7 +25032,7 @@ const FMMessages = () => {
           ))}
         </div>
         <div style={{padding:16,borderTop:`1px solid ${FM_COLORS.border}`,display:'flex',gap:8}}>
-          <span style={{fontSize:18,color:FM_COLORS.textMuted}}>📎</span>
+          <span style={{fontSize:18,color:FM_COLORS.textMuted}}></span>
           <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} style={{flex:1,padding:'10px 12px',border:`1px solid ${FM_COLORS.border}`,borderRadius:6,fontFamily:FM_FONT,fontSize:13,outline:'none'}} placeholder="Write a message… (Enter to send)"/>
           <button onClick={send} disabled={!draft.trim()} style={fmStyles.primaryBtn}>Send</button>
         </div>
@@ -25156,7 +25195,7 @@ const FMAIProcedureGenerator = ({ onClose, onGenerated }) => {
           {error && (<div style={{marginTop:10,padding:8,background:FM_COLORS.redBg,color:FM_COLORS.redText,borderRadius:6,fontSize:12}}>{error}</div>)}
           <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}>
             <button onClick={onClose} style={fmStyles.secondaryBtn}>Cancel</button>
-            <button onClick={generate} disabled={busy || !prompt.trim() || !apiKey} style={fmStyles.primaryBtn}>{busy ? 'Generating…' : '✨ Generate'}</button>
+            <button onClick={generate} disabled={busy || !prompt.trim() || !apiKey} style={fmStyles.primaryBtn}>{busy ? 'Generating…' : 'Generate'}</button>
           </div>
         </div>
       </div>
@@ -25199,7 +25238,7 @@ const FMQRCodeModal = ({ entity, entityType, onClose, onSaved }) => {
           </div>
           <p style={{fontSize:11,color:FM_COLORS.textMuted,margin:'0 0 16px'}}>Print this QR and stick it on the {entityType.replace('fm_','').replace(/s$/,'')}. Scan it on the mobile app to deep-link directly to this record.</p>
           <div style={{display:'flex',justifyContent:'space-between',gap:8}}>
-            <button onClick={generate} style={fmStyles.secondaryBtn}>🔄 Generate New Code</button>
+            <button onClick={generate} style={fmStyles.secondaryBtn}>Generate new code</button>
             <div style={{display:'flex',gap:8}}>
               <button onClick={onClose} style={fmStyles.secondaryBtn}>Cancel</button>
               <button onClick={save} disabled={!code} style={fmStyles.primaryBtn}>Save</button>
@@ -25278,7 +25317,7 @@ const FMImportDialog = ({ entityType, onClose, onImported }) => {
         </div>
         <div style={{padding:20}}>
           <div style={{marginBottom:14}}>
-            <button onClick={downloadTemplate} style={fmStyles.secondaryBtn}>📄 Download {cfg.label} XLSX Template</button>
+            <button onClick={downloadTemplate} style={fmStyles.secondaryBtn}>Download {cfg.label} XLSX Template</button>
             <p style={{fontSize:12,color:FM_COLORS.textMuted,margin:'8px 0 0'}}>Required columns: <code style={{padding:'1px 4px',background:FM_COLORS.bgSoft,borderRadius:3}}>{cfg.required.join(', ')}</code>. Optional: {cfg.columns.filter(c => !cfg.required.includes(c)).join(', ')}.</p>
           </div>
           <div style={{marginBottom:14}}>
@@ -25559,7 +25598,7 @@ const FMSettings = () => {
             <button onClick={async () => {
               const url = window.location.origin + window.location.pathname + '?fmRequest=1';
               try { await navigator.clipboard.writeText(url); alert('Link copied'); } catch(e) { alert('Could not copy. URL: ' + url); }
-            }} style={fmStyles.primaryBtn}>📋 Copy</button>
+            }} style={fmStyles.primaryBtn}> Copy</button>
           </div>
         </div>
       </div>
@@ -25631,8 +25670,8 @@ const FMProcedureExecutionModal = ({ workorder, procedure, onClose, onComplete }
               )}
               {s.type === 'inspection_pass_fail' && (
                 <div style={{display:'flex',gap:8}}>
-                  <button onClick={() => setResp(s.id, 'pass')} style={{padding:'6px 16px',background:responses[s.id]==='pass'?FM_COLORS.green:FM_COLORS.bg,color:responses[s.id]==='pass'?'#fff':FM_COLORS.green,border:`1px solid ${FM_COLORS.green}`,borderRadius:4,fontSize:12,fontWeight:600,cursor:'pointer'}}>✓ Pass</button>
-                  <button onClick={() => setResp(s.id, 'fail')} style={{padding:'6px 16px',background:responses[s.id]==='fail'?FM_COLORS.red:FM_COLORS.bg,color:responses[s.id]==='fail'?'#fff':FM_COLORS.red,border:`1px solid ${FM_COLORS.red}`,borderRadius:4,fontSize:12,fontWeight:600,cursor:'pointer'}}>× Fail</button>
+                  <button onClick={() => setResp(s.id, 'pass')} style={{padding:'6px 16px',background:responses[s.id]==='pass'?FM_COLORS.green:FM_COLORS.bg,color:responses[s.id]==='pass'?'#fff':FM_COLORS.green,border:`1px solid ${FM_COLORS.green}`,borderRadius:4,fontSize:12,fontWeight:600,cursor:'pointer'}}>Pass</button>
+                  <button onClick={() => setResp(s.id, 'fail')} style={{padding:'6px 16px',background:responses[s.id]==='fail'?FM_COLORS.red:FM_COLORS.bg,color:responses[s.id]==='fail'?'#fff':FM_COLORS.red,border:`1px solid ${FM_COLORS.red}`,borderRadius:4,fontSize:12,fontWeight:600,cursor:'pointer'}}>Fail</button>
                 </div>
               )}
             </div>
@@ -25641,8 +25680,8 @@ const FMProcedureExecutionModal = ({ workorder, procedure, onClose, onComplete }
         <div style={{padding:'14px 20px',borderTop:`1px solid ${FM_COLORS.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span style={{fontSize:12,color:FM_COLORS.textMuted}}>{Object.keys(responses).filter(k => responses[k] != null && responses[k] !== '').length} of {(procedure.steps || []).length} steps answered</span>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={onClose} style={fmStyles.secondaryBtn}>Save & Close</button>
-            <button onClick={submit} disabled={busy || !allRequiredAnswered} style={fmStyles.primaryBtn}>{busy ? 'Saving…' : 'Complete Procedure ✓'}</button>
+            <button onClick={onClose} style={fmStyles.secondaryBtn}>Save and close</button>
+            <button onClick={submit} disabled={busy || !allRequiredAnswered} style={fmStyles.primaryBtn}>{busy ? 'Saving…' : 'Complete procedure'}</button>
           </div>
         </div>
       </div>
@@ -25958,9 +25997,9 @@ const FMApp = ({ onLogout }) => {
             { name: 'description', label: 'Description', type: 'textarea' },
           ], onSubmit: (vals) => ops.updateLocation(rowId, vals),
             extraActions: [
-              { label: '📋 Use in New Work Order', onClick: () => { setCreateModal(null); setTimeout(() => { openCreate('workorder'); setTimeout(() => { setCreateModal(prev => prev ? { ...prev, title: prev.title, fields: prev.fields.map(f => f.name === 'location_id' ? { ...f, defaultValue: rowId } : f) } : prev); }, 100); }, 100); } },
+              { label: 'Use in new work order', onClick: () => { setCreateModal(null); setTimeout(() => { openCreate('workorder'); setTimeout(() => { setCreateModal(prev => prev ? { ...prev, title: prev.title, fields: prev.fields.map(f => f.name === 'location_id' ? { ...f, defaultValue: rowId } : f) } : prev); }, 100); }, 100); } },
               { label: '+ Create Sub-Location', onClick: () => { setCreateModal(null); setTimeout(() => { openCreate('location'); setTimeout(() => { setCreateModal(prev => prev ? { ...prev, fields: prev.fields.map(f => f.name === 'parent_id' ? { ...f, defaultValue: rowId } : f) } : prev); }, 100); }, 100); } },
-              { label: '📱 QR Code', onClick: () => { setCreateModal(null); setQrModal({ entity: row, entityType: 'fm_locations' }); } },
+              { label: 'QR code', onClick: () => { setCreateModal(null); setQrModal({ entity: row, entityType: 'fm_locations' }); } },
             ],
           },
           asset: { title: 'Edit Asset', fields: [
@@ -25974,8 +26013,8 @@ const FMApp = ({ onLogout }) => {
             { name: 'serial_number', label: 'Serial Number' },
           ], onSubmit: (vals) => ops.updateAsset(rowId, vals),
             extraActions: [
-              { label: '📋 Use in New Work Order', onClick: () => { setCreateModal(null); setTimeout(() => { openCreate('workorder'); }, 100); } },
-              { label: '📱 QR Code', onClick: () => { setCreateModal(null); setQrModal({ entity: row, entityType: 'fm_assets' }); } },
+              { label: 'Use in new work order', onClick: () => { setCreateModal(null); setTimeout(() => { openCreate('workorder'); }, 100); } },
+              { label: 'QR code', onClick: () => { setCreateModal(null); setQrModal({ entity: row, entityType: 'fm_assets' }); } },
             ],
           },
           workorder: { title: 'Edit Work Order', fields: [
@@ -26017,27 +26056,27 @@ const FMApp = ({ onLogout }) => {
     }
   };
   const navItems = [
-    { id: 'setup', label: 'Setup Center', icon: '🚀', dot: true },
-    { id: 'workorders', label: 'Work Orders', icon: '📋' },
-    { id: 'reporting', label: 'Reporting', icon: '📊' },
-    { id: 'requests', label: 'Requests', icon: '📥' },
-    { id: 'assets', label: 'Assets', icon: '📦' },
-    { id: 'messages', label: 'Messages', icon: '💬', badge: '1' },
+    { id: 'setup', label: 'Setup Center', icon: 'setup', dot: true },
+    { id: 'workorders', label: 'Work Orders', icon: 'workorders' },
+    { id: 'reporting', label: 'Reporting', icon: 'reporting' },
+    { id: 'requests', label: 'Requests', icon: 'requests' },
+    { id: 'assets', label: 'Assets', icon: 'assets' },
+    { id: 'messages', label: 'Messages', icon: 'messages', badge: '1' },
   ];
   const navItems2 = [
-    { id: 'categories', label: 'Categories', icon: '🏷' },
-    { id: 'parts', label: 'Parts Inventory', icon: '⚙' },
+    { id: 'categories', label: 'Categories', icon: 'categories' },
+    { id: 'parts', label: 'Parts Inventory', icon: 'parts' },
   ];
   const libraryItems = [
     { id: 'wotemplates', label: 'Work Orders' },
     { id: 'procedures', label: 'Procedures' },
   ];
   const navItems3 = [
-    { id: 'meters', label: 'Meters', icon: '📐' },
-    { id: 'automations', label: 'Automations', icon: '⚡' },
-    { id: 'locations', label: 'Locations', icon: '📍' },
-    { id: 'users', label: 'Teams / Users', icon: '👥' },
-    { id: 'vendors', label: 'Vendors', icon: '🏢' },
+    { id: 'meters', label: 'Meters', icon: 'meters' },
+    { id: 'automations', label: 'Automations', icon: 'automations' },
+    { id: 'locations', label: 'Locations', icon: 'locations' },
+    { id: 'users', label: 'Teams / Users', icon: 'users' },
+    { id: 'vendors', label: 'Vendors', icon: 'vendors' },
   ];
 
   // Per-module filter state — persists while user navigates within FM App
@@ -26073,11 +26112,11 @@ const FMApp = ({ onLogout }) => {
               if (!supabaseClient) return;
               const { data: row } = await supabaseClient.from('fm_requests').select('*').eq('id', r._id).single();
               if (row) await ops.approveRequest(r._id, row);
-            }} style={{padding:'4px 10px',background:FM_COLORS.green,color:'#fff',border:'none',borderRadius:4,fontSize:11,fontWeight:600,cursor:'pointer'}}>✓ Approve</button>
+            }} style={{padding:'4px 10px',background:FM_COLORS.green,color:'#fff',border:'none',borderRadius:4,fontSize:11,fontWeight:600,cursor:'pointer'}}>Approve</button>
             <button onClick={async () => {
               const reason = prompt('Decline reason (optional):');
               await ops.declineRequest(r._id, reason || '');
-            }} style={{padding:'4px 10px',background:FM_COLORS.bg,color:FM_COLORS.red,border:`1px solid ${FM_COLORS.red}44`,borderRadius:4,fontSize:11,fontWeight:600,cursor:'pointer'}}>× Decline</button>
+            }} style={{padding:'4px 10px',background:FM_COLORS.bg,color:FM_COLORS.red,border:`1px solid ${FM_COLORS.red}44`,borderRadius:4,fontSize:11,fontWeight:600,cursor:'pointer'}}>Decline</button>
           </div>
         ) : (r.status === 'Approved' ? <span style={{fontSize:11,color:FM_COLORS.greenText}}>WO created</span> : <span style={{fontSize:11,color:FM_COLORS.textMuted}}>—</span>)
       ] }))} filters={['Asset','+ Add Filter']} primaryAction="+ New Request" onCreate={() => openCreate('request')} onRowClick={(id) => openEdit('request', id)} onRowDelete={ops.deleteRequest} statusOptions={['Pending Review','Approved','Declined','On Hold']} statusFilter={statusFilters.requests} onStatusFilterChange={v => setStatusFilters({...statusFilters, requests: v})} priorityFilter={priorityFilters.requests} onPriorityFilterChange={v => setPriorityFilters({...priorityFilters, requests: v})} bulkActions={bulkActionsForRequests}/>;
@@ -26095,7 +26134,7 @@ const FMApp = ({ onLogout }) => {
               <div onClick={() => openEdit('asset', a.id)} style={{padding:'10px 12px',marginLeft: depth * 24,borderLeft: depth > 0 ? `2px solid ${FM_COLORS.border}` : 'none',cursor:'pointer',display:'flex',gap:10,alignItems:'center'}}
                    onMouseOver={e => e.currentTarget.style.background = FM_COLORS.bgSoft}
                    onMouseOut={e => e.currentTarget.style.background = ''}>
-                <span style={{fontSize:14}}>{byParent[a.id] ? '▾' : '○'}</span>
+                <span style={{fontSize:14}}>{byParent[a.id] ? '' : '○'}</span>
                 <span style={{fontSize:13,fontWeight:500,color:FM_COLORS.navy,flex:1}}>{a.name}</span>
                 <FMStatusPill s={a.criticality}/>
                 <FMStatusPill s={a.status}/>
@@ -26109,10 +26148,10 @@ const FMApp = ({ onLogout }) => {
                 <h2 style={fmStyles.pageTitle}>Assets</h2>
                 <div style={{display:'flex',gap:8,alignItems:'center'}}>
                   <div style={{display:'flex',gap:0,border:`1px solid ${FM_COLORS.border}`,borderRadius:6,overflow:'hidden'}}>
-                    <button onClick={() => setAssetViewMode('panel')} style={{padding:'6px 10px',background:assetViewMode==='panel'?FM_COLORS.blueBg:FM_COLORS.bg,color:assetViewMode==='panel'?FM_COLORS.blue:FM_COLORS.textSecondary,border:'none',cursor:'pointer',fontSize:12}}>📋 Panel</button>
-                    <button onClick={() => setAssetViewMode('tree')} style={{padding:'6px 10px',background:assetViewMode==='tree'?FM_COLORS.blueBg:FM_COLORS.bg,color:assetViewMode==='tree'?FM_COLORS.blue:FM_COLORS.textSecondary,border:'none',cursor:'pointer',fontSize:12}}>🌳 Tree</button>
+                    <button onClick={() => setAssetViewMode('panel')} style={{padding:'6px 10px',background:assetViewMode==='panel'?FM_COLORS.blueBg:FM_COLORS.bg,color:assetViewMode==='panel'?FM_COLORS.blue:FM_COLORS.textSecondary,border:'none',cursor:'pointer',fontSize:12}}>Panel</button>
+                    <button onClick={() => setAssetViewMode('tree')} style={{padding:'6px 10px',background:assetViewMode==='tree'?FM_COLORS.blueBg:FM_COLORS.bg,color:assetViewMode==='tree'?FM_COLORS.blue:FM_COLORS.textSecondary,border:'none',cursor:'pointer',fontSize:12}}>Tree</button>
                   </div>
-                  <button style={fmStyles.secondaryBtn} onClick={() => setImportDialog('fm_assets')}>📥 Import</button>
+                  <button style={fmStyles.secondaryBtn} onClick={() => setImportDialog('fm_assets')}>Import</button>
                   <button style={fmStyles.primaryBtn} onClick={() => openCreate('asset')}>+ New Asset</button>
                 </div>
               </div>
@@ -26125,10 +26164,10 @@ const FMApp = ({ onLogout }) => {
           );
         }
         return <FMTablePage title={<span>Assets <span style={{display:'inline-flex',gap:0,border:`1px solid ${FM_COLORS.border}`,borderRadius:6,marginLeft:12,fontSize:11,verticalAlign:'middle'}}>
-          <button onClick={() => setAssetViewMode('panel')} style={{padding:'4px 10px',background:FM_COLORS.blueBg,color:FM_COLORS.blue,border:'none',cursor:'pointer',fontSize:11}}>📋 Panel</button>
-          <button onClick={() => setAssetViewMode('tree')} style={{padding:'4px 10px',background:FM_COLORS.bg,color:FM_COLORS.textSecondary,border:'none',cursor:'pointer',fontSize:11}}>🌳 Tree</button>
+          <button onClick={() => setAssetViewMode('panel')} style={{padding:'4px 10px',background:FM_COLORS.blueBg,color:FM_COLORS.blue,border:'none',cursor:'pointer',fontSize:11}}>Panel</button>
+          <button onClick={() => setAssetViewMode('tree')} style={{padding:'4px 10px',background:FM_COLORS.bg,color:FM_COLORS.textSecondary,border:'none',cursor:'pointer',fontSize:11}}>Tree</button>
         </span></span>} columns={['Name','Criticality','Status','Manufacturer','Model','QR']} rows={(D.assets || []).map(a => ({ id: a.id, status: a.status, locationId: a.location_id, cells: [a.name,<FMStatusPill s={a.criticality}/>,<FMStatusPill s={a.status}/>,a.manufacturer,a.model,
-        <button onClick={e => { e.stopPropagation(); setQrModal({ entity: { id: a.id, name: a.name, qr_code: a.qr_code }, entityType: 'fm_assets' }); }} title="QR Code" style={{background:'none',border:`1px solid ${FM_COLORS.border}`,color:FM_COLORS.textSecondary,cursor:'pointer',padding:'4px 10px',borderRadius:4,fontSize:11,fontWeight:500}}>📱 QR</button>
+        <button onClick={e => { e.stopPropagation(); setQrModal({ entity: { id: a.id, name: a.name, qr_code: a.qr_code }, entityType: 'fm_assets' }); }} title="QR Code" style={{background:'none',border:`1px solid ${FM_COLORS.border}`,color:FM_COLORS.textSecondary,cursor:'pointer',padding:'4px 10px',borderRadius:4,fontSize:11,fontWeight:500}}>QR</button>
       ] }))} filters={['Criticality','Downtime Reason','Asset Types','+ Add Filter']} primaryAction="+ New Asset" onCreate={() => openCreate('asset')} onImport={() => setImportDialog('fm_assets')} onRowClick={(id) => openEdit('asset', id)} onRowDelete={ops.deleteAsset} statusOptions={['Online','Offline','Standby','Decommissioned','Do Not Track']} statusFilter={statusFilters.assets} onStatusFilterChange={v => setStatusFilters({...statusFilters, assets: v})} locationOptions={(D.locations || []).filter(l => !l.parent)} locationFilter={locationFilters.assets} onLocationFilterChange={v => setLocationFilters({...locationFilters, assets: v})} bulkActions={bulkActionsForAssets}/>;
       }
       case 'messages': return <FMMessages/>;
@@ -26140,7 +26179,7 @@ const FMApp = ({ onLogout }) => {
           <div style={fmStyles.pageHeader}>
             <h2 style={fmStyles.pageTitle}>Procedures</h2>
             <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              <button style={fmStyles.secondaryBtn} onClick={() => setAiGenOpen(true)}>✨ AI Generate</button>
+              <button style={fmStyles.secondaryBtn} onClick={() => setAiGenOpen(true)}>AI generate</button>
               <button style={fmStyles.primaryBtn} onClick={() => setProcedureBuilder({ initial: null })}>+ New Procedure</button>
             </div>
           </div>
@@ -26160,7 +26199,7 @@ const FMApp = ({ onLogout }) => {
                   </tr>
                 ))}</tbody>
               </table>
-              {(!D.procedures || D.procedures.length === 0) && <div style={{padding:40,textAlign:'center',color:FM_COLORS.textMuted,fontSize:13}}>No procedures yet. Click <strong>+ New Procedure</strong> or <strong>✨ AI Generate</strong> to create one.</div>}
+              {(!D.procedures || D.procedures.length === 0) && <div style={{padding:40,textAlign:'center',color:FM_COLORS.textMuted,fontSize:13}}>No procedures yet. Click <strong>+ New Procedure</strong> or <strong>AI generate</strong> to create one.</div>}
             </div>
           </div>
         </>
@@ -26176,7 +26215,7 @@ const FMApp = ({ onLogout }) => {
             const history = [...((meterRow && meterRow.history) || []), { value, at: new Date().toISOString(), user_name: 'FM Manager' }];
             await supabaseClient.from('fm_meters').update({ current_reading: value, history }).eq('id', m.id);
             ops.refresh();
-          }} style={{padding:'4px 10px',background:FM_COLORS.blue,color:'#fff',border:'none',borderRadius:4,fontSize:11,fontWeight:600,cursor:'pointer'}}>📐 Log reading</button>
+          }} style={{padding:'4px 10px',background:FM_COLORS.blue,color:'#fff',border:'none',borderRadius:4,fontSize:11,fontWeight:600,cursor:'pointer'}}>Log reading</button>
         </div>
       ] }))} filters={['Asset','Location','Meter Type','+ Add Filter']} primaryAction="+ New Meter" onCreate={() => openCreate('meter')} onRowDelete={async (id) => { if (!supabaseClient) return; await supabaseClient.from('fm_meters').delete().eq('id', id); ops.refresh(); }}/>;
       case 'automations': return <FMTablePage title="Automations" columns={['Name','Trigger','Action','Status']} rows={(D.automations || []).map(a => ({ id: a.id, cells: [a.name,a.trigger,a.action,
@@ -26211,7 +26250,7 @@ const FMApp = ({ onLogout }) => {
         <nav style={{display:'flex',flexDirection:'column',gap:1}}>
           {navItems.map(it => (
             <div key={it.id} style={fmStyles.navItem(module===it.id)} onClick={() => setModule(it.id)}>
-              <span style={{fontSize:14}}>{it.icon}</span>
+              <FMIcon name={it.icon} size={16}/>
               <span style={{flex:1}}>{it.label}</span>
               {it.dot && <span style={{width:6,height:6,borderRadius:'50%',background:FM_COLORS.green}}/>}
               {it.badge && <span style={{background:FM_COLORS.blue,color:'#fff',borderRadius:10,padding:'1px 6px',fontSize:10,fontWeight:600}}>{it.badge}</span>}
@@ -26220,11 +26259,12 @@ const FMApp = ({ onLogout }) => {
           <div style={{height:8}}/>
           {navItems2.map(it => (
             <div key={it.id} style={fmStyles.navItem(module===it.id)} onClick={() => setModule(it.id)}>
-              <span style={{fontSize:14}}>{it.icon}</span><span>{it.label}</span>
+              <FMIcon name={it.icon} size={16}/><span>{it.label}</span>
             </div>
           ))}
           <div style={fmStyles.navItem(false)} onClick={() => setLibraryOpen(!libraryOpen)}>
-            <span style={{fontSize:14}}>📚</span><span style={{flex:1}}>Library</span><span style={{transform:libraryOpen?'rotate(180deg)':'none',fontSize:10,transition:'transform .15s'}}>▾</span>
+            <FMIcon name="library" size={16}/><span style={{flex:1}}>Library</span>
+            <span style={{transform:libraryOpen?'rotate(90deg)':'none',transition:'transform .15s',display:'inline-flex'}}><FMIcon name="chevron-right" size={12}/></span>
           </div>
           {libraryOpen && libraryItems.map(it => (
             <div key={it.id} style={{...fmStyles.navItem(module===it.id),paddingLeft:42}} onClick={() => setModule(it.id)}>
@@ -26233,11 +26273,11 @@ const FMApp = ({ onLogout }) => {
           ))}
           {navItems3.map(it => (
             <div key={it.id} style={fmStyles.navItem(module===it.id)} onClick={() => setModule(it.id)}>
-              <span style={{fontSize:14}}>{it.icon}</span><span>{it.label}</span>
+              <FMIcon name={it.icon} size={16}/><span>{it.label}</span>
             </div>
           ))}
           <div style={{...fmStyles.navSection}}>Support</div>
-          <div style={{padding:'10px 16px',fontSize:12,color:FM_COLORS.textMuted,marginBottom:8}}>FM App v1 — Mock data demo</div>
+          <div style={{padding:'10px 16px',fontSize:12,color:FM_COLORS.textMuted,marginBottom:8}}>FM App v1</div>
         </nav>
         {/* Profile / logout footer */}
         <div style={{position:'relative',borderTop:`1px solid ${FM_COLORS.border}`,padding:'10px 12px',background:FM_COLORS.bg}}>
@@ -26248,7 +26288,7 @@ const FMApp = ({ onLogout }) => {
             <div style={{position:'absolute',bottom:60,left:12,right:12,background:FM_COLORS.bg,border:`1px solid ${FM_COLORS.border}`,borderRadius:8,boxShadow:'0 8px 24px rgba(146,137,137,0.18)',padding:6,zIndex:10}}>
               <div onClick={() => { setModule('settings'); setProfileOpen(false); }} style={{padding:'10px 12px',fontSize:13,color:FM_COLORS.text,cursor:'pointer',borderRadius:6}} onMouseOver={e => e.currentTarget.style.background=FM_COLORS.bgSoft} onMouseOut={e => e.currentTarget.style.background='transparent'}>⚙  Settings</div>
               <div style={{padding:'10px 12px',fontSize:13,color:FM_COLORS.text,cursor:'pointer',borderRadius:6}} onMouseOver={e => e.currentTarget.style.background=FM_COLORS.bgSoft} onMouseOut={e => e.currentTarget.style.background='transparent'}>👤  Profile preferences</div>
-              <div style={{padding:'10px 12px',fontSize:13,color:FM_COLORS.text,cursor:'pointer',borderRadius:6}} onMouseOver={e => e.currentTarget.style.background=FM_COLORS.bgSoft} onMouseOut={e => e.currentTarget.style.background='transparent'}>🔔  Notification settings</div>
+              <div style={{padding:'10px 12px',fontSize:13,color:FM_COLORS.text,cursor:'pointer',borderRadius:6}} onMouseOver={e => e.currentTarget.style.background=FM_COLORS.bgSoft} onMouseOut={e => e.currentTarget.style.background='transparent'}>  Notification settings</div>
               <div style={{height:1,background:FM_COLORS.borderLight,margin:'4px 0'}}/>
               <div onClick={() => { setProfileOpen(false); if (onLogout) onLogout(); }} style={{padding:'10px 12px',fontSize:13,color:FM_COLORS.red,cursor:'pointer',borderRadius:6,fontWeight:500}} onMouseOver={e => e.currentTarget.style.background=FM_COLORS.redBg} onMouseOut={e => e.currentTarget.style.background='transparent'}>↪  Sign out</div>
             </div>
@@ -26273,7 +26313,7 @@ const FMApp = ({ onLogout }) => {
             {syncStatus === 'schema_missing' && (<>Tables not yet created. Run <code style={{padding:'1px 6px',background:FM_COLORS.bg,borderRadius:3,fontSize:11}}>fm_schema.sql</code> in Supabase Dashboard.</>)}
             {syncStatus === 'offline' && 'Supabase offline. Showing local mock data.'}
           </span>
-          <span onClick={() => setModule('setup')} style={{cursor:'pointer',fontWeight:600,color:FM_COLORS.blue}}>Continue Setup ›</span>
+          <span onClick={() => setModule('setup')} style={{cursor:'pointer',fontWeight:600,color:FM_COLORS.blue}}>Continue setup</span>
         </div>
         {renderModule()}
       </div>
